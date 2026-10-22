@@ -1,0 +1,15 @@
+/* Humbee elevation — the source leans on borders over shadow.
+   Only a few soft shadows appear (snackbar, menus, MUI modal boxShadow 24). */
+:root {
+  --shadow-none: none;
+  --shadow-menu: 0px 2px 8px 0px rgba(0, 0, 0, 0.10);   /* dropdown menus */
+  --shadow-snackbar: 0px 2px 6px 1px rgba(0,0,0,0.15), 0px 1px 2px 0px rgba(0,0,0,0.30);
+  --shadow-modal: 0px 11px 15px -7px rgba(0,0,0,0.20), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12);
+  --shadow-card: 0px 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-raised-soft: inset 0 1px 0 color-mix(in srgb, white 74%, transparent), 0 2px 5px color-mix(in srgb, var(--color-text-primary) 7%, transparent), 0 5px 14px color-mix(in srgb, var(--color-primary) 8%, transparent);
+  --shadow-raised-hover: inset 0 1px 0 color-mix(in srgb, white 76%, transparent), 0 5px 14px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --shadow-selected-warm: inset 0 1px 0 color-mix(in srgb, white 38%, transparent), inset 0 -1px 0 color-mix(in srgb, black 12%, transparent), 0 5px 12px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  --shadow-pressed-warm: inset 0 1px 3px color-mix(in srgb, black 14%, transparent), 0 1px 2px color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --shadow-icon-depth: inset 0 1px 1px color-mix(in srgb, white 82%, transparent), inset 0 -5px 8px color-mix(in srgb, var(--color-primary) 12%, transparent), 0 7px 14px -8px color-mix(in srgb, var(--color-primary) 48%, transparent);
+  --shadow-depth-soft: inset 0 1px 0 color-mix(in srgb, white 70%, transparent), 0 6px 14px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}

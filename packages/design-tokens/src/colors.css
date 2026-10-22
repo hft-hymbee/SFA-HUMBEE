@@ -1,0 +1,82 @@
+/* Humbee color system — warm ochre theme, adjacent to the success-screen palette. */
+:root {
+  /* ---- Primary (amber-brown — the Humbee signature) ---- */
+  --color-primary: #995A00;
+  --color-primary-hover: #BF7000;
+  --color-primary-active: #663C00;
+  --color-primary-dark: #A56100;
+  --color-primary-light: #E3B35C;
+  --color-primary-contrast: #FFFDF8;
+  --color-primary-surface: #F2D8BC;
+  --color-primary-surface-hover: #F0C49A40;
+
+  /* ---- Secondary / Accent (amber — buttons, steppers, illustrations) ---- */
+  --color-accent: #E8A03C;
+  --color-accent-hover: #F0B45A;
+  --color-accent-active: #C98420;
+  --color-accent-surface: #E8A03C1F;
+
+  /* ---- Secondary (deep green — brand palette) ---- */
+  --color-secondary: #1F5C3A;
+  --color-secondary-contrast: #FFFDF8;
+
+  /* ---- Semantic ---- */
+  --color-success: #1A7A32;
+  --color-success-hover: #4CAF50;
+  --color-success-surface: #1A7A321A;
+  --color-error: #CC0000;
+  --color-error-hover: #FF3333;
+  --color-error-surface: #CC00001F;
+  --color-error-light: #E8B4B4;
+  --color-warning: #E3B35C;
+  --color-warning-surface: #E3B35C24;
+  --color-info: #2A6FA8;
+  --color-info-hover: #4D8FBF;
+  --color-info-surface: #2A6FA81A;
+
+  /* ---- Text ---- */
+  --color-text-primary: #2F2A24;
+  --color-text-secondary: #5E564C;
+  --color-text-placeholder: #8B8278;
+  --color-text-disabled: #B6ADA3;
+  --color-text-inverse: #FFFDF8;
+
+  /* ---- Neutrals / surfaces ---- */
+  --color-white: #FFFDF8;
+  --color-neutral-100: #F4EDE3;
+  --color-neutral-200: #EDE4D8;
+  --color-neutral-300: #E2D6C8;
+  --color-neutral-400: #D3C4B2;
+  --color-neutral-500: #8B8278;
+  --color-neutral-700: #5E564C;
+  --color-neutral-900: #2F2A24;
+
+  /* ---- Lines / borders ---- */
+  --color-border: #8B8278;
+  --color-border-subtle: #E2D6C8;
+
+  /* ---- Backgrounds ---- */
+  --surface-page: #F6EEE4;
+  --surface-page-highlight: #F0C49A;
+  --surface-card: #FFFBF6;
+  --surface-muted: #F1E8DC;
+  --surface-overlay: rgba(47, 42, 36, 0.48);
+
+  /* ---- Warm professional UI surfaces ---- */
+  --surface-page-glow: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  --surface-page-warm: color-mix(in srgb, var(--surface-page) 88%, var(--color-accent) 12%);
+  --surface-card-warm: color-mix(in srgb, var(--surface-card) 88%, var(--color-accent) 12%);
+  --surface-raised-warm: color-mix(in srgb, var(--surface-card) 92%, var(--color-primary-light) 8%);
+  --surface-hover-warm: color-mix(in srgb, var(--color-primary-surface-hover) 78%, var(--surface-card) 22%);
+  --surface-selected-warm: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 80%, white),
+    color-mix(in srgb, var(--color-primary) 92%, var(--color-accent))
+  );
+  --surface-pressed-warm: color-mix(in srgb, var(--color-primary-surface) 72%, var(--surface-card) 28%);
+  --surface-icon-warm: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--color-accent) 18%, white),
+    var(--color-primary-surface)
+  );
+}

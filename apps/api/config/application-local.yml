@@ -1,0 +1,13 @@
+environment: local
+debug: true
+reload: true
+tenant_id: Humbee
+db_host: localhost
+db_port: 5432
+db_name: humbee_sfa
+db_schema: sfa
+local_otp_override: "123456"
+
+# Verified dev build (docs/features/03-humbee-integration-contract.md §8, 2026-08-29).
+# HUMBEE_API_KEY must still be set in the environment for any real adapter to be usable.
+humbee_base_url: https://api-dev.humbee.in

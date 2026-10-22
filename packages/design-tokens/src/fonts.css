@@ -1,0 +1,11 @@
+/* Humbee uses Lato as its single typeface (weights 400 / 700).
+   The source ships no font binaries, so we load Lato from Google Fonts.
+   To self-host, drop the .woff2 files in assets/fonts and swap in @font-face rules. */
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap");
+
+:root {
+  --font-family-base: "Lato", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 700; /* Lato has no 600 face; map semibold to true bold */
+  --font-weight-bold: 700;
+}

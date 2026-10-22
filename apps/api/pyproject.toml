@@ -1,0 +1,106 @@
+[project]
+name = "humbee-sfa-api"
+version = "0.1.0"
+description = "Humbee SFA backend — FastAPI modular monolith over twelve bounded contexts."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic-settings",
+    "sqlalchemy",
+    "alembic",
+    "psycopg[binary]",
+    "geoalchemy2",
+    "apscheduler",
+    "python-ulid",
+    "httpx",
+    "structlog",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-sqlalchemy",
+    "opentelemetry-instrumentation-httpx",
+    "pyjwt",
+    "argon2-cffi",
+    "cryptography",
+    "pyyaml>=6.0.3",
+    "openpyxl",
+]
+
+[project.scripts]
+humbee-sfa-api = "humbee_sfa.main:run"
+lint-imports = "importlinter.cli:lint_imports_command"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "testcontainers[postgres]",
+    "time-machine",
+    "ruff",
+    "mypy",
+    "import-linter",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py312"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+# Strict inside the domain; the ACL deals with untyped external payloads.
+strict = true
+
+[[tool.mypy.overrides]]
+module = "humbee_sfa.integration.*"
+strict = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+
+# Module boundaries are enforced, not merely documented.
+# See docs/architecture/target-architecture.md §3.3.
+[tool.importlinter]
+root_package = "humbee_sfa"
+
+[[tool.importlinter.contracts]]
+name = "Modules must not import each other's internals"
+type = "forbidden"
+source_modules = ["humbee_sfa.modules"]
+forbidden_modules = [
+    "humbee_sfa.modules.*.repository",
+    "humbee_sfa.modules.*.models",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+name = "Only the ACL knows Humbee"
+type = "forbidden"
+source_modules = ["humbee_sfa.modules", "humbee_sfa.core"]
+forbidden_modules = ["humbee_sfa.integration.humbee.client"]
+# A module reaching client.py only via an adapter under integration/humbee/ (e.g.
+# modules.beats -> integration.humbee.outlet -> integration.humbee.client) is the intended shape
+# (client.py's own docstring: "only adapters under integration/humbee/ may call HumbeeClient") —
+# only a *direct* import of client.py from modules/core is what this contract must catch.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Layering inside a module"
+type = "layers"
+layers = ["router", "service", "repository", "models"]
+exhaustive = false
+containers = [
+    "humbee_sfa.modules.identity",
+    "humbee_sfa.modules.org",
+]

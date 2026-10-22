@@ -1,0 +1,42 @@
+{
+  "name": "humbee-design-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Humbee Design System — React/MUI UI component library (extracted bundle for vendor use).",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./assets/humbee_logo.svg": "./src/assets/humbee_logo.svg",
+    "./theme": "./theme/index.js",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "dependencies": {
+    "@amcharts/amcharts5": "^5.19.1",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/icons-material": "^5.18.0",
+    "@mui/material": "5.18.0",
+    "@mui/system": "^5.18.0",
+    "@mui/x-date-pickers": "7.18.0",
+    "dayjs": "1.11.20",
+    "lottie-react": "2.4.1",
+    "prop-types": "^15.8.1",
+    "react-icons": "^5.3.0",
+    "styled-components": "^6.1.0"
+  },
+  "notes": {
+    "@mui/system": "Not listed explicitly — resolves transitively via @mui/material.",
+    "@mui/icons-material": "Used by the design system but was NOT in the source app's package.json; install it explicitly.",
+    "styled-components / react-icons / prop-types": "Each used by only 1-2 files. They were absent from the source app's package.json, so they may be trimmable dead imports — verify before shipping to production.",
+    "@amcharts/amcharts5": "Only needed if you use the Chart/ components (LineTrend, ClusteredColumn, HorizontalBar, StackedColumn)."
+  }
+}

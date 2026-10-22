@@ -1,0 +1,22 @@
+{
+  "name": "@humbee/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-free Humbee design tokens — the single source for colour, type, spacing, radius and elevation.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.css",
+    "./css": "./src/index.css",
+    "./colors": "./src/colors.css",
+    "./fonts": "./src/fonts.css",
+    "./typography": "./src/typography.css",
+    "./spacing": "./src/spacing.css",
+    "./radius": "./src/radius.css",
+    "./elevation": "./src/elevation.css",
+    "./motion": "./src/motion.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ]
+}

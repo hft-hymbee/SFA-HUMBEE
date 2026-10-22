@@ -1,0 +1,11 @@
+/* Humbee motion tokens — short, purposeful transitions for field workflows. */
+:root {
+  --motion-duration-fast: 140ms;
+  --motion-duration-standard: 200ms;
+  --motion-duration-route: 280ms;
+  --motion-duration-route-tab: 340ms;
+  --motion-duration-emphasized: 420ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}

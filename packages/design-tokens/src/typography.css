@@ -1,0 +1,116 @@
+/* Humbee typographic scale.
+   Family is Lato throughout; weights are 400 (regular) and 700 (bold). */
+:root {
+  --font-family-base: "Lato", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Display — hero numbers / marketing */
+  --text-display-size: 32px;
+  --text-display-line: 44px;
+  --text-display-weight: 400;
+
+  /* Title — page titles */
+  --text-title-size: 28px;
+  --text-title-line: 36px;
+  --text-title-weight: 400;
+
+  /* Headings */
+  --text-h1-size: 22px;  --text-h1-line: 32px;  --text-h1-weight: 400;
+  --text-h2-size: 18px;  --text-h2-line: 28px;  --text-h2-weight: 400;
+  --text-h3-size: 16px;  --text-h3-line: 24px;  --text-h3-weight: 400;
+
+  /* Body */
+  --text-body-size: 15px;      --text-body-line: 22px;      --text-body-weight: 400;
+  --text-body-strong-weight: 700;
+  --text-body-sm-size: 13px;   --text-body-sm-line: 20px;   --text-body-sm-weight: 400;
+
+  /* Labels */
+  --text-label-size: 15px;     --text-label-line: 22px;     --text-label-weight: 700;
+  --text-label-sm-size: 13px;  --text-label-sm-line: 20px;  --text-label-sm-weight: 700;
+  --text-label-xs-size: 12px;  --text-label-xs-line: 18px;  --text-label-xs-weight: 700;
+
+  /* Caption + overline */
+  --text-caption-size: 12px;   --text-caption-line: 16px;   --text-caption-weight: 400;
+  --text-overline-size: 11px;  --text-overline-line: 16px;  --text-overline-weight: 700;
+  --text-overline-tracking: 0.5px;
+
+  /* Mobile app shell */
+  --text-app-title-size: 18px;
+  --text-app-title-line: 24px;
+  --text-app-title-weight: 400;
+  --text-nav-label-size: var(--text-overline-size);
+  --text-nav-label-line: var(--text-overline-line);
+  --text-nav-label-weight: 400;
+
+  /* Mobile lists */
+  --text-list-title-size: 15px;
+  --text-list-title-line: 20px;
+  --text-list-title-weight: 400;
+  --text-list-subtitle-size: var(--text-body-sm-size);
+  --text-list-subtitle-line: 18px;
+  --text-list-subtitle-weight: var(--text-body-sm-weight);
+  --text-list-meta-size: var(--text-caption-size);
+  --text-list-meta-line: var(--text-caption-line);
+  --text-list-meta-weight: var(--text-caption-weight);
+
+  /* Controls and forms */
+  --text-control-size: var(--text-body-size);
+  --text-control-line: var(--text-body-line);
+  --text-control-weight: 700;
+  --text-control-sm-size: var(--text-body-sm-size);
+  --text-control-sm-line: var(--text-body-sm-line);
+  --text-control-sm-weight: 700;
+  --text-form-input-size: var(--text-body-size);
+  --text-form-input-line: var(--text-body-line);
+  --text-form-input-weight: var(--text-body-weight);
+  --text-form-label-size: var(--text-label-sm-size);
+  --text-form-label-line: var(--text-label-sm-line);
+  --text-form-label-weight: var(--text-label-sm-weight);
+  --text-form-helper-size: var(--text-caption-size);
+  --text-form-helper-line: var(--text-caption-line);
+  --text-form-helper-weight: var(--text-caption-weight);
+  --text-otp-size: 22px;
+  --text-otp-line: 28px;
+  --text-otp-weight: 700;
+
+  /* Chips, badges, and feedback */
+  --text-chip-size: var(--text-body-sm-size);
+  --text-chip-line: var(--text-body-sm-line);
+  --text-chip-weight: 700;
+  --text-badge-size: 10px;
+  --text-badge-line: 16px;
+  --text-badge-weight: 700;
+  --text-feedback-title-size: var(--text-body-size);
+  --text-feedback-title-line: var(--text-body-line);
+  --text-feedback-title-weight: 400;
+  --text-feedback-message-size: var(--text-body-sm-size);
+  --text-feedback-message-line: var(--text-body-sm-line);
+  --text-feedback-message-weight: var(--text-body-sm-weight);
+
+  /* Metrics and map labels */
+  --text-metric-value-size: 22px;
+  --text-metric-value-line: 28px;
+  --text-metric-value-weight: 700;
+  --text-metric-label-size: var(--text-body-sm-size);
+  --text-metric-label-line: 18px;
+  --text-metric-label-weight: var(--text-body-sm-weight);
+  --text-metric-helper-size: var(--text-caption-size);
+  --text-metric-helper-line: var(--text-caption-line);
+  --text-metric-helper-weight: var(--text-caption-weight);
+  --text-map-label-size: var(--text-caption-size);
+  --text-map-label-line: var(--text-caption-line);
+  --text-map-label-weight: 700;
+  --text-map-pin-size: var(--text-overline-size);
+  --text-map-pin-line: 1;
+  --text-map-pin-weight: 700;
+  --text-map-attribution-size: 10px;
+  --text-map-attribution-line: 14px;
+  --text-map-attribution-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6,
+.hb-heading,
+.sp-title,
+.app-title,
+.sp-brand-title {
+  font-weight: var(--font-weight-regular);
+}

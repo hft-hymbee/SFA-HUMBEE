@@ -1,0 +1,16 @@
+.manufacturerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.chips > * {
+  max-width: 100%;
+  min-height: 44px;
+}

@@ -1,0 +1,40 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Layout — Bento Grid & Paper" subtitle="Dashboard bento grid built from Paper surfaces" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; padding: 24px; font-family: var(--font-family-base); background: #F5F5F5; color: #333; }
+  .lbl { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8C8C8C; margin: 0 0 12px; }
+  .metric { font-size: 28px; font-weight: 700; color: #995A00; line-height: 1.1; }
+  .cap { font-size: 12px; color: #666; }
+  h4 { margin: 0 0 6px; font-size: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { BentoGrid, BentoItem, PaperElevation } = window.HumbeeDesignSystem_c38d59;
+function Demo() {
+  return (
+    <div>
+      <p className="lbl">Bento Grid — dashboard metrics</p>
+      <BentoGrid column={4} gap={2}>
+        <BentoItem colSpan={2}><PaperElevation style={{height:96}}><h4>Sales this month</h4><div className="metric">₹ 4,82,100</div></PaperElevation></BentoItem>
+        <BentoItem><PaperElevation style={{height:96}}><span className="cap">Open POs</span><div className="metric">128</div></PaperElevation></BentoItem>
+        <BentoItem><PaperElevation style={{height:96}}><span className="cap">Dispatched</span><div className="metric">64</div></PaperElevation></BentoItem>
+        <BentoItem colSpan={3}><PaperElevation style={{height:70}}><h4>Recent activity</h4><span className="cap">12 orders awaiting invoice</span></PaperElevation></BentoItem>
+        <BentoItem><PaperElevation elevation="menu" style={{height:70}}><span className="cap">Rewards</span><div className="metric">2,400</div></PaperElevation></BentoItem>
+      </BentoGrid>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

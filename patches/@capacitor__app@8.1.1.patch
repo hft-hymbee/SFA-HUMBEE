@@ -1,0 +1,13 @@
+diff --git a/ios/Sources/AppPlugin/AppPlugin.swift b/ios/Sources/AppPlugin/AppPlugin.swift
+index c93b84a6d9c820866ab2c7cc27f4f6a50c7bdf8b..6e738327c23be98b76d7095f5254583b589bb22b 100644
+--- a/ios/Sources/AppPlugin/AppPlugin.swift
++++ b/ios/Sources/AppPlugin/AppPlugin.swift
+@@ -118,7 +118,7 @@ public class AppPlugin: CAPPlugin, CAPBridgedPlugin {
+ 
+     @objc func getAppLanguage(_ call: CAPPluginCall) {
+         call.resolve([
+-            "value": Bundle.main.preferredLocalizations.first
++            "value": Bundle.main.preferredLocalizations.first ?? ""
+         ])
+     }
+ 

@@ -1,0 +1,4 @@
+environment: test
+tenant_id: Humbee
+local_otp_override: "123456"
+humbee_base_url: http://humbee.test

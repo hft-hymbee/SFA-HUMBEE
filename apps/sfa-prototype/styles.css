@@ -1,0 +1,9 @@
+/* Humbee prototype — global entry point.
+   Tokens now live in the shared package `packages/design-tokens` (single source of truth).
+   This file is kept so existing prototype pages keep working via their `../../styles.css` link.
+
+   NOTE: the path below is relative to this file and resolves only when the prototype is served
+   from the REPOSITORY ROOT — which it already must be, since
+   `ui_kits/humbee-sfa/index.html` loads `../../../../archive/claude-drops/_ds_bundle.js`.
+   See `pnpm dev:prototype`. */
+@import url("../../packages/design-tokens/src/index.css");

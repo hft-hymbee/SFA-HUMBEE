@@ -1,0 +1,132 @@
+.card {
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 15px;
+}
+
+.head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+}
+
+.title {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.meta {
+  color: var(--color-text-placeholder);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.dow,
+.grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.dow span {
+  color: var(--color-text-placeholder);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cell,
+.placeholder {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  min-height: 32px;
+}
+
+.placeholder {
+  background: var(--color-neutral-100);
+}
+
+.cell {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-placeholder);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0;
+  width: 100%;
+}
+
+button.cell {
+  appearance: none;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.present {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.leave {
+  background: var(--color-info);
+  color: var(--color-text-inverse);
+}
+
+.noPunch {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+}
+
+.left {
+  background: var(--color-white);
+  border-color: var(--color-neutral-300);
+  color: var(--color-text-placeholder);
+}
+
+.today {
+  box-shadow: inset 0 0 0 2px var(--color-text-primary);
+}
+
+.selected:not(.today) {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.legendItem {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.legendItem b {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.swatch {
+  border-radius: 2px;
+  display: inline-block;
+  height: 9px;
+  width: 9px;
+}
+
+.swatchLeft {
+  background: var(--color-white);
+  box-shadow: inset 0 0 0 1px var(--color-neutral-400);
+}

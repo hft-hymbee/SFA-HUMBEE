@@ -1,0 +1,29 @@
+{
+  "name": "@humbee/api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenAPI contract for the Humbee SFA API, generated from FastAPI Pydantic schemas, plus the generated TypeScript client.",
+  "type": "module",
+  "scripts": {
+    "generate:openapi": "${HUMBEE_API_PYTHON:-python3} ../../tooling/scripts/generate-openapi.py",
+    "generate:client": "openapi-ts -i ./openapi.json -o ./src/generated -c @hey-api/client-fetch -p @hey-api/typescript @hey-api/sdk",
+    "generate": "npm run generate:openapi && npm run generate:client",
+    "build": "npm run generate:client",
+    "check": "npm run generate && git diff --exit-code -- openapi.json src/generated",
+    "check:breaking": "node ../../tooling/scripts/check-contract-breaking.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./openapi.json": "./openapi.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "openapi.json",
+    "CHANGELOG.md"
+  ],
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.99.0"
+  }
+}

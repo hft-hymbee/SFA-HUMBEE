@@ -1,0 +1,214 @@
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-md);
+}
+
+.hero,
+.identity,
+.identityCompact {
+  align-items: center;
+  display: flex;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 42%),
+    var(--hb-surface-raised, var(--surface-card));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-neutral-300));
+  border-radius: var(--radius-lg, var(--radius-md));
+  box-shadow: var(--hb-shadow-raised);
+  flex-direction: column;
+  gap: var(--space-md);
+  overflow: hidden;
+  padding: var(--space-md);
+  position: relative;
+  text-align: center;
+}
+
+.hero::before {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  content: "";
+  height: 4px;
+  inset: 0 0 auto;
+  position: absolute;
+}
+
+.heroIdentityRow {
+  align-items: flex-start;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.identity {
+  align-items: center;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 100%;
+  min-width: 0;
+  text-align: center;
+  width: min(100%, 280px);
+}
+
+.identityCompact {
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.avatar,
+.avatarCompact {
+  align-items: center;
+  background: var(--hb-icon-surface, color-mix(in srgb, var(--surface-card) 72%, transparent));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+  border-radius: 50%;
+  box-shadow: var(--shadow-icon-depth, 0 5px 14px color-mix(in srgb, var(--color-primary) 12%, transparent));
+  color: var(--color-primary);
+  display: flex;
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-bold);
+  justify-content: center;
+}
+
+.avatar {
+  font-size: var(--text-h1-size);
+  height: 80px;
+  width: 80px;
+}
+
+.avatarCompact {
+  font-size: var(--text-label-size);
+  height: 40px;
+  width: 40px;
+}
+
+.identityCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.identityCopy strong,
+.identityCopy span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.identityCopy strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-h2-size);
+  line-height: var(--text-h2-line);
+}
+
+.identityCompact .identityCopy strong {
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
+}
+
+.identityCopy span {
+  color: var(--color-text-secondary);
+  font-size: var(--text-body-sm-size);
+  line-height: var(--text-body-sm-line);
+}
+
+.section {
+  min-width: 0;
+}
+
+.sectionLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--text-overline-size);
+  letter-spacing: var(--text-overline-tracking);
+  margin: 0 0 var(--space-sm);
+  text-transform: uppercase;
+}
+
+.detailList,
+.list {
+  background: var(--hb-surface-raised, var(--surface-card));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--color-neutral-300));
+  border-radius: var(--radius-md);
+  box-shadow: var(--hb-shadow-raised);
+  overflow: hidden;
+}
+
+.detailList > * + *,
+.list > * + * {
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.namePlaceholder,
+.subtitlePlaceholder,
+.sectionLabelPlaceholder {
+  animation: profile-skeleton 1.2s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-200),
+    color-mix(in srgb, var(--color-neutral-100) 76%, white),
+    var(--color-neutral-200)
+  );
+  background-size: 200% 100%;
+  display: block;
+}
+
+.namePlaceholder {
+  align-self: center;
+  border-radius: var(--radius-pill);
+  height: 22px;
+  width: min(220px, 72%);
+}
+
+.subtitlePlaceholder {
+  align-self: center;
+  border-radius: var(--radius-pill);
+  height: 16px;
+  width: min(180px, 58%);
+}
+
+.sectionLabelPlaceholder {
+  border-radius: var(--radius-pill);
+  height: 12px;
+  margin-bottom: var(--space-sm);
+  width: 88px;
+}
+
+@keyframes profile-skeleton {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .profile {
+    margin: 0 auto;
+    max-width: 720px;
+    width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .profile {
+    max-width: 840px;
+  }
+
+  .hero {
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .namePlaceholder,
+  .subtitlePlaceholder,
+  .sectionLabelPlaceholder {
+    animation: none;
+  }
+}

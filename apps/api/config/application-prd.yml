@@ -1,0 +1,32 @@
+environment: prd
+debug: false
+reload: false
+
+tenant_id: humbee-prd
+
+# Production non-secret DB coordinates. Keep credentials in environment variables:
+# HUMBEE_SFA_DB_USER and HUMBEE_SFA_DB_PASSWORD.
+db_host: <prd-db-endpoint>
+db_port: 5432
+db_name: humbee_sfa
+db_sslmode: require
+db_schema: sfa
+
+# OTP must be verified in production.
+otp_skip_verification: false
+otp_ttl_seconds: 300
+otp_resend_cooldown_seconds: 30
+otp_max_attempts: 5
+otp_rate_limit_per_phone_per_hour: 8
+otp_rate_limit_per_ip_per_hour: 60
+otp_verify_rate_limit_per_challenge: 12
+otp_sms_timeout_seconds: 5.0
+otp_request_idempotency_ttl_seconds: 1800
+otp_verify_idempotency_ttl_seconds: 1800
+refresh_idempotency_ttl_seconds: 3600
+
+# Keep provider credentials in environment variables:
+# HUMBEE_SFA_OTP_SMS_USERNAME and HUMBEE_SFA_OTP_SMS_API_KEY.
+
+# humbee_base_url: blocked on B6 (epics/humbee-sfa-build/07-humbee-real-integration.md) —
+# Humbee has not published a production base URL yet.

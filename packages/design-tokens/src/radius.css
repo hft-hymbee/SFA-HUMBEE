@@ -1,0 +1,8 @@
+/* Humbee corner radii — theme/radius.js. Default component radius is md (8px). */
+:root {
+  --radius-sm: 4px;   /* small tooltips, chips-in-context */
+  --radius-md: 8px;   /* buttons, inputs, cards, chips — the default */
+  --radius-lg: 16px;  /* modals, status pills */
+  --radius-xl: 32px;  /* switches / fully-rounded tracks */
+  --radius-pill: 999px;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@humbee/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared ESLint config for the Humbee monorepo, including the design-token adherence rules ported from the prototype.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./adherence": "./adherence.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "adherence.js"
+  ]
+}

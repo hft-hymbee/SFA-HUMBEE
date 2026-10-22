@@ -1,0 +1,61 @@
+<!-- @dsCard group="Components" viewport="700x360" name="Core — Buttons, Chips & Badges" subtitle="Buttons, icon buttons, status/standard chips, badges" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; padding: 24px; font-family: var(--font-family-base); background: #fff; color: #333; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+  .lbl { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8C8C8C; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { Button, IconButton, Icon, StatusChip, StandardChip, StatusBadge } = window.HumbeeDesignSystem_c38d59;
+function Demo() {
+  const [sel, setSel] = React.useState(true);
+  return (
+    <div>
+      <p className="lbl">Button — variants & colors</p>
+      <div className="row">
+        <Button variant="filled" color="primary" label="Primary" leftIcon={<Icon name="Add" size={20} color="#fff" />} />
+        <Button variant="outlined" color="primary" label="Outlined" />
+        <Button variant="text" color="primary" label="Text" />
+        <Button variant="filled" color="secondary" label="Secondary" />
+        <Button variant="filled" color="success" label="Success" />
+        <Button variant="filled" color="error" label="Error" />
+        <Button variant="filled" color="neutral" label="Cancel" />
+        <Button variant="filled" color="primary" label="Loading" loading />
+        <Button variant="filled" color="primary" label="Disabled" disabled />
+        <Button variant="filled" color="primary" size="small" label="Small" />
+      </div>
+      <p className="lbl">Icon Button</p>
+      <div className="row">
+        <IconButton iconName="Edit" color="primary" />
+        <IconButton iconName="Delete" color="error" />
+        <IconButton iconName="DownloadOutlined" color="neutral" />
+        <IconButton iconName="NotificationsOutlined" color="info" />
+      </div>
+      <p className="lbl">Status Chip &nbsp;·&nbsp; Standard Chip &nbsp;·&nbsp; Status Badge</p>
+      <div className="row">
+        <StatusChip status="pending" label="Pending" type="outlined" />
+        <StatusChip status="completed" label="Completed" type="outlined" />
+        <StatusChip status="cancelled" label="Cancelled" type="filled" />
+        <StandardChip label="Health Insurance" selected={sel} onChange={setSel} showDelete />
+        <StandardChip label="Retirement Plan" defaultSelected={false} />
+        <StatusBadge label="Delivered" variant="soft" />
+        <StatusBadge label="Rejected" variant="outlined" size="medium" />
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

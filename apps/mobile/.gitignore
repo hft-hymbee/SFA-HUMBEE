@@ -1,0 +1,30 @@
+# Capacitor copies the web build in on sync — never commit it
+android/app/src/main/assets/public/
+ios/App/App/public/
+
+# Native build output
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+ios/App/build/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+DerivedData/
+
+# Signing material — must never be committed
+*.keystore
+*.jks
+*.mobileprovision
+*.p8
+*.p12
+*.cer
+
+# Fastlane artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
+
+# Generated icons / splash
+resources/generated/

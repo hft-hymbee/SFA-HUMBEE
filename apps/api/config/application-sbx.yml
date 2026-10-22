@@ -1,0 +1,29 @@
+environment: sbx
+debug: false
+reload: false
+tenant_id: humbee-sbx
+
+# Keep credentials in environment variables:
+# HUMBEE_SFA_DB_USER and HUMBEE_SFA_DB_PASSWORD.
+db_host: sfa-uat.ckr8vatt5tli.ap-south-1.rds.amazonaws.com
+db_port: 5432
+db_name: humbee_sfa
+db_sslmode: require
+db_schema: sfa
+
+otp_skip_verification: true
+otp_ttl_seconds: 600
+otp_resend_cooldown_seconds: 10
+otp_max_attempts: 10
+otp_rate_limit_per_phone_per_hour: 200
+otp_rate_limit_per_ip_per_hour: 1000
+otp_verify_rate_limit_per_challenge: 100
+otp_sms_timeout_seconds: 8.0
+otp_request_idempotency_ttl_seconds: 1800
+otp_verify_idempotency_ttl_seconds: 1800
+refresh_idempotency_ttl_seconds: 3600
+
+humbee_base_url: https://api-dev.humbee.in
+
+# Fast drain cadence for verifying producers against live sbx traffic (base default is 6h/prod).
+reporting_projector_interval_seconds: 300

@@ -1,0 +1,33 @@
+app_name: Humbee SFA Backend
+host: 0.0.0.0
+port: 8001
+reload: false
+day_boundary_hour_ist: 0
+otp_length: 6
+otp_ttl_seconds: 600
+otp_resend_cooldown_seconds: 60
+otp_max_attempts: 3
+otp_rate_limit_per_phone_per_hour: 5
+otp_rate_limit_per_ip_per_hour: 20
+otp_verify_rate_limit_per_challenge: 10
+otp_skip_verification: false
+otp_sms_gateway_url: https://api.telsp.in/pushapi/sendmsg
+otp_sms_signature: HUMBEE
+otp_sms_msg_type: PM
+otp_sms_entity_id: "1701164879499385652"
+otp_sms_template_id: "1107177287888590246"
+otp_sms_message_template: "Dear Partner, Your OTP to log in to HUMBEE is {otp}. This code is valid for 5 minutes only. HUMBEE"
+otp_sms_timeout_seconds: 5.0
+otp_request_idempotency_ttl_seconds: 1800
+otp_verify_idempotency_ttl_seconds: 1800
+refresh_idempotency_ttl_seconds: 3600
+access_token_ttl_seconds: 900
+refresh_token_ttl_seconds: 2592000
+jwt_algorithm: HS256
+attendance_late_threshold_hour_ist: 9
+route_sweep_grace_minutes: 5
+reporting_projector_interval_seconds: 21600
+reporting_projector_lateness_window_days: 30
+leave_default_yearly_privileged_days: 12
+leave_default_yearly_casual_days: 6
+leave_default_yearly_sick_days: 6

@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+patchedDependencies:
+  '@capacitor/app@8.1.1': patches/@capacitor__app@8.1.1.patch

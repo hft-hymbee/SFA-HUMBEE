@@ -1,0 +1,1357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HUMBEE SFA — Customer Onboarding (single screen)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   HUMBEE design tokens — pulled from Figma variables
+   file xKaCE8IJA0CkbGV6a5sB98, node 29734:8513
+   ============================================================ */
+:root{
+  --primary:#995A00;          /* Button/Primary/main/default */
+  --primary-hover:#BF7000;
+  --primary-tint:#995A000D;
+  --secondary:#FFA525;        /* Components/states/active-secondary */
+  --secondary-tint:#FFA5251F;
+  --text:#333333;             /* Typography/states/Enabled */
+  --text-2:#666666;           /* Typography/states/Default */
+  --text-3:#8C8C8C;           /* Typography/states/Disbaled */
+  --border:#8C8C8C;           /* Components/states/enabled */
+  --border-subtle:#D9D9D9;    /* Components/states/Disabled */
+  --surface:#FFFFFF;          /* Components/Background-Border/White */
+  --surface-light:#F7F7F7;    /* Components/Background-Border/Light */
+  --success:#008000;
+  --success-tint:#0080000D;
+  --error:#CC0000;
+  --r-ctrl:8px;               /* Number/Radius/m */
+  --r-card:16px;              /* Number/Radius/l */
+  --s-xxs:2px; --s-s:8px; --s-m:16px; --s-l:32px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--text);
+  background:#E8E8E8;
+  min-height:100vh;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:40px 16px;
+}
+
+/* ---------- phone frame ---------- */
+.stage{display:flex;flex-direction:column;align-items:center;gap:16px}
+.stage h1{font-size:16px;line-height:24px;font-weight:700;margin:0;color:var(--text-2)}
+.stage h1 span{font-weight:400;color:var(--text-3)}
+.phone{
+  position:relative;
+  width:390px; height:844px;
+  border-radius:36px;
+  background:var(--surface);
+  /* clip, not hidden: `hidden` still makes the frame programmatically scrollable, so a
+     scrollIntoView() inside .body could scroll the whole phone and expose the closed sheet */
+  overflow:hidden;
+  overflow:clip;
+  box-shadow:0 0 0 10px #1b1b1b, 0 18px 40px rgba(0,0,0,.28);
+  flex:0 0 auto;
+}
+.app{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  /* Bg-gradient: #FAFAFA -> warm cream */
+  background:linear-gradient(180deg,#FAFAFA 0%,#FAFAFA 45%,#FBF3E7 100%);
+}
+.view{display:none;flex-direction:column;flex:1;min-height:0}
+.view.on{display:flex}
+
+/* ---------- top nav (port of "VCP Top Nav Bar-humbee") ---------- */
+.topnav{padding:12px var(--s-m) 0;flex:0 0 auto}
+.topnav-card{
+  background:var(--surface); border-radius:var(--r-card);
+  height:56px; display:flex; align-items:center; gap:var(--s-s);
+  padding:0 var(--s-s) 0 var(--s-m);
+}
+.topnav-title{font-size:20px;line-height:32px;font-weight:700;flex:1}
+.iconbtn{
+  width:40px;height:40px;border:0;background:transparent;border-radius:50%;
+  display:grid;place-items:center;cursor:pointer;color:var(--text-2);flex:0 0 auto;
+}
+.iconbtn:hover{background:var(--surface-light)}
+.avatar{width:32px;height:32px;border-radius:50%;background:#E5E5E5;display:grid;place-items:center;color:var(--text-2)}
+
+/* ---------- progress rail (replaces the Figma stepper) ---------- */
+.progress{padding:var(--s-m) var(--s-m) 0;flex:0 0 auto}
+.progress-row{display:flex;align-items:center;gap:var(--s-m)}
+.track{flex:1;height:4px;border-radius:999px;background:var(--border-subtle);overflow:hidden}
+.fill{height:100%;width:0;background:var(--secondary);border-radius:999px;transition:width .25s ease}
+.progress-label{font-size:13px;line-height:20px;font-weight:700;color:var(--text-2);white-space:nowrap}
+
+/* ---------- scrolling body ---------- */
+.body{flex:1;min-height:0;overflow-y:auto;padding:var(--s-m) var(--s-m) 24px}
+.body::-webkit-scrollbar{width:0}
+
+/* ---------- sections ---------- */
+.sec{padding-bottom:var(--s-l);position:relative}
+.sec[data-locked="1"]{opacity:.4;pointer-events:none}
+.sec-head{display:flex;align-items:center;gap:var(--s-s);margin-bottom:var(--s-m)}
+.sec-num{
+  width:20px;height:20px;border-radius:50%;background:var(--border-subtle);
+  color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;flex:0 0 auto;
+}
+.sec[data-active="1"] .sec-num,.sec[data-done="1"] .sec-num{background:var(--secondary)}
+.overline{
+  font-size:11px;line-height:16px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--text-2);flex:1;
+}
+.tick{color:var(--success);display:none;flex:0 0 auto}
+.sec[data-done="1"] .tick{display:block}
+.subhead{font-size:16px;line-height:24px;font-weight:700;margin:var(--s-l) 0 var(--s-m)}
+.subhead:first-child{margin-top:0}
+.subhead .req{color:var(--text)}
+
+/* ---------- fields ---------- */
+.field{margin-bottom:var(--s-m)}
+.label{display:block;font-size:13px;line-height:20px;font-weight:700;margin-bottom:4px}
+.input,.select{
+  width:100%;height:48px;padding:0 12px;
+  font-family:inherit;font-size:16px;line-height:24px;color:var(--text);
+  background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--r-ctrl);
+  outline:none;-webkit-appearance:none;appearance:none;
+}
+.select{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='%23333' stroke-width='2'><path d='M7 10l5 5 5-5'/></svg>");
+  background-repeat:no-repeat;background-position:right 8px center;padding-right:36px;cursor:pointer;
+}
+.input:focus,.select:focus{border-color:var(--primary)}
+.input::placeholder{color:var(--text-3)}
+.input.upper{text-transform:uppercase}
+.input.upper::placeholder{text-transform:none}
+.input[readonly],.select:disabled,.input:disabled{
+  background:var(--surface-light);color:var(--text-3);border-color:var(--border-subtle);cursor:default;
+}
+.field.err .input,.field.err .select{border-color:var(--error)}
+.helper{font-size:12px;line-height:16px;color:var(--text-2);margin-top:4px}
+.helper.error{color:var(--error);display:none}
+.field.err .helper.error{display:block}
+.field.err .helper.hint{display:none}
+.adorn{position:relative}
+.adorn .input{padding-left:46px}
+.adorn .pfx{
+  position:absolute;left:12px;top:0;height:48px;display:flex;align-items:center;
+  font-size:16px;color:var(--text-2);pointer-events:none;
+}
+
+/* ---------- chips ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:var(--s-s)}
+.chip{
+  min-height:32px;padding:0 12px;border-radius:16px;
+  background:var(--surface);border:1px solid var(--border-subtle);
+  font-family:inherit;font-size:13px;line-height:20px;font-weight:700;color:var(--text);
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+}
+.chip:hover{border-color:var(--border)}
+.chip.sel{background:#333;border-color:#333;color:#fff}
+
+/* ---------- OTP ---------- */
+.otp-ask{font-size:16px;line-height:24px;font-weight:700;margin:var(--s-m) 0 var(--s-s)}
+.otp-row{display:flex;align-items:center;gap:var(--s-s)}
+.otpbox{
+  width:56px;height:56px;text-align:center;
+  font-family:inherit;font-size:20px;font-weight:700;color:var(--text);
+  background:var(--surface);border:1px solid var(--secondary);border-radius:var(--r-ctrl);
+  outline:none;
+}
+.otpbox:focus{border-color:var(--primary);border-width:2px}
+.otp-row.bad .otpbox{border-color:var(--error)}
+.verified{display:flex;align-items:center;gap:6px;color:var(--success);font-size:16px;margin-left:4px}
+.resend{font-size:13px;line-height:20px;color:var(--text-2);margin-top:var(--s-s)}
+.resend a{color:var(--secondary);font-weight:700;text-decoration:none;cursor:pointer}
+.resend a[aria-disabled="true"]{color:var(--text-3);cursor:default}
+
+/* ---------- buttons ---------- */
+.btn{
+  width:100%;min-height:48px;border-radius:var(--r-ctrl);border:1px solid transparent;
+  font-family:inherit;font-size:16px;line-height:24px;font-weight:700;
+  cursor:pointer;transition:all .2s ease-in-out;
+  display:flex;align-items:center;justify-content:center;gap:var(--s-s);
+}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:disabled{background:var(--border-subtle);color:var(--text-3);cursor:not-allowed}
+.btn-outline{background:transparent;border-color:var(--primary);color:var(--primary)}
+.btn-outline:hover{background:var(--primary-tint)}
+.btn-text{background:transparent;color:var(--primary);border:0;min-height:44px}
+.btn-sm{min-height:40px;font-size:13px}
+.linkbtn{
+  background:transparent;border:0;padding:0;font-family:inherit;
+  font-size:13px;line-height:20px;font-weight:700;color:var(--primary);cursor:pointer;
+}
+
+/* ---------- notes ---------- */
+.geo-head{
+  font-size:12px;line-height:16px;font-weight:700;color:var(--text-2);
+  margin-bottom:var(--s-s);display:flex;align-items:center;gap:6px;
+}
+.geo-head .pin{color:var(--primary)}
+.gate,.empty{
+  border:1px dashed var(--border-subtle);border-radius:var(--r-card);
+  padding:var(--s-m);font-size:13px;line-height:20px;color:var(--text-2);
+}
+.gate strong,.empty strong{display:block;color:var(--text);margin-bottom:4px}
+.info{
+  background:var(--surface-light);border-radius:var(--r-ctrl);
+  padding:12px;font-size:13px;line-height:20px;color:var(--text-2);margin-bottom:var(--s-s);
+}
+
+/* ---------- picker (sheet-driven pseudo-select) ---------- */
+.picker{
+  width:100%;height:48px;padding:0 36px 0 12px;text-align:left;
+  font-family:inherit;font-size:16px;line-height:24px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-ctrl);
+  cursor:pointer;position:relative;color:var(--text);
+  display:flex;align-items:center;
+}
+.picker.empty{color:var(--text-3);border-style:solid;padding:0 36px 0 12px}
+.picker:disabled{background:var(--surface-light);color:var(--text-3);border-color:var(--border-subtle);cursor:default}
+.picker::after{
+  content:"";position:absolute;right:10px;top:19px;
+  width:8px;height:8px;border-right:2px solid var(--text);border-bottom:2px solid var(--text);
+  transform:rotate(45deg);
+}
+.picker:disabled::after{border-color:var(--border-subtle)}
+
+/* ---------- repeatable manufacturer rows ---------- */
+.mfr-row{
+  background:var(--surface);border-radius:var(--r-card);padding:var(--s-m);
+  margin-bottom:var(--s-s);position:relative;
+}
+.mfr-row .del{
+  position:absolute;top:6px;right:6px;width:32px;height:32px;border:0;background:transparent;
+  border-radius:50%;color:var(--text-3);cursor:pointer;font-size:18px;line-height:1;
+}
+.mfr-row .del:hover{background:var(--surface-light);color:var(--error)}
+.mfr-row .rowlabel{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:var(--s-s)}
+
+/* ---------- location capture ---------- */
+.loc{border-radius:var(--r-card);padding:var(--s-m);background:var(--surface)}
+.loc.done{background:var(--success-tint);border:1px solid var(--success)}
+.loc-title{display:flex;align-items:center;gap:var(--s-s);font-size:13px;font-weight:700;margin-bottom:4px}
+.loc-title .ok{color:var(--success)}
+.loc-meta{font-size:13px;line-height:20px;color:var(--text-2);font-variant-numeric:tabular-nums}
+
+/* ---------- review cards ---------- */
+.card{background:var(--surface);border-radius:var(--r-card);padding:var(--s-m);margin-bottom:var(--s-m)}
+.card-head{display:flex;align-items:baseline;gap:var(--s-s);margin-bottom:var(--s-m)}
+.card-title{font-size:16px;line-height:24px;font-weight:700;flex:1}
+.kv{display:grid;grid-template-columns:126px 1fr;gap:var(--s-s) var(--s-m);font-size:15px;line-height:22px}
+.kv dt{color:var(--text-2)}
+.kv dd{margin:0;color:var(--text);white-space:pre-line}
+
+/* ---------- sticky footer ---------- */
+.footer{
+  flex:0 0 auto;padding:var(--s-m);
+  background:linear-gradient(180deg,rgba(251,243,231,0) 0%,#FBF3E7 40%);
+}
+
+/* ---------- bottom nav (launcher only) ---------- */
+.bottomnav{
+  flex:0 0 auto;margin:0 var(--s-m) var(--s-m);
+  background:var(--surface);border-radius:var(--r-card);height:64px;
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:center;
+}
+.navitem{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text-2)}
+.navitem.on{color:var(--primary);font-weight:700}
+
+/* ---------- overlays ---------- */
+.backdrop{
+  position:absolute;inset:0;background:rgba(0,0,0,.5);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:20;
+}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:21;
+  background:var(--surface);border-radius:var(--r-card) var(--r-card) 0 0;
+  padding:var(--s-s) 0 var(--s-m);
+  transform:translateY(110%);transition:transform .25s ease;
+  max-height:70%;display:flex;flex-direction:column;
+}
+.sheet.on{transform:translateY(0)}
+.handle{width:40px;height:4px;border-radius:2px;background:var(--border-subtle);margin:0 auto var(--s-m)}
+.sheet-title{font-size:16px;line-height:24px;font-weight:700;padding:0 var(--s-m) 2px}
+.sheet-sub{font-size:12px;line-height:16px;color:var(--text-2);padding:0 var(--s-m) var(--s-s)}
+.opts{overflow-y:auto;padding:0 var(--s-m)}
+.opt{
+  width:100%;min-height:48px;display:flex;align-items:center;gap:12px;
+  background:transparent;border:0;border-bottom:1px solid #E5E5E5;
+  font-family:inherit;font-size:16px;color:var(--text);text-align:left;cursor:pointer;
+}
+.opt:last-child{border-bottom:0}
+.opt .sub{font-size:12px;color:var(--text-3);font-weight:400}
+.radio{
+  width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex:0 0 auto;
+  display:grid;place-items:center;
+}
+.opt.sel .radio{border-color:var(--primary)}
+.opt.sel .radio::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--primary)}
+.opt.sel{font-weight:700}
+
+.modal{
+  position:absolute;left:var(--s-m);right:var(--s-m);top:50%;transform:translateY(-50%) scale(.96);
+  z-index:22;background:var(--surface);border-radius:var(--r-card);padding:24px;
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;
+}
+.modal.on{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}
+.modal h3{font-size:20px;line-height:28px;font-weight:700;margin:0 0 var(--s-s)}
+.modal p{font-size:16px;line-height:24px;color:var(--text-2);margin:0 0 24px}
+
+/* ---------- success ---------- */
+.success{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s-l) 24px;text-align:center}
+.success .ring{
+  width:88px;height:88px;border-radius:50%;background:var(--success-tint);
+  border:2px solid var(--success);display:grid;place-items:center;color:var(--success);margin-bottom:24px;
+}
+.success h2{font-size:20px;line-height:32px;font-weight:700;margin:0 0 var(--s-s)}
+.success p{font-size:16px;line-height:24px;color:var(--text-2);margin:0 0 4px}
+.success .bid{font-size:13px;font-weight:700;color:var(--text-3);letter-spacing:.5px;margin-top:var(--s-s)}
+
+/* ---------- launcher ---------- */
+.launch{flex:1;display:flex;flex-direction:column;padding:var(--s-l) var(--s-m);gap:var(--s-m)}
+.launch .hello{font-size:20px;line-height:32px;font-weight:700;margin:0}
+.launch .sub{font-size:16px;line-height:24px;color:var(--text-2);margin:0}
+.launch .spacer{flex:1}
+.launch .note{font-size:12px;line-height:16px;color:var(--text-3);text-align:center}
+
+@media (max-width:480px){
+  body{padding:0;background:var(--surface)}
+  .stage h1{display:none}
+  .phone{width:100vw;height:100vh;border-radius:0;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <h1>HUMBEE SFA <span>— Customer Onboarding, single screen (prototype)</span></h1>
+
+  <div class="phone">
+   <div class="app">
+
+    <!-- ============================ LAUNCHER ============================ -->
+    <section class="view on" id="v-launcher">
+      <div class="topnav"><div class="topnav-card">
+        <div class="topnav-title">My Network</div>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+        </button>
+        <div class="avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+      </div></div>
+
+      <div class="launch">
+        <p class="hello">Good morning, Sanjay</p>
+        <p class="sub">You have 6 outlets on today's beat and 2 onboarding drafts pending.</p>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="go">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+          Customer Onboarding
+        </button>
+        <p class="note">This launcher exists only to show where the screen is reached from in the SFA.</p>
+      </div>
+
+      <div class="bottomnav">
+        <div class="navitem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/></svg>Home</div>
+        <div class="navitem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>My Business</div>
+        <div class="navitem on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21v-2a4 4 0 014-4h6a4 4 0 014 4v2"/></svg>My Network</div>
+        <div class="navitem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>Benefits</div>
+        <div class="navitem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/></svg>Performance</div>
+      </div>
+    </section>
+
+    <!-- ============================ ONBOARD ============================ -->
+    <section class="view" id="v-onboard">
+      <div class="topnav"><div class="topnav-card">
+        <button class="iconbtn" id="back" aria-label="Back">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="topnav-title">Onboard Buyer</div>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+        </button>
+        <div class="avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+      </div></div>
+
+      <div class="progress"><div class="progress-row">
+        <div class="track"><div class="fill" id="fill"></div></div>
+        <div class="progress-label" id="plabel">Step 1 of 2</div>
+      </div></div>
+
+      <div class="body" id="body">
+
+        <!-- ==================== 1 · USER DETAILS ==================== -->
+        <section class="sec" id="sec-user" data-active="1">
+          <div class="sec-head">
+            <span class="sec-num">1</span><span class="overline">User details</span>
+            <svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <p class="subhead">Buyer details</p>
+
+          <div class="field" id="f-name">
+            <label class="label" for="i-name">Name<span class="req">*</span></label>
+            <input class="input" id="i-name" type="text" placeholder="Enter full name" autocomplete="off">
+            <div class="helper error">Enter the buyer's name.</div>
+          </div>
+
+          <div class="field" id="f-mobile">
+            <label class="label" for="i-mobile">Mobile number<span class="req">*</span></label>
+            <div class="adorn"><span class="pfx">+91</span>
+              <input class="input" id="i-mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="Enter mobile number" autocomplete="off">
+            </div>
+            <div class="helper error">Enter a valid 10-digit Indian mobile number.</div>
+          </div>
+
+          <button class="btn btn-outline btn-sm" id="sendOtp" style="display:none">Send OTP</button>
+
+          <div id="otpBlock" style="display:none">
+            <p class="otp-ask" id="otpAsk">Please enter OTP sent to number</p>
+            <div class="otp-row" id="otpRow">
+              <input class="otpbox" inputmode="numeric" maxlength="1" data-otp="0">
+              <input class="otpbox" inputmode="numeric" maxlength="1" data-otp="1">
+              <input class="otpbox" inputmode="numeric" maxlength="1" data-otp="2">
+              <input class="otpbox" inputmode="numeric" maxlength="1" data-otp="3">
+              <span class="verified" id="verifiedTag" style="display:none">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+                Verified
+              </span>
+            </div>
+            <div class="helper error" id="otpError" style="display:none">Incorrect OTP. Check the code and try again.</div>
+            <p class="resend" id="resendRow">Didn't Receive code? <a id="resend">Resend</a> <span id="resendTimer"></span></p>
+          </div>
+
+          <div class="field" id="f-dob" style="margin-top:var(--s-m)">
+            <label class="label" for="i-dob">Date of birth</label>
+            <input class="input" id="i-dob" type="date">
+            <div class="helper hint">Optional.</div>
+          </div>
+          <div class="field" id="f-gender">
+            <label class="label">Gender</label>
+            <div class="chips" id="genderChips"></div>
+            <div class="helper hint">Optional.</div>
+          </div>
+        </section>
+
+        <!-- ==================== 2 · FIRM DETAILS ==================== -->
+        <section class="sec" id="sec-firm" data-locked="1">
+          <div class="sec-head">
+            <span class="sec-num">2</span><span class="overline" id="firmOverline">Firm details</span>
+            <svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+
+          <!-- 2a · business information — VCP only -->
+          <div id="bizBlock">
+          <p class="subhead">Business information</p>
+          <div class="field" id="f-idmode">
+            <label class="label">Identity proof<span class="req">*</span></label>
+            <div class="chips" id="idModeChips"></div>
+            <div class="helper hint">*GST is required to purchase &amp; sell products on HUMBEE</div>
+          </div>
+
+          <div class="field" id="f-gst">
+            <label class="label" for="i-gst">GST<span class="req">*</span></label>
+            <input class="input upper" id="i-gst" type="text" maxlength="15" placeholder="Enter GST number" autocomplete="off">
+            <div class="helper hint">Try 24AAACR2121C1Z9 or 27AABCU9603R1ZM to see the lookup fill the firm and address.</div>
+            <div class="helper error">Enter a valid 15-character GSTIN.</div>
+          </div>
+
+          <div class="field" id="f-pan">
+            <label class="label" for="i-pan">PAN<span class="req">*</span></label>
+            <input class="input upper" id="i-pan" type="text" maxlength="10" placeholder="Enter PAN" autocomplete="off">
+            <div class="helper error">Enter a valid 10-character PAN.</div>
+          </div>
+
+          <div class="field" id="f-firm">
+            <label class="label" for="i-firm">Firm name<span class="req">*</span></label>
+            <input class="input" id="i-firm" type="text" placeholder="Enter firm name" autocomplete="off">
+            <div class="helper error">Enter the firm name.</div>
+          </div>
+          </div><!-- /#bizBlock -->
+
+          <!-- 2b · address -->
+          <p class="subhead" id="addrHead">Firm address</p>
+          <div class="field" id="f-addr1">
+            <label class="label" for="i-addr1">Address line 1<span class="req">*</span></label>
+            <input class="input" id="i-addr1" type="text" placeholder="Shop / building no." autocomplete="off">
+            <div class="helper error">Enter address line 1.</div>
+          </div>
+          <div class="field" id="f-addr2">
+            <label class="label" for="i-addr2">Address line 2<span class="req">*</span></label>
+            <input class="input" id="i-addr2" type="text" placeholder="Street / locality" autocomplete="off">
+            <div class="helper error">Enter address line 2.</div>
+          </div>
+          <div class="field" id="f-state">
+            <label class="label" for="i-state">State<span class="req">*</span></label>
+            <select class="select" id="i-state"></select>
+            <div class="helper error">Select a state.</div>
+          </div>
+          <div class="field" id="f-district">
+            <label class="label" for="i-district">District<span class="req">*</span></label>
+            <select class="select" id="i-district"></select>
+            <div class="helper error">Select a district.</div>
+          </div>
+          <div class="field" id="f-pincode">
+            <label class="label" for="i-pincode">Pincode<span class="req">*</span></label>
+            <select class="select" id="i-pincode"></select>
+            <div class="helper error">Select a pincode.</div>
+          </div>
+          <div class="field" id="f-city">
+            <label class="label" for="i-city">City<span class="req">*</span></label>
+            <input class="input" id="i-city" type="text" placeholder="Enter city" autocomplete="off">
+            <div class="helper error">Enter the city.</div>
+          </div>
+
+          <!-- 2c · manufacturer & role, geography-scoped -->
+          <p class="subhead">Manufacturer &amp; role<span class="req">*</span></p>
+          <div class="field" id="f-mfr">
+            <div id="mfrBlock"></div>
+            <div class="helper error">Complete at least one manufacturer and role.</div>
+          </div>
+
+          <!-- 2d + 2e · VCP only -->
+          <div id="vcpExtra">
+            <p class="subhead">Shop category<span class="req">*</span></p>
+            <div class="field" id="f-cats">
+              <div class="chips" id="catChips"></div>
+              <div class="helper error">Select at least one shop category.</div>
+            </div>
+
+            <p class="subhead">Shop location<span class="req">*</span></p>
+            <div class="field" id="f-loc">
+              <div class="loc" id="locCard"></div>
+              <div class="helper error">Capture the shop location.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== REVIEW ==================== -->
+        <section class="sec" id="sec-review" data-locked="1">
+          <div class="sec-head">
+            <span class="overline">Review</span>
+          </div>
+          <div id="reviewCards"></div>
+        </section>
+      </div>
+
+      <div class="footer">
+        <button class="btn btn-primary" id="submit" disabled>Onboard</button>
+        <button class="btn btn-text" id="cancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- ============================ SUCCESS ============================ -->
+    <section class="view" id="v-success">
+      <div class="success">
+        <div class="ring"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h2>Onboarding successful</h2>
+        <p id="okName">—</p>
+        <p id="okRole">—</p>
+        <div class="bid" id="okId">—</div>
+      </div>
+      <div class="footer">
+        <button class="btn btn-primary" id="okDone">Done</button>
+        <button class="btn btn-text" id="okAgain">Onboard another</button>
+      </div>
+    </section>
+
+   </div><!-- /.app -->
+
+   <!-- ============================ OVERLAYS ============================ -->
+   <div class="backdrop" id="backdrop"></div>
+
+   <div class="sheet" id="sheet">
+     <div class="handle"></div>
+     <div class="sheet-title" id="sheetTitle">Select</div>
+     <div class="sheet-sub" id="sheetSub"></div>
+     <div class="opts" id="sheetOpts"></div>
+   </div>
+
+   <div class="modal" id="modal">
+     <h3 id="modalTitle">Title</h3>
+     <p id="modalBody">Body</p>
+     <button class="btn btn-primary" id="modalPrimary">OK</button>
+     <button class="btn btn-text" id="modalSecondary">Cancel</button>
+   </div>
+  </div><!-- /.phone -->
+</div>
+
+<script>
+/* ================================================================
+   Mock master data — the vendor replaces each of these with an API.
+   ================================================================ */
+
+/* state -> districts   (GET /masters/districts?state=) */
+const DISTRICTS = {
+  "Gujarat":       ["Ahmedabad","Kheda","Gir Somnath","Surat","Vadodara"],
+  "Maharashtra":   ["Pune","Mumbai Suburban","Nashik","Thane"],
+  "Rajasthan":     ["Jaipur","Ajmer","Jodhpur"],
+  "Karnataka":     ["Bengaluru Urban","Mysuru","Belagavi"],
+  "Tamil Nadu":    ["Chennai","Coimbatore","Madurai"],
+  "Uttar Pradesh": ["Lucknow","Kanpur Nagar","Varanasi"]
+};
+const STATES = Object.keys(DISTRICTS);
+
+/* district -> pincodes   (GET /masters/pincodes?district=) */
+const PINCODES_BY_DISTRICT = {
+  "Ahmedabad":["380001","380015"], "Kheda":["387001","387355","387620"],
+  "Gir Somnath":["362560","362265"], "Surat":["395003"], "Vadodara":["390001"],
+  "Pune":["411001","411038","412105"], "Mumbai Suburban":["400053","400072"],
+  "Nashik":["422001"], "Thane":["400601"],
+  "Jaipur":["302001","302012"], "Ajmer":["305001"], "Jodhpur":["342001"],
+  "Bengaluru Urban":["560001","560068"], "Mysuru":["570001"], "Belagavi":["590001"],
+  "Chennai":["600001","600042"], "Coimbatore":["641001"], "Madurai":["625001"],
+  "Lucknow":["226001","226010"], "Kanpur Nagar":["208001"], "Varanasi":["221001"]
+};
+
+/* pincode -> city */
+const CITY_BY_PINCODE = {
+  "380001":"Ahmedabad","380015":"Ahmedabad",
+  "387001":"Nadiad","387355":"Nadiad","387620":"Kapadvanj",
+  "362560":"Veraval","362265":"Una","395003":"Surat","390001":"Vadodara",
+  "411001":"Pune","411038":"Pune","412105":"Baramati",
+  "400053":"Mumbai","400072":"Mumbai","422001":"Nashik","400601":"Thane",
+  "302001":"Jaipur","302012":"Jaipur","305001":"Ajmer","342001":"Jodhpur",
+  "560001":"Bengaluru","560068":"Bengaluru","570001":"Mysuru","590001":"Belagavi",
+  "600001":"Chennai","600042":"Chennai","641001":"Coimbatore","625001":"Madurai",
+  "226001":"Lucknow","226010":"Lucknow","208001":"Kanpur","221001":"Varanasi"
+};
+
+/* who is live where, and in which roles.
+   Mirrors GET /manufacturers?district=&pincode= — a pincode entry overrides
+   its district entry, so both levels of scoping are demonstrated. */
+const GEO_MFR = {
+  district:{
+    "Kheda":          [{name:"Dalmia Cement",    roles:["Dealer","Sub-Dealer","Mason","Painter"]},
+                       {name:"UltraTech Cement", roles:["Dealer","Contractor","Electrician"]}],
+    "Gir Somnath":    [{name:"Ambuja Cements",   roles:["Sub-Dealer","Retailer","Mason"]},
+                       {name:"Shree Cement",     roles:["Dealer","Bar Bender"]}],
+    "Ahmedabad":      [{name:"UltraTech Cement", roles:["Dealer","Distributor","Electrician"]},
+                       {name:"Dalmia Cement",    roles:["Retailer","Mason","Shilpkar"]}],
+    "Surat":          [{name:"ACC Limited",      roles:["Dealer","Painter","Plumber"]}],
+    "Vadodara":       [{name:"JK Lakshmi Cement",roles:["Sub-Dealer","Contractor"]}],
+    "Pune":           [{name:"UltraTech Cement", roles:["Dealer","Distributor","Shilpkar"]},
+                       {name:"ACC Limited",      roles:["Retailer","Painter","Electrician"]},
+                       {name:"JK Lakshmi Cement",roles:["Sub-Dealer","Bar Bender"]}],
+    "Mumbai Suburban":[{name:"Ambuja Cements",   roles:["Dealer","Retailer"]},
+                       {name:"ACC Limited",      roles:["Mason","Plumber","Electrician"]}],
+    "Nashik":         [],                       /* nobody live at all — empty state */
+    "Thane":          [{name:"Shree Cement",     roles:["Dealer","Bar Bender"]}],
+    "Jaipur":         [{name:"Shree Cement",     roles:["Dealer","Mason","Bar Bender"]},
+                       {name:"JK Lakshmi Cement",roles:["Distributor","Electrician"]}],
+    "Ajmer":          [{name:"Dalmia Cement",    roles:["Sub-Dealer","Painter"]}],
+    "Jodhpur":        [],                       /* nobody live at all — empty state */
+    "Bengaluru Urban":[{name:"Dalmia Cement",    roles:["Retailer","Plumber"]},
+                       {name:"ACC Limited",      roles:["Dealer","Sub-Dealer","Shilpkar"]}],
+    "Mysuru":         [{name:"UltraTech Cement", roles:["Dealer","Mason"]}],
+    "Belagavi":       [{name:"Ambuja Cements",   roles:["Retailer","Contractor"]}],
+    "Chennai":        [{name:"ACC Limited",      roles:["Dealer","Contractor"]},
+                       {name:"UltraTech Cement", roles:["Retailer","Electrician"]}],
+    "Coimbatore":     [{name:"Shree Cement",     roles:["Sub-Dealer","Shilpkar"]}],
+    "Madurai":        [{name:"JK Lakshmi Cement",roles:["Dealer"]}],  /* VCP only — category-specific empty state */
+    "Lucknow":        [{name:"JK Lakshmi Cement",roles:["Dealer","Mason"]},
+                       {name:"Shree Cement",     roles:["Sub-Dealer","Painter"]}],
+    "Kanpur Nagar":   [{name:"Dalmia Cement",    roles:["Distributor","Plumber"]}],
+    "Varanasi":       [{name:"Ambuja Cements",   roles:["Dealer","Shilpkar"]}]
+  },
+  pincode:{
+    /* narrower than their district — only these are live at this pincode */
+    "387620":[{name:"Ambuja Cements",   roles:["Sub-Dealer","Mason"]}],
+    "411038":[{name:"UltraTech Cement", roles:["Distributor"]},
+              {name:"ACC Limited",      roles:["Painter"]}]
+  }
+};
+
+/* used only to classify a chosen role into a category — never to populate a picker */
+const VCP_ROLES = ["Dealer","Sub-Dealer","Distributor","Retailer"];
+const INF_ROLES = ["Mason","Shilpkar","Painter","Contractor","Plumber","Bar Bender","Electrician"];
+
+/* placeholder labels pending the real shop-category master */
+const SHOP_CATS = ["Category A","Category B","Category C","Category D","Category E"];
+
+const GENDERS = ["Male","Female","Other"];
+
+/* GET /gst/{gstin} — district and pincode must exist in the geography tables
+   so that the prefill unlocks the manufacturer block */
+const GST_MASTER = {
+  "24AAACR2121C1Z9":{firm:"ABC Traders Pvt. Ltd.", pan:"AAACR2121C",
+                     addr1:"GF-1, C-16", addr2:"Ring Road",
+                     state:"Gujarat", district:"Kheda", pincode:"387355", city:"Nadiad"},
+  "27AABCU9603R1ZM":{firm:"Shree Cement Depot", pan:"AABCU9603R",
+                     addr1:"Shop no. 11", addr2:"FC Road",
+                     state:"Maharashtra", district:"Pune", pincode:"411001", city:"Pune"}
+};
+
+/* mobiles already onboarded on HUMBEE */
+const EXISTING_MOBILES = ["9876543210"];
+/* the OTP this prototype accepts */
+const GOOD_OTP = "1390";
+
+/* ================================================================
+   State
+   ================================================================ */
+const S = {
+  category:null,                   // 'VCP' | 'Influencer' — declared by the entry sheet, never derived
+  name:"", mobile:"",
+  otpSent:false, otpVerified:false, otpBad:false, resendLeft:0,
+  dob:"", gender:"",
+  idMode:"GST",                    // 'GST' | 'PAN' | 'NONE'
+  gst:"", pan:"", firm:"", gstLocked:false,
+  addr1:"", addr2:"", state:"", district:"", pincode:"", city:"",
+  mfrRows:[{m:"",r:""}],
+  cats:[],
+  loc:null, locBusy:false,
+  geoNote:"",                      // set when a geography change cleared the rows
+  touched:{}, showErrors:false
+};
+
+const $  = id => document.getElementById(id);
+const on = (el,ev,fn) => el.addEventListener(ev,fn);
+
+/* ================================================================
+   Geography → manufacturers → category
+   ================================================================ */
+/* pincode entry wins over district entry; missing geography yields nothing */
+function liveMfrs(){
+  if(!S.district) return [];
+  return GEO_MFR.pincode[S.pincode] || GEO_MFR.district[S.district] || [];
+}
+const catOf = role => VCP_ROLES.includes(role) ? "VCP" : "Influencer";
+
+const isVcp = () => S.category === "VCP";
+
+/* manufacturers live here that run at least one role in the declared category */
+function offerableMfrs(){
+  return liveMfrs().filter(m => m.roles.some(r => catOf(r) === S.category));
+}
+/* a manufacturer's live roles here, narrowed to the declared category */
+function rolesFor(name){
+  const m = liveMfrs().find(x => x.name === name);
+  if(!m) return [];
+  return m.roles.filter(r => catOf(r) === S.category);
+}
+
+/* ================================================================
+   Validation
+   ================================================================ */
+const RE = {
+  mobile:/^[6-9]\d{9}$/,
+  gst:/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/,
+  pan:/^[A-Z]{5}\d{4}[A-Z]$/
+};
+
+const okName   = () => S.name.trim().length > 0;
+const okMobile = () => RE.mobile.test(S.mobile);
+/* DOB and Gender are asked of both categories but never block */
+const okUser   = () => okName() && okMobile() && S.otpVerified;
+
+/* identity is asked of VCPs only, and is required there */
+const okGstField = () => (!isVcp() || S.idMode !== "GST") ? true : RE.gst.test(S.gst);
+const okPanField = () => (!isVcp() || S.idMode !== "PAN") ? true : RE.pan.test(S.pan);
+const okIdentity = () => okGstField() && okPanField();
+
+const okFirm = () => !isVcp() || S.firm.trim().length > 0;
+const addrComplete = () =>
+  !!(S.addr1.trim() && S.addr2.trim() && S.state && S.district && S.pincode && S.city.trim());
+
+const okMfr  = () => S.mfrRows.some(r => r.m && r.r);
+const okCats = () => !isVcp() || S.cats.length > 0;
+const okLoc  = () => !isVcp() || !!S.loc;
+
+const okFirmSec = () => okIdentity() && okFirm() && addrComplete() && okMfr() && okCats() && okLoc();
+const allOk     = () => okUser() && okFirmSec();
+
+/* ================================================================
+   Geography changes invalidate manufacturer selections
+   ================================================================ */
+function invalidateGeoSelections(reason){
+  const had = S.mfrRows.some(r => r.m || r.r);
+  S.mfrRows = [{m:"",r:""}];
+  S.cats = []; S.loc = null; S.locBusy = false;
+  S.geoNote = had ? reason : "";
+}
+
+/* ================================================================
+   Chips
+   ================================================================ */
+function chipRow(host, options, isSel, onPick){
+  host.innerHTML = "";
+  options.forEach(o => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (isSel(o) ? " sel" : "");
+    b.textContent = o;
+    on(b,"click",() => onPick(o));
+    host.appendChild(b);
+  });
+}
+
+/* a VCP must produce one of these two — there is no "neither" option */
+function renderIdModeChips(){
+  const host = $("idModeChips");
+  host.innerHTML = "";
+  ["GST","PAN"].forEach(mode => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (S.idMode === mode ? " sel" : "");
+    b.textContent = mode;
+    on(b,"click",() => {
+      if(S.idMode === mode) return;
+      S.idMode = mode;
+      clearGstFill();
+      if(mode !== "GST"){ S.gst = ""; $("i-gst").value = ""; }
+      if(mode !== "PAN"){ S.pan = ""; $("i-pan").value = ""; }
+      delete S.touched["f-gst"]; delete S.touched["f-pan"];
+      render();
+    });
+    host.appendChild(b);
+  });
+}
+
+const renderGenderChips = () => chipRow($("genderChips"), GENDERS,
+  o => S.gender === o, o => { S.gender = (S.gender === o) ? "" : o; render(); });
+
+const renderCatChips = () => chipRow($("catChips"), SHOP_CATS,
+  o => S.cats.includes(o),
+  o => { S.cats = S.cats.includes(o) ? S.cats.filter(c => c !== o) : S.cats.concat(o); render(); });
+
+/* ================================================================
+   Manufacturer & role block
+   ================================================================ */
+function renderMfrBlock(){
+  const host = $("mfrBlock");
+
+  /* gate 1 — address first, because the list is scoped to district + pincode */
+  if(!addrComplete()){
+    host.innerHTML =
+      '<div class="gate"><strong>Complete the firm address first</strong>' +
+      'Manufacturers are offered by geography — fill in the address to see who is live in that district and pincode.</div>';
+    return;
+  }
+
+  const geoLine =
+    '<div class="geo-head"><svg class="pin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+    '<path d="M12 22s8-6.6 8-12a8 8 0 10-16 0c0 5.4 8 12 8 12z"/><circle cx="12" cy="10" r="2.5"/></svg>' +
+    'Live in ' + S.district + ' &middot; ' + S.pincode + '</div>';
+
+  /* gate 2 — nobody live here *for this category*; never a dead end.
+     A district can have manufacturers and still offer an Influencer nothing. */
+  if(!offerableMfrs().length){
+    const who = S.category === "VCP" ? "a VCP" : "an Influencer";
+    host.innerHTML = geoLine +
+      '<div class="empty"><strong>No manufacturer is live in ' + S.district + ' &middot; ' + S.pincode +
+      ' for ' + who + ' yet.</strong>' +
+      'Check the address, or pick a different pincode in this district. ' +
+      '<button class="linkbtn" id="changeAddr">Change address</button></div>';
+    on($("changeAddr"),"click",() => $("f-addr1").scrollIntoView({behavior:"smooth",block:"start"}));
+    return;
+  }
+
+  const note = S.geoNote
+    ? '<div class="info">' + S.geoNote + '</div>'
+    : '';
+
+  let rows = "";
+  S.mfrRows.forEach((row,i) => {
+    rows +=
+      '<div class="mfr-row">' +
+        '<div class="rowlabel">Association ' + (i+1) + '</div>' +
+        '<div class="field" style="margin-bottom:8px">' +
+          '<label class="label">Manufacturer<span class="req">*</span></label>' +
+          '<button type="button" class="picker' + (row.m ? '' : ' empty') + '" data-pick="m" data-i="' + i + '">' +
+            (row.m || "Select manufacturer") + '</button>' +
+        '</div>' +
+        '<div class="field" style="margin-bottom:0">' +
+          '<label class="label">Role<span class="req">*</span></label>' +
+          '<button type="button" class="picker' + (row.r ? '' : ' empty') + '" data-pick="r" data-i="' + i + '"' +
+            (row.m ? '' : ' disabled') + '>' +
+            (row.r || (row.m ? "Select role" : "Select a manufacturer first")) + '</button>' +
+        '</div>' +
+        (S.mfrRows.length > 1 ? '<button class="del" data-del="' + i + '" aria-label="Remove">&times;</button>' : '') +
+      '</div>';
+  });
+
+  /* can another association still be added? */
+  const used = S.mfrRows.map(r => r.m).filter(Boolean);
+  const remaining = offerableMfrs().filter(m => !used.includes(m.name)).length;
+  const addBtn = remaining
+    ? '<button class="linkbtn" id="addMfr" style="margin-top:4px">+ Add manufacturer</button>'
+    : '<div class="helper">Every manufacturer live in this geography has been added.</div>';
+
+  host.innerHTML = geoLine + note + rows + addBtn;
+
+  host.querySelectorAll("[data-pick]").forEach(b => on(b,"click",() => {
+    const i = +b.dataset.i, kind = b.dataset.pick;
+    S.geoNote = "";
+    if(kind === "m"){
+      const used2 = S.mfrRows.map((r,j) => j === i ? null : r.m).filter(Boolean);
+      const opts = offerableMfrs().filter(m => !used2.includes(m.name));
+      openSheet("Select manufacturer", "Live in " + S.district + " · " + S.pincode,
+        opts.map(m => ({value:m.name, sub:rolesFor(m.name).join(", ")})),
+        S.mfrRows[i].m,
+        v => { S.mfrRows[i].m = v; S.mfrRows[i].r = ""; render(); });
+    } else {
+      const opts = rolesFor(S.mfrRows[i].m).map(r => ({value:r}));
+      const sub = S.mfrRows[i].m + " · " + S.category + " roles in this geography";
+      openSheet("Select role", sub, opts, S.mfrRows[i].r,
+        v => { S.mfrRows[i].r = v; render(); });
+    }
+  }));
+  host.querySelectorAll("[data-del]").forEach(b => on(b,"click",() => {
+    S.mfrRows.splice(+b.dataset.del,1); render();
+  }));
+  if($("addMfr")) on($("addMfr"),"click",() => { S.mfrRows.push({m:"",r:""}); S.geoNote=""; render(); });
+}
+
+/* ================================================================
+   Location
+   ================================================================ */
+function renderLoc(){
+  const c = $("locCard");
+  if(S.locBusy){
+    c.className = "loc";
+    c.innerHTML = '<div class="loc-title">Capturing location…</div>' +
+                  '<div class="loc-meta">Hold still while GPS settles.</div>';
+    return;
+  }
+  if(S.loc){
+    c.className = "loc done";
+    c.innerHTML =
+      '<div class="loc-title"><svg class="ok" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Location captured</div>' +
+      '<div class="loc-meta">' + S.loc.lat.toFixed(6) + ', ' + S.loc.lng.toFixed(6) +
+      ' &middot; &plusmn;' + S.loc.acc + ' m</div>' +
+      '<button class="linkbtn" id="recap" style="margin-top:8px">Re-capture</button>';
+    on($("recap"),"click",captureLoc);
+    return;
+  }
+  c.className = "loc";
+  c.innerHTML =
+    '<div class="loc-title">Shop location not captured</div>' +
+    '<div class="loc-meta" style="margin-bottom:12px">Stand at the shop entrance before capturing.</div>' +
+    '<button class="btn btn-outline btn-sm" id="cap">Capture location</button>';
+  on($("cap"),"click",captureLoc);
+}
+function captureLoc(){
+  S.locBusy = true; S.loc = null; render();
+  setTimeout(() => {
+    S.locBusy = false;
+    S.loc = {lat:22.6939 + Math.random()*0.01, lng:72.8615 + Math.random()*0.01, acc:6 + Math.round(Math.random()*8)};
+    render();
+  }, 1200);
+}
+
+/* ================================================================
+   Review
+   ================================================================ */
+function renderReview(){
+  const host = $("reviewCards");
+  const addr = [S.addr1, S.addr2].filter(Boolean).join(", ") + "\n" +
+               [S.city, S.district].filter(Boolean).join(", ") + "\n" +
+               [S.state, S.pincode].filter(Boolean).join(" ");
+  const assoc = S.mfrRows.filter(r => r.m && r.r).map(r => r.m + " — " + r.r).join("\n") || "—";
+
+  let html =
+    '<div class="card"><div class="card-head"><div class="card-title">User details</div>' +
+    '<button class="linkbtn" data-jump="sec-user">Edit</button></div>' +
+    '<dl class="kv">' +
+      '<dt>Buyer type</dt><dd>' + (S.category || "—") + '</dd>' +
+      '<dt>Name</dt><dd>' + (S.name || "—") + '</dd>' +
+      '<dt>Mobile number</dt><dd>' + (S.mobile || "—") + '</dd>' +
+      /* both are optional, so they only earn a row when answered */
+      (S.dob    ? '<dt>Date of birth</dt><dd>' + S.dob + '</dd>' : '') +
+      (S.gender ? '<dt>Gender</dt><dd>' + S.gender + '</dd>' : '') +
+    '</dl></div>';
+
+  html +=
+    '<div class="card"><div class="card-head"><div class="card-title">' +
+      (isVcp() ? "Firm details" : "Address &amp; association") + '</div>' +
+    '<button class="linkbtn" data-jump="sec-firm">Edit</button></div>' +
+    '<dl class="kv">' +
+      (isVcp() ?
+        (S.gst ? '<dt>GST</dt><dd>' + S.gst + '</dd>' : '') +
+        (S.pan ? '<dt>PAN</dt><dd>' + S.pan + '</dd>' : '') +
+        '<dt>Firm name</dt><dd>' + (S.firm || "—") + '</dd>'
+        : '') +
+      '<dt>Address</dt><dd>' + addr + '</dd>' +
+      '<dt>Manufacturer &amp; role</dt><dd>' + assoc + '</dd>' +
+      (isVcp() ?
+        '<dt>Shop category</dt><dd>' + (S.cats.join(", ") || "—") + '</dd>' +
+        '<dt>Location</dt><dd>' + (S.loc ? S.loc.lat.toFixed(6) + ", " + S.loc.lng.toFixed(6) : "—") + '</dd>'
+        : '') +
+    '</dl></div>';
+
+  host.innerHTML = html;
+  host.querySelectorAll("[data-jump]").forEach(b => on(b,"click",() => {
+    $(b.dataset.jump).scrollIntoView({behavior:"smooth", block:"start"});
+  }));
+}
+
+/* ================================================================
+   Selects — state, district, pincode
+   ================================================================ */
+function fillSelect(el, placeholder, list, value){
+  el.innerHTML = '<option value="">' + placeholder + '</option>' +
+                 list.map(v => '<option>' + v + '</option>').join("");
+  el.value = list.includes(value) ? value : "";
+}
+
+/* ================================================================
+   Overlays
+   ================================================================ */
+let sheetPick = null;
+function openSheet(title, sub, options, current, cb){
+  sheetPick = cb;
+  $("sheetTitle").textContent = title;
+  $("sheetSub").textContent = sub || "";
+  $("sheetSub").style.display = sub ? "block" : "none";
+  const host = $("sheetOpts");
+  host.innerHTML = "";
+  options.forEach(o => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "opt" + (o.value === current ? " sel" : "");
+    b.innerHTML = '<span class="radio"></span><span>' + o.value +
+                  (o.sub ? '<br><span class="sub">' + o.sub + '</span>' : '') + '</span>';
+    on(b,"click",() => { closeOverlays(); if(sheetPick) sheetPick(o.value); });
+    host.appendChild(b);
+  });
+  $("backdrop").classList.add("on");
+  $("sheet").classList.add("on");
+}
+
+let modalPrimaryFn = null, modalSecondaryFn = null;
+function openModal(title, body, primaryLabel, primaryFn, secondaryLabel, secondaryFn){
+  $("modalTitle").textContent = title;
+  $("modalBody").textContent = body;
+  $("modalPrimary").textContent = primaryLabel;
+  $("modalSecondary").textContent = secondaryLabel;
+  modalPrimaryFn = primaryFn; modalSecondaryFn = secondaryFn;
+  $("backdrop").classList.add("on");
+  $("modal").classList.add("on");
+}
+function closeOverlays(){
+  $("backdrop").classList.remove("on");
+  $("sheet").classList.remove("on");
+  $("modal").classList.remove("on");
+}
+on($("backdrop"),"click",closeOverlays);
+on($("modalPrimary"),"click",() => { const f = modalPrimaryFn; closeOverlays(); if(f) f(); });
+on($("modalSecondary"),"click",() => { const f = modalSecondaryFn; closeOverlays(); if(f) f(); });
+
+/* ================================================================
+   OTP
+   ================================================================ */
+const otpBoxes = () => [...document.querySelectorAll("[data-otp]")];
+const otpValue = () => otpBoxes().map(b => b.value).join("");
+
+function sendOtp(){
+  if(EXISTING_MOBILES.includes(S.mobile)){
+    openModal("This user already exists",
+      "+91 " + S.mobile + " is already onboarded on HUMBEE. Open the existing profile, or continue to add a new firm against the same user.",
+      "Continue anyway", startOtp, "View profile", () => {});
+    return;
+  }
+  startOtp();
+}
+function startOtp(){
+  S.otpSent = true; S.otpVerified = false; S.otpBad = false;
+  otpBoxes().forEach(b => b.value = "");
+  S.resendLeft = 55;
+  tickResend();
+  render();
+  setTimeout(() => otpBoxes()[0].focus(), 60);
+}
+let resendTimer = null;
+function tickResend(){
+  clearInterval(resendTimer);
+  resendTimer = setInterval(() => {
+    S.resendLeft--;
+    if(S.resendLeft <= 0){ S.resendLeft = 0; clearInterval(resendTimer); }
+    paintResend();
+  }, 1000);
+  paintResend();
+}
+function paintResend(){
+  const t = $("resendTimer"), a = $("resend");
+  if(S.resendLeft > 0){
+    t.textContent = "OTP in 00:" + String(S.resendLeft).padStart(2,"0");
+    a.setAttribute("aria-disabled","true");
+  } else {
+    t.textContent = "";
+    a.removeAttribute("aria-disabled");
+  }
+}
+otpBoxes().forEach((box,i) => {
+  on(box,"input",() => {
+    if(!S.otpSent){ box.value = ""; return; }   /* boxes are inert until an OTP is sent */
+    box.value = box.value.replace(/\D/g,"").slice(0,1);
+    S.otpBad = false;
+    if(box.value && i < 3) otpBoxes()[i+1].focus();
+    const v = otpValue();
+    if(v.length === 4){
+      if(v === GOOD_OTP){ S.otpVerified = true; box.blur(); } else { S.otpBad = true; }
+    } else {
+      S.otpVerified = false;
+    }
+    render();
+  });
+  on(box,"keydown",e => { if(e.key === "Backspace" && !box.value && i > 0) otpBoxes()[i-1].focus(); });
+});
+on($("sendOtp"),"click",sendOtp);
+on($("resend"),"click",() => { if(S.resendLeft === 0) startOtp(); });
+
+/* ================================================================
+   GST lookup
+   ================================================================ */
+function clearGstFill(){
+  if(!S.gstLocked) return;
+  S.gstLocked = false;
+  S.pan = ""; S.firm = "";
+  S.addr1 = ""; S.addr2 = ""; S.state = ""; S.district = ""; S.pincode = ""; S.city = "";
+  invalidateGeoSelections("The address was cleared, so the manufacturer selection was reset.");
+}
+function tryGstLookup(){
+  if(S.idMode !== "GST" || !RE.gst.test(S.gst)) return;
+  const rec = GST_MASTER[S.gst];
+  S.pan = rec ? rec.pan : S.gst.slice(2,12);
+  if(rec){
+    const geoChanged = (S.district !== rec.district) || (S.pincode !== rec.pincode);
+    S.firm = rec.firm; S.addr1 = rec.addr1; S.addr2 = rec.addr2;
+    S.state = rec.state; S.district = rec.district; S.pincode = rec.pincode; S.city = rec.city;
+    S.gstLocked = true;
+    if(geoChanged) invalidateGeoSelections(
+      "The GST address is in " + rec.district + " · " + rec.pincode + ", so the manufacturer selection was reset.");
+  }
+  render();
+}
+
+/* ================================================================
+   Field wiring
+   ================================================================ */
+function bindText(id, key, transform){
+  on($(id),"input",() => {
+    let v = $(id).value;
+    if(transform) v = transform(v);
+    $(id).value = v;
+    S[key] = v;
+    render();
+  });
+}
+bindText("i-name","name");
+bindText("i-mobile","mobile", v => v.replace(/\D/g,"").slice(0,10));
+bindText("i-firm","firm");
+bindText("i-addr1","addr1");
+bindText("i-addr2","addr2");
+bindText("i-city","city");
+bindText("i-gst","gst", v => v.toUpperCase().replace(/[^0-9A-Z]/g,"").slice(0,15));
+bindText("i-pan","pan", v => v.toUpperCase().replace(/[^0-9A-Z]/g,"").slice(0,10));
+
+/* changing the number invalidates any prior verification */
+on($("i-mobile"),"input",() => {
+  if(S.otpSent || S.otpVerified){
+    S.otpSent = false; S.otpVerified = false; S.otpBad = false;
+    otpBoxes().forEach(b => b.value = "");
+    clearInterval(resendTimer);
+    render();
+  }
+});
+on($("i-gst"),"blur",tryGstLookup);
+["change","input"].forEach(ev => on($("i-dob"),ev,() => { S.dob = $("i-dob").value; render(); }));
+
+on($("i-state"),"change",() => {
+  S.state = $("i-state").value;
+  S.district = ""; S.pincode = ""; S.city = "";
+  invalidateGeoSelections("The state changed, so the manufacturer selection was reset.");
+  render();
+});
+on($("i-district"),"change",() => {
+  S.district = $("i-district").value;
+  S.pincode = ""; S.city = "";
+  invalidateGeoSelections("The district changed, so the manufacturer selection was reset.");
+  render();
+});
+on($("i-pincode"),"change",() => {
+  S.pincode = $("i-pincode").value;
+  S.city = CITY_BY_PINCODE[S.pincode] || "";
+  invalidateGeoSelections("The pincode changed, so the manufacturer selection was reset.");
+  render();
+});
+
+/* ================================================================
+   Navigation
+   ================================================================ */
+const show = view => ["v-launcher","v-onboard","v-success"]
+  .forEach(v => $(v).classList.toggle("on", v === view));
+
+/* the CTA asks which flow to run before opening the form — the two are decoupled */
+function askCategory(){
+  openSheet("Who are you onboarding?", "The two flows ask for different things.",
+    [{value:"VCP",        sub:"Dealer, Sub-Dealer, Distributor, Retailer"},
+     {value:"Influencer", sub:"Mason, Painter, Shilpkar, Electrician and other trades"}],
+    S.category,
+    v => { S.category = v; render(); show("v-onboard"); $("body").scrollTop = 0; });
+}
+on($("go"),"click",askCategory);
+on($("back"),"click",() => { reset(); show("v-launcher"); });
+
+on($("cancel"),"click",() => openModal(
+  "Cancel onboarding?",
+  "The details captured so far will be discarded. This cannot be undone.",
+  "Yes, cancel", () => { reset(); show("v-launcher"); },
+  "No, continue", () => {}
+));
+
+on($("submit"),"click",() => {
+  S.showErrors = true;
+  render();
+  if(!allOk()) return;
+  /* an influencer has no firm, so the person's own name identifies the record */
+  $("okName").textContent = isVcp() ? S.firm : S.name;
+  $("okRole").textContent = S.category + " · " +
+    S.mfrRows.filter(r => r.m && r.r).map(r => r.m + " (" + r.r + ")").join(", ");
+  $("okId").textContent   = "BUYER ID · HB" + Math.floor(100000 + Math.random()*899999);
+  show("v-success");
+});
+on($("okDone"),"click",() => { reset(); show("v-launcher"); });
+on($("okAgain"),"click",() => { reset(); show("v-launcher"); askCategory(); });
+
+function reset(){
+  Object.assign(S,{
+    category:null,
+    name:"", mobile:"",
+    otpSent:false, otpVerified:false, otpBad:false, resendLeft:0,
+    dob:"", gender:"",
+    idMode:"GST", gst:"", pan:"", firm:"", gstLocked:false,
+    addr1:"", addr2:"", state:"", district:"", pincode:"", city:"",
+    mfrRows:[{m:"",r:""}], cats:[], loc:null, locBusy:false,
+    geoNote:"", touched:{}, showErrors:false
+  });
+  clearInterval(resendTimer);
+  ["i-name","i-mobile","i-gst","i-pan","i-firm","i-addr1","i-addr2","i-city","i-dob"]
+    .forEach(id => $(id).value = "");
+  otpBoxes().forEach(b => b.value = "");
+  render();
+}
+
+/* ================================================================
+   render — reflect state into the DOM
+   ================================================================ */
+function mark(fieldId, ok){
+  const f = $(fieldId);
+  if(!f) return;
+  /* the force arg must be a real boolean — classList.toggle(cls, undefined) toggles instead of removing */
+  f.classList.toggle("err", Boolean((S.showErrors || S.touched[fieldId]) && !ok));
+}
+
+/* blurring a control marks its field, so its error shows without waiting for submit */
+[["i-name","f-name"],["i-mobile","f-mobile"],["i-gst","f-gst"],["i-pan","f-pan"],
+ ["i-firm","f-firm"],["i-addr1","f-addr1"],["i-addr2","f-addr2"],["i-city","f-city"],
+ ["i-pincode","f-pincode"],["i-state","f-state"],["i-district","f-district"],["i-dob","f-dob"]]
+.forEach(([inputId,fieldId]) => on($(inputId),"blur",() => { S.touched[fieldId] = true; render(); }));
+
+function render(){
+  const vcp = isVcp();
+
+  /* ---- section gating ---- */
+  const userDone = okUser(), firmDone = okFirmSec();
+  const secs = {
+    "sec-user":   {locked:false,      done:userDone, active:!userDone},
+    "sec-firm":   {locked:!userDone,  done:firmDone, active:userDone && !firmDone},
+    "sec-review": {locked:!firmDone,  done:false,    active:firmDone}
+  };
+  Object.entries(secs).forEach(([id,st]) => {
+    const el = $(id);
+    el.dataset.locked = st.locked ? "1" : "0";
+    el.dataset.done   = st.done   ? "1" : "0";
+    el.dataset.active = st.active ? "1" : "0";
+  });
+
+  /* ---- progress: two completable steps ---- */
+  const done = [userDone, firmDone].filter(Boolean).length;
+  $("fill").style.width = (done / 2 * 100) + "%";
+  $("plabel").textContent = "Step " + Math.min(done + 1, 2) + " of 2";
+
+  /* ---- 1 · user details ---- */
+  $("i-name").value   = S.name;
+  $("i-mobile").value = S.mobile;
+  $("sendOtp").style.display  = (okMobile() && !S.otpSent) ? "flex" : "none";
+  $("otpBlock").style.display = S.otpSent ? "block" : "none";
+  $("otpAsk").textContent = "Please enter OTP sent to number " + S.mobile;
+  $("otpRow").classList.toggle("bad", S.otpBad);
+  $("verifiedTag").style.display = S.otpVerified ? "flex" : "none";
+  $("otpError").style.display = S.otpBad ? "block" : "none";
+  otpBoxes().forEach(b => b.disabled = S.otpVerified);
+  $("resendRow").style.display = S.otpVerified ? "none" : "block";
+  $("i-dob").value = S.dob;
+  renderGenderChips();
+
+  /* ---- section 2 identity: VCP wording and field set ---- */
+  $("firmOverline").textContent = vcp ? "Firm details" : "User address";
+  $("addrHead").textContent     = vcp ? "Firm address" : "Influencer address";
+  $("bizBlock").style.display   = vcp ? "block" : "none";
+
+  /* ---- 2a · business information (VCP only) ---- */
+  renderIdModeChips();
+  $("f-gst").style.display = S.idMode === "GST" ? "block" : "none";
+  $("f-pan").style.display = "block";
+  $("i-gst").value  = S.gst;
+  $("i-pan").value  = S.pan;
+  $("i-firm").value = S.firm;
+  /* in GST mode the PAN is derived, and a lookup hit owns firm name + address */
+  $("i-pan").readOnly  = S.gstLocked || S.idMode === "GST";
+  $("i-firm").readOnly = S.gstLocked;
+
+  /* ---- 2b · firm address ---- */
+  ["i-addr1","i-addr2","i-city"].forEach(id => { $(id).readOnly = S.gstLocked; });
+  $("i-addr1").value = S.addr1;
+  $("i-addr2").value = S.addr2;
+  $("i-city").value  = S.city;
+
+  fillSelect($("i-state"), "State", STATES, S.state);
+  fillSelect($("i-district"), "District", DISTRICTS[S.state] || [], S.district);
+  fillSelect($("i-pincode"), "Pincode", PINCODES_BY_DISTRICT[S.district] || [], S.pincode);
+  if(!(DISTRICTS[S.state] || []).includes(S.district)) S.district = "";
+  if(!(PINCODES_BY_DISTRICT[S.district] || []).includes(S.pincode)) S.pincode = "";
+  $("i-state").disabled    = S.gstLocked;
+  $("i-district").disabled = S.gstLocked || !S.state;
+  $("i-pincode").disabled  = S.gstLocked || !S.district;
+
+  /* ---- 2c · manufacturer & role ---- */
+  renderMfrBlock();
+
+  /* ---- 2d + 2e · VCP only ---- */
+  $("vcpExtra").style.display = vcp ? "block" : "none";
+  renderCatChips();
+  renderLoc();
+
+  /* ---- review ---- */
+  renderReview();
+
+  /* ---- error marking ---- */
+  mark("f-name",okName()); mark("f-mobile",okMobile());
+  /* DOB and Gender are optional — never marked */
+  mark("f-gst",okGstField()); mark("f-pan",okPanField());
+  mark("f-firm",okFirm());
+  mark("f-addr1",!!S.addr1.trim()); mark("f-addr2",!!S.addr2.trim());
+  mark("f-state",!!S.state); mark("f-district",!!S.district); mark("f-pincode",!!S.pincode);
+  mark("f-city",!!S.city.trim());
+  mark("f-mfr",okMfr()); mark("f-cats",okCats()); mark("f-loc",okLoc());
+
+  /* ---- footer ---- */
+  $("submit").disabled = !allOk();
+}
+
+render();
+</script>
+</body>
+</html>

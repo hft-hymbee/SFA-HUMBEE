@@ -1,0 +1,84 @@
+<!-- @dsCard group="Components" viewport="700x520" name="Mobile — SFA Shell & Field Kit" subtitle="TopAppBar, BottomNav, ListRow, states, timeline, gauge, GPS card" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; padding: 20px; font-family: var(--font-family-base); background: #F5F5F5; color: #333; }
+  .lbl { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8C8C8C; margin: 0 0 8px; }
+  .cols { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+  .card { background: #fff; border: 1px solid #E5E5E5; border-radius: 12px; overflow: hidden; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const H = window.HumbeeDesignSystem_c38d59;
+const { TopAppBar, BottomNav, ListRow, StatusChip, Icon, LockBanner, OfflineBanner, ErrorState, EmptyState, SkeletonRow, ApprovalTimeline, Gauge, LocationCaptureCard, FAB } = H;
+function Demo() {
+  return (
+    <div className="cols">
+      <div className="stack">
+        <div>
+          <p className="lbl">App shell — TopAppBar + BottomNav</p>
+          <div className="card">
+            <TopAppBar title="Today" onBell={()=>{}} bellCount={3} />
+            <ListRow leading={<span style={{width:28,height:28,borderRadius:8,background:'#995A001F',color:'#995A00',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13}}>1</span>}
+              title="Sunrise Traders" subtitle="MG Road · 2.1 km" trailing={<StatusChip status="pending" label="Not visited" />} showChevron onClick={()=>{}} />
+            <div style={{borderTop:'1px solid #F0F0F0'}} />
+            <ListRow leading={<span style={{width:28,height:28,borderRadius:8,background:'#0080001A',color:'#008000',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="CheckCircle" size={18} color="#008000" /></span>}
+              title="Metro Wholesale" subtitle="Order placed · ₹ 84,000" trailing={<StatusChip status="completed" label="Visited" />} showChevron onClick={()=>{}} />
+            <BottomNav active="today" onNav={()=>{}} />
+          </div>
+        </div>
+        <div>
+          <p className="lbl">Hard-gate & banners</p>
+          <div className="stack">
+            <LockBanner onAction={()=>{}} />
+            <OfflineBanner onRetry={()=>{}} />
+          </div>
+        </div>
+      </div>
+      <div className="stack">
+        <div>
+          <p className="lbl">Loading skeleton</p>
+          <div className="card"><SkeletonRow /><SkeletonRow /></div>
+        </div>
+        <div>
+          <p className="lbl">Empty · Error</p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div className="card"><EmptyState icon="ShoppingCartOutlined" title="No orders yet" message="Start an order from a visit." actionLabel="Start order" onAction={()=>{}} /></div>
+            <div className="card"><ErrorState onRetry={()=>{}} /></div>
+          </div>
+        </div>
+        <div>
+          <p className="lbl">Approval timeline · Gauge · GPS capture</p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,alignItems:'start'}}>
+            <div className="card" style={{padding:16}}>
+              <ApprovalTimeline steps={[
+                {label:"Submitted", time:"10:24 AM", state:"done"},
+                {label:"Approved with edits", detail:"1 line qty reduced", time:"11:02 AM", state:"edited"},
+                {label:"Sent to PO/DP", state:"current"},
+                {label:"Fulfilled", state:"future"},
+              ]} />
+            </div>
+            <div className="stack">
+              <div className="card" style={{padding:'8px 0',display:'flex',justifyContent:'center'}}><Gauge value={68} max={100} label="Monthly target" /></div>
+              <LocationCaptureCard status="captured" address="MG Road, Bengaluru" time="9:41 AM" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

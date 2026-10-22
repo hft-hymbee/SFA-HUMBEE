@@ -1,0 +1,29 @@
+{
+  "name": "humbee",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev --filter=web",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "dev:web": "pnpm --dir apps/web dev",
+    "build:web": "pnpm --dir apps/web build",
+    "lint:web": "pnpm --dir apps/web lint",
+    "dev:prototype": "python3 -m http.server 4173",
+    "mobile:sync": "pnpm --dir apps/mobile sync",
+    "mobile:ios": "pnpm --dir apps/mobile open:ios",
+    "mobile:android": "pnpm --dir apps/mobile open:android",
+    "api:dev": "echo 'Phase 2 — see apps/api/README.md' && exit 1",
+    "ci:api-baseline": "bash tooling/ci/check-api-baseline.sh",
+    "ci:contract-drift": "bash tooling/ci/check-contract-drift.sh"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.10"
+  },
+  "packageManager": "pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f",
+  "pnpm": {
+    "patchedDependencies": {
+      "@capacitor/app@8.1.1": "patches/@capacitor__app@8.1.1.patch"
+    }
+  }
+}
