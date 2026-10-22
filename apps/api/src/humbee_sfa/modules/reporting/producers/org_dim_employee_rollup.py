@@ -1,4 +1,4 @@
-"""Org employee producer rollup — stream `org` (M11 §3b.2).
+"""Org employee producer rollup — stream `org`.
 
 Every other producer in this package needs a current `dim_employee` row before it can write
 anything (`upsert_fact_employee_day` raises `DimensionNotReady` otherwise), so this one runs first

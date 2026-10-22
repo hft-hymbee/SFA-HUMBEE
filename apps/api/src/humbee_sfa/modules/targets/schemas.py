@@ -1,11 +1,11 @@
-"""Targets HTTP DTOs — M13 §3.1–§3.3, §10.
+"""Targets HTTP DTOs.
 
-Targets are SFA-owned and optional: an employee with none sells normally (R-TGT-06). Achievement is
-never a field here — it is Humbee's for `sales` and an SFA count for `outlets`/`leads` (INV-14), and
+Targets are SFA-owned and optional: an employee with none sells normally. Achievement is
+never a field here — it is Humbee's for `sales` and an SFA count for `outlets`/`leads`, and
 is read through its own endpoint rather than folded into a target.
 
 Every value is a positive integer: paise or units for `sales` depending on the manufacturer's own
-basis, a count for `outlets` and `leads` (R-TGT-12). A sales target has no single basis of its own —
+basis, a count for `outlets` and `leads`. A sales target has no single basis of its own —
 `GET /sfa/v1/targets/manufacturers` fixes each manufacturer to `amount` or `volume`, so the client
 sends only `manufacturer_id`/`line_value` per line and the server resolves `line_basis` from that
 roster. The type-conditional shape below mirrors the table's own CHECK constraints one for one, so a
@@ -87,7 +87,7 @@ class TargetShape(BaseModel):
             manufacturers = [line.manufacturer_id for line in self.lines]
             if len(set(manufacturers)) != len(manufacturers):
                 raise ValueError("a manufacturer may appear only once")
-            # R-TGT-09: the rollup is always derived from the lines, per-basis, so a client-sent
+            # The rollup is always derived from the lines, per-basis, so a client-sent
             # value is not merely ignored — accepting it would imply it could disagree.
             if self.target_value is not None:
                 raise ValueError("target_value is derived from the lines for a sales target")
@@ -108,7 +108,7 @@ class TargetShape(BaseModel):
 
 
 class CreateTargetBody(TargetShape):
-    """S-TGT1 save, for an employee and month that has no active target of this type yet."""
+    """Save for an employee and month that has no active target of this type yet."""
 
     id: str | None = Field(default=None, min_length=26, max_length=26)
     employee_id: str = Field(min_length=1, max_length=26)
@@ -120,8 +120,8 @@ class CreateTargetBody(TargetShape):
 
 
 class UpdateTargetBody(TargetShape):
-    """S-TGT1 save over an existing target. Employee, type and month are the target's identity
-    (R-TGT-08) and are not editable — changing one is a different target."""
+    """Save over an existing target. Employee, type and month are the target's identity
+    and are not editable — changing one is a different target."""
 
     target_type: TargetType
     version: int = Field(ge=1)
@@ -144,7 +144,7 @@ class TargetOut(BaseModel):
     target_type: TargetType
     period_month: date
     target_value: int | None
-    # Sales-only rollups: each is the sum of that target's lines sharing that basis (R-TGT-09).
+    # Sales-only rollups: each is the sum of that target's lines sharing that basis.
     # A sales target has no single basis, so at most one of the two is populated when every line
     # shares a basis, and both may be populated when the lines mix amount and volume manufacturers.
     target_value_amount_paise: int | None = None
@@ -186,7 +186,7 @@ class ManufacturerOut(BaseModel):
 
 class ManufacturerRosterResponse(BaseModel):
     """The roster behind a sales target's lines. Humbee owns it; SFA may
-    never create, rename or delete a manufacturer (R-TGT-04). `basis`/`uom_label` say whether that
+    never create, rename or delete a manufacturer. `basis`/`uom_label` say whether that
     manufacturer's line is entered in ₹ or units — the form has no separate basis choice."""
 
     manufacturers: list[ManufacturerOut]
@@ -225,7 +225,7 @@ ManufacturerName = Annotated[str, StringConstraints(strip_whitespace=True, min_l
 
 
 class CaptureLeadBody(BaseModel):
-    """S-LEAD1 — a salesperson captures a prospective business as a lead for follow-up. Leads are
+    """A salesperson captures a prospective business as a lead for follow-up. Leads are
     for manufacturers not on Humbee, so they are named as free text — at least one — rather than
     picked from the Humbee roster."""
 

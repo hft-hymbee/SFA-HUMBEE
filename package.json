@@ -13,9 +13,10 @@
     "mobile:sync": "pnpm --dir apps/mobile sync",
     "mobile:ios": "pnpm --dir apps/mobile open:ios",
     "mobile:android": "pnpm --dir apps/mobile open:android",
-    "api:dev": "echo 'Phase 2 — see apps/api/README.md' && exit 1",
+    "api:dev": "uv run --project apps/api --extra dev humbee-sfa-api",
     "ci:api-baseline": "bash tooling/ci/check-api-baseline.sh",
-    "ci:contract-drift": "bash tooling/ci/check-contract-drift.sh"
+    "ci:contract-drift": "bash tooling/ci/check-contract-drift.sh",
+    "ci:web": "bash tooling/ci/check-web.sh"
   },
   "devDependencies": {
     "turbo": "^2.10.10"

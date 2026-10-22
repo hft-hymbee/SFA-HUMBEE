@@ -1,11 +1,11 @@
-"""Targets business logic — M13 §3a, §6, §7.
+"""Targets business logic.
 
-This module sets targets and nothing else. Achievement is never written, derived or stored here
-(R-TGT-01, INV-14): for `sales` it is Humbee's, and for `outlets`/`leads` it is an SFA count owned
+This module sets targets and nothing else. Achievement is never written, derived or stored here:
+for `sales` it is Humbee's, and for `outlets`/`leads` it is an SFA count owned
 by reporting. A target row is therefore a denominator, and reading one never touches Humbee.
 
 Scope: a Manager sets targets for sales people and managers in their reporting tree, an Admin for
-any hierarchy member in the org, a Sales Person for nobody (R-TGT-05). Admins cannot hold a target.
+any hierarchy member in the org, a Sales Person for nobody. Admins cannot hold a target.
 The subject is loaded through `org`'s scoped read, so an out-of-tree employee is a 404 before any
 rule below runs.
 """
@@ -62,7 +62,7 @@ def _fingerprint(raw_body: bytes) -> str:
 
 def _derived_value(body: schemas.TargetShape) -> int | None:
     """A sales target stores no single `target_value` — it has no single basis, so `_payload`
-    derives the amount/volume rollups from the lines instead (R-TGT-09). Every other type carries
+    derives the amount/volume rollups from the lines instead. Every other type carries
     the value the manager typed."""
 
     if body.lines:
@@ -182,7 +182,7 @@ class TargetService:
         try:
             manufacturers = port.list_manufacturers()
         except TargetManufacturerMasterUnavailable as exc:
-            # R-TGT-04: the sales target type is disabled upstream of an empty list, never shown
+            # The sales target type is disabled upstream of an empty list, never shown
             # with one, so this must be an error rather than an empty roster.
             raise ApiError(
                 503,
@@ -210,8 +210,8 @@ class TargetService:
     def _resolve_lines(
         self, lines: list[schemas.TargetLineBody]
     ) -> list[tuple[str, str, str, str, int]]:
-        """Each line's basis and unit label come from the manufacturer roster, never the client
-        (R-TGT-04) — resolved once per write so every line in the same request reads one snapshot."""
+        """Each line's basis and unit label come from the manufacturer roster, never the client —
+        resolved once per write so every line in the same request reads one snapshot."""
 
         roster = self._manufacturer_roster()
         resolved = []
@@ -256,7 +256,7 @@ class TargetService:
         period_month: date,
         target_type: str | None,
     ) -> dict[str, Any]:
-        """S-TGT1 edit-mode load: every active target this employee holds for the month."""
+        """Edit-mode load: every active target this employee holds for the month."""
 
         scope = self._scope(claims)
         org_service.get_employee_in_scope(self._session, scope=scope, employee_id=employee_id)
@@ -393,7 +393,7 @@ class TargetService:
                     target_type=body.target_type,
                     period_month=body.period_month,
                 ):
-                    # R-TGT-08. The client reloads and PUTs rather than getting a second row.
+                    # One active target per employee, type and month. The client reloads and PUTs rather than getting a second row.
                     raise ApiError(
                         409,
                         "target_already_set",
@@ -424,7 +424,7 @@ class TargetService:
                 )
                 self._store_idempotency(
                     tenant_id=scope.tenant_id,
-                    actor_employee_id=scope.actor_employee_id,
+                    actor_employee_id=claims.employee_id,
                     endpoint=endpoint,
                     idempotency_key=idempotency_key,
                     raw_body=raw_body,
@@ -505,7 +505,7 @@ class TargetService:
             )
             self._store_idempotency(
                 tenant_id=scope.tenant_id,
-                actor_employee_id=scope.actor_employee_id,
+                actor_employee_id=claims.employee_id,
                 endpoint=endpoint,
                 idempotency_key=idempotency_key,
                 raw_body=raw_body,
@@ -519,7 +519,7 @@ class TargetService:
     def remove_target(
         self, *, claims: AccessTokenClaims, target_id: str, idempotency_key: str, raw_body: bytes
     ) -> dict[str, Any]:
-        """R-TGT-13 — a soft delete. The employee then reads "No target", which is a product state
+        """A soft delete. The employee then reads "No target", which is a product state
         rather than an absence of history: the row and its lines stay auditable."""
 
         endpoint = f"/api/v1/targets/{target_id}/remove"
@@ -543,7 +543,7 @@ class TargetService:
                 raise ApiError(404, "target_not_found", "Target was not found.")
             if target.status != "active":
                 raise ApiError(409, "target_removed", "That target has already been removed.")
-            # R-TGT-15 applies to removal too: withdrawing a closed month's target would delete the
+            # The current-or-future-month rule applies to removal too: withdrawing a closed month's target would delete the
             # denominator whatever achievement was already measured against.
             policies.authorize_period(target.period_month, today=self._today())
 
@@ -571,7 +571,7 @@ class TargetService:
             )
             self._store_idempotency(
                 tenant_id=scope.tenant_id,
-                actor_employee_id=scope.actor_employee_id,
+                actor_employee_id=claims.employee_id,
                 endpoint=endpoint,
                 idempotency_key=idempotency_key,
                 raw_body=raw_body,
@@ -590,7 +590,7 @@ class TargetService:
         idempotency_key: str,
         raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-LEAD1 — any hierarchy member captures a lead for themselves; there is no manager
+        """Any hierarchy member captures a lead for themselves; there is no manager
         approval step, unlike `create_target`, which is why this skips `policies.authorize_*` and
         `ScopeResolver` entirely and writes straight off `claims` (the same pattern
         `outlets.submit_candidate` uses for a self-scoped create)."""
@@ -727,7 +727,7 @@ class TargetService:
         to_state: str,
         before: dict[str, Any] | None,
     ) -> None:
-        """R-TGT-28 — every transition leaves an audit row carrying actor, subject, before and
+        """Every transition leaves an audit row carrying actor, subject, before and
         after, plus one domain event."""
 
         self._audit.record_transition(
@@ -767,7 +767,7 @@ class TargetService:
 def _write_conflict(exc: IntegrityError) -> ApiError:
     """Classify a constraint violation that escaped the transaction.
 
-    `uq_targets_active` is the real guard behind R-TGT-08 — the pre-check narrows the window, the
+    `uq_targets_active` is the real guard behind the one-active-target rule — the pre-check narrows the window, the
     index closes it when two managers save the same target at once. Anything else is a server-side
     bug, so it is re-raised as itself rather than reported to the client as a validation error.
     """

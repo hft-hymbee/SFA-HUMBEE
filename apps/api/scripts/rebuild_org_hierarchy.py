@@ -31,7 +31,7 @@ def main() -> None:
     if missing_tables:
         missing = ", ".join(missing_tables)
         raise RuntimeError(
-            "Schema is not bootstrapped. Run apps/api/scripts/apply_dev_sql_bootstrap.sh first. "
+            "Schema is not migrated. Run `alembic upgrade head` from apps/api first. "
             f"Missing tables: {missing}"
         )
 

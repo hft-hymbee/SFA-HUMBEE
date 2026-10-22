@@ -11,7 +11,7 @@ import threading
 from datetime import date, datetime, timedelta
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import Connection, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -100,19 +100,23 @@ class EndOfDaySweepWorker:
             sweep_grace_minutes=self._sweep_grace_minutes,
         )
         for business_date, rerun_succeeded in self._dates_to_sweep(due_date):
+
+            def sweep_body(connection: Connection, run_id: str, day: date = business_date) -> int:
+                return run_end_of_day_sweep(
+                    connection,
+                    run_id,
+                    tenant_id=self._tenant_id,
+                    business_date=day,
+                    now=self._clock.now_utc(),
+                )
+
             try:
                 self._runner.run(
                     job_name=SWEEP_JOB_NAME,
                     tenant_id=self._tenant_id,
                     business_date=business_date,
                     rerun_succeeded=rerun_succeeded,
-                    body=lambda connection, run_id, day=business_date: run_end_of_day_sweep(
-                        connection,
-                        run_id,
-                        tenant_id=self._tenant_id,
-                        business_date=day,
-                        now=self._clock.now_utc(),
-                    ),
+                    body=sweep_body,
                 )
             except Exception:
                 logger.exception(

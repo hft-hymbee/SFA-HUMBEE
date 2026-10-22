@@ -1,21 +1,21 @@
-"""The one approval engine — M06 §3a/§3b/§3c.
+"""The one approval engine.
 
 Transaction ownership lives here, not in the router. Every decision is one transaction covering the
 status change, the appended `approvals_decisions` row, the subject adapter's callback, the audit row
-and the domain events (R-AP-16); a subject-validation failure rolls the whole thing back, so a
+and the domain events; a subject-validation failure rolls the whole thing back, so a
 half-approved request is not a reachable state.
 
 `create()` is the exception, and deliberately so: subject modules call it from **inside** their own
 submission transaction, so it writes and flushes but never commits. The caller owns the commit and
 the `Idempotency-Key` claim for its own endpoint — which is why `create` takes no key. Idempotence
-of creation itself is structural: `uq_approvals_one_pending_per_subject` (R-AP-04) means a retried
+of creation itself is structural: `uq_approvals_one_pending_per_subject` means a retried
 submit cannot produce a second pending request.
 
 Notifications are written **synchronously in the same transaction** as the transition that caused
-them (M06 §5.4, R-AP-16), through `notifications.service.record` — the owning module's public write
+them, through `notifications.service.record` — the owning module's public write
 primitive, which this module calls and whose table it never touches. Delivery is poll-based with
-no transport to fail (§12 Q14). The one thing that must not happen is the reverse — a notification
-problem failing a decision (§11.3) — so every notification call site below is guarded and degrades
+no transport to fail. The one thing that must not happen is the reverse — a notification
+problem failing a decision — so every notification call site below is guarded and degrades
 to a `WARN`.
 """
 
@@ -67,8 +67,8 @@ logger = structlog.get_logger("humbee_sfa.approvals")
 
 AUDIT_ENTITY = "approvals_request"
 
-# Which timeline `state` each recorded action renders as (M06 §3a.5). `edited` doubles as the
-# escalation step, matching the design-system component's four accepted values (§12 Q6).
+# Which timeline `state` each recorded action renders as. `edited` doubles as the
+# escalation step, matching the design-system component's four accepted values.
 _TIMELINE_STATE: dict[str, str] = {
     DecisionAction.SUBMITTED: TIMELINE_DONE,
     DecisionAction.ROUTED: TIMELINE_EDITED,
@@ -91,9 +91,9 @@ _TERMINAL_STATUS_BY_ACTION: dict[str, ApprovalStatus] = {
     _REJECT: ApprovalStatus.REJECTED,
     _WITHDRAW: ApprovalStatus.WITHDRAWN,
 }
-# `ApprovalStatus` → `NotificationKind` (M06 §3.5). Not an identity map: the status enum and the
+# `ApprovalStatus` → `NotificationKind`. Not an identity map: the status enum and the
 # notification-kind enum are different vocabularies, and `approved_with_edits` is the row the
-# S-NOTIF list renders with the blue `Edit` icon, i.e. kind `edited` (§4 S-NOTIF).
+# notification list renders with the blue `Edit` icon, i.e. kind `edited`.
 _NOTIFICATION_KIND_BY_OUTCOME: dict[str, str] = {
     ApprovalStatus.APPROVED: "approved",
     ApprovalStatus.APPROVED_WITH_EDITS: "edited",
@@ -153,11 +153,11 @@ def _item_payload(request: Request, *, actor: Actor) -> dict[str, Any]:
 
 def _timeline_steps(decisions: list[Decision], *, status: str) -> list[schemas.TimelineStep]:
     """`decisions → steps`, with the synthetic trailing `current` step appended **only** while the
-    request is pending (M06 §3a.5).
+    request is pending.
 
     Step *labels* ("Submitted · by R. Kumar · 10:24 AM") are composed by the client from these
     structured steps rather than server-side: rendering a name here would mean an org lookup per
-    step, and the display strings for notifications are Story 2.3's concern.
+    step, and the display strings for notifications are a separate concern.
     """
 
     steps = [
@@ -275,7 +275,7 @@ class ApprovalService:
 
     def _scope(self, claims: AccessTokenClaims) -> ScopeContext:
         # Approval requests are activity data: SELF for a Sales Person, OWN_TREE for a Manager,
-        # ORG for an Admin (M06 §9). Decision rights are a separate check (§3b.5).
+        # ORG for an Admin. Decision rights are a separate check.
         return ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
 
     def _check_idempotency(
@@ -293,7 +293,7 @@ class ApprovalService:
                 "idempotency_conflict",
                 "Idempotency key was already used with a different payload.",
             )
-        # R-AP-28: a replay returns the original response, never a 409.
+        # A replay returns the original response, never a 409.
         return existing.status_code, existing.response_payload
 
     def _store_idempotency(
@@ -331,9 +331,9 @@ class ApprovalService:
         cursor: str | None,
         limit: int,
     ) -> dict[str, Any]:
-        """S-AP1. Rows come from `approvals_requests` alone — `title`, `subtitle` and
+        """The inbox. Rows come from `approvals_requests` alone — `title`, `subtitle` and
         `amount_paise` were denormalised at write time, so the inbox needs no call into a subject
-        module or Humbee and still renders when Humbee is down (M06 §5.1.4)."""
+        module or Humbee and still renders when Humbee is down."""
 
         _validate_date_range(from_date, to_date)
         scope = self._scope(claims)
@@ -382,7 +382,7 @@ class ApprovalService:
     def list_mine(
         self, *, claims: AccessTokenClaims, cursor: str | None, limit: int
     ) -> dict[str, Any]:
-        """S-AP3 — every request I raised, all statuses, newest first (M06 §5.3)."""
+        """My requests — every request I raised, all statuses, newest first."""
 
         scope = self._scope(claims)
         actor = Actor.from_claims(claims)
@@ -406,7 +406,7 @@ class ApprovalService:
         ).model_dump(mode="json")
 
     def get_summary(self, *, claims: AccessTokenClaims) -> dict[str, Any]:
-        """One scoped source for every pending count — dashboard, summary bar, chips (R-AP-30)."""
+        """One scoped source for every pending count — dashboard, summary bar, chips."""
 
         scope = self._scope(claims)
         actor = Actor.from_claims(claims)
@@ -453,8 +453,8 @@ class ApprovalService:
         )
 
     def get_detail(self, *, claims: AccessTokenClaims, approval_id: str) -> dict[str, Any]:
-        """S-AP2. The subject's blocks and advisories come from the adapter; the engine renders
-        them generically and knows nothing about atta, beats or leave (M06 §3a.4)."""
+        """The subject's blocks and advisories come from the adapter; the engine renders them
+        generically and knows nothing about atta, beats or leave."""
 
         scope = self._scope(claims)
         actor = Actor.from_claims(claims)
@@ -472,7 +472,7 @@ class ApprovalService:
         return schemas.ApprovalDetailResponse(
             request=schemas.ApprovalListItem(**_item_payload(request, actor=actor)),
             can_withdraw=policies.can_withdraw(actor, request),
-            # R-AP-13: editable only while pending, only for the assigned approver, and only when
+            # Editable only while pending, only for the assigned approver, and only when
             # the adapter declares fields.
             is_editable=decidable and bool(editable_fields),
             blocks=[
@@ -534,7 +534,7 @@ class ApprovalService:
             excluded_subject_types=policies.excluded_subject_types(actor),
         )
         if request is None:
-            # 404, not 403: out of scope must not leak existence (M06 §11.2).
+            # 404, not 403: out of scope must not leak existence.
             raise ApiError(404, "approval_not_found", "Approval request was not found.")
         return request
 
@@ -549,10 +549,10 @@ class ApprovalService:
         requester_id: str,
         request_id: str | None = None,
     ) -> Request:
-        """Route and persist a new request (M06 §3c.2, first three rows of the transition table).
+        """Route and persist a new request.
 
         Does **not** commit: the subject module that calls this owns the transaction, so its own
-        state change and this request are one atomic unit (R-AP-16).
+        state change and this request are one atomic unit.
         """
 
         adapter = registry.get(subject_type)
@@ -605,7 +605,7 @@ class ApprovalService:
                 actor_employee_id=requester_id,
             )
         except IntegrityError as exc:
-            # The partial unique index is the real guard behind the pre-check above (R-AP-04).
+            # The partial unique index is the real guard behind the pre-check above.
             if "uq_approvals_one_pending_per_subject" in str(getattr(exc, "orig", exc)):
                 raise ApiError(
                     409,
@@ -787,7 +787,7 @@ class ApprovalService:
         actor = Actor.from_claims(claims)
         endpoint = f"/api/v1/approvals/{approval_id}/{action}"
         target_status = _TERMINAL_STATUS_BY_ACTION[action]
-        # R-AP-16: apply_edit, the status change, the decision row, the callback and the audit row
+        # `apply_edit`, the status change, the decision row, the callback and the audit row
         # are one unit. A subject-validation failure rolls all of it back.
         with transaction(self._session):
             replay = self._check_idempotency(
@@ -945,16 +945,20 @@ class ApprovalService:
         occurred_at: datetime,
     ) -> None:
         """The subject callback runs *inside* this transaction: if the beat/order/leave cannot be
-        transitioned, the approval rolls back with it (M06 §11.3)."""
+        transitioned, the approval rolls back with it."""
 
         if outcome_status in GRANTED_STATUSES:
-            subject_events = adapter.on_approved(self._session, request=request)
+            subject_events = adapter.on_approved(
+                self._session, request=request, decided_at=occurred_at
+            )
         elif outcome_status == ApprovalStatus.REJECTED:
             subject_events = adapter.on_rejected(
-                self._session, request=request, reason=reason or ""
+                self._session, request=request, reason=reason or "", decided_at=occurred_at
             )
         else:
-            subject_events = adapter.on_withdrawn(self._session, request=request)
+            subject_events = adapter.on_withdrawn(
+                self._session, request=request, decided_at=occurred_at
+            )
 
         self._publish_subject_events(subject_events, request=request, actor=actor)
         # One call site for every terminal outcome — decision, withdrawal and the auto-approval
@@ -963,12 +967,12 @@ class ApprovalService:
             adapter, request=request, outcome=outcome_status, occurred_at=occurred_at
         )
 
-    # -- notification emission (M06 §5.4) ----------------------------------
+    # -- notification emission ----------------------------------
     #
     # Who gets told is the **engine's** call, not the adapter's: only the engine knows the routing
-    # and the assignment. What they are told is the **adapter's**: it owns the materialised strings
-    # (R-AP-22). `dedupe_key` is derived from the request id and the event, so a replayed decision,
-    # a retried job or a re-route back to the same approver all collapse onto one row (R-AP-24).
+    # and the assignment. What they are told is the **adapter's**: it owns the materialised strings.
+    # `dedupe_key` is derived from the request id and the event, so a replayed decision,
+    # a retried job or a re-route back to the same approver all collapse onto one row.
 
     def _notify_assigned(self, adapter: ApprovalSubjectAdapter, *, request: Request) -> None:
         """Tell the direct manager that a request is awaiting their decision."""
@@ -999,7 +1003,7 @@ class ApprovalService:
         kind = _NOTIFICATION_KIND_BY_OUTCOME.get(str(outcome))
         if kind is None:
             return
-        # A withdrawal is addressed to whoever was waiting on it (Flow 6); every other outcome is
+        # A withdrawal is addressed to whoever was waiting on it; every other outcome is
         # addressed to the requester.
         recipient_id = (
             (request.assigned_approver_id or request.requester_id)
@@ -1042,7 +1046,7 @@ class ApprovalService:
         """`adapter.notification()` for subject types that implement it.
 
         An adapter that has not got round to this method yet will raise `501`, and an outcome notification is not worth
-        rolling a committed-quality decision back for (§11.3). `None` means "fall back to the
+        rolling a committed-quality decision back for. `None` means "fall back to the
         request's own denormalised strings", which are already materialised and correct.
         """
 
@@ -1076,7 +1080,7 @@ class ApprovalService:
         try:
             if deep_link_type is None:
                 # Resolved per viewer: the requester's row points at the subject, the approver's at
-                # the request. Only the adapter knows which, so it decides (M06 §3a.4).
+                # the request. Only the adapter knows which, so it decides.
                 link = adapter.deep_link(request, self._viewer(request.tenant_id, recipient_id))
                 deep_link_type, deep_link_id = link.target_type, link.target_id
             notifications_service.record(
@@ -1092,7 +1096,7 @@ class ApprovalService:
                 dedupe_key=dedupe_key,
             )
         except Exception:
-            # §11.3: notification failure never fails a decision. The transition still commits;
+            # Notification failure never fails a decision. The transition still commits;
             # this is the line an operator reads when a feed row is missing.
             logger.warning(
                 "approval_notification_write_skipped",
@@ -1128,7 +1132,7 @@ class ApprovalService:
             )
 
 # ---------------------------------------------------------------------------
-# The interface consuming modules actually use (M06 §10, "Internal (not HTTP)")
+# The interface consuming modules actually use (internal, not HTTP)
 # ---------------------------------------------------------------------------
 
 
@@ -1157,7 +1161,7 @@ def pending_for_subject(
     session: Session, *, tenant_id: str, subject_type: str, subject_id: str
 ) -> Request | None:
     """The pending request for a subject, if any — how a subject screen shows its own
-    "awaiting approval" banner without duplicating approval state (R-AP-01)."""
+    "awaiting approval" banner without duplicating approval state."""
 
     return repository.pending_for_subject(
         session, tenant_id=tenant_id, subject_type=subject_type, subject_id=subject_id
@@ -1173,8 +1177,8 @@ def withdraw_for_subject(
     clock: Clock | None = None,
 ) -> Request | None:
     """System-initiated withdrawal of a subject's own pending request — e.g. a subject module
-    auto-withdrawing its request when the subject itself is deactivated, with no human decision
-    (M07 R-BEAT-28). Runs in the caller's transaction and never commits; a no-op if nothing is
+    auto-withdrawing its request when the subject itself is deactivated, with no human decision.
+    Runs in the caller's transaction and never commits; a no-op if nothing is
     pending, so callers may call it unconditionally.
     """
 

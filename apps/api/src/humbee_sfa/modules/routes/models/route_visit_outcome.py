@@ -1,7 +1,7 @@
-"""`routes_visit_outcomes` — 1:1 close-out record per visit. database-design.md §8.
+"""`routes_visit_outcomes` — 1:1 close-out record per visit.
 
-`photo_attachment_id` is a logical pointer to `platform_attachments` (§12.3); `order_ids` holds
-SFA order ids (M10), logical only.
+`photo_attachment_id` is a logical pointer to `platform_attachments`; `order_ids` holds
+SFA order ids, logical only.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class RouteVisitOutcome(Base, ConventionsMixin):
             "('shop_closed','no_requirement','stock_full','revisit_later','credit_issue','other')",
             name="reason_chk",
         ),
-        # R-RTE-16: a no-order close-out is always reason-coded
+        # A no-order close-out is always reason-coded
         CheckConstraint(
             "outcome <> 'no_order' OR no_order_reason IS NOT NULL", name="no_order_chk"
         ),

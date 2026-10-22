@@ -52,7 +52,7 @@ def get_sales_person_dashboard(
     session: Annotated[Session, Depends(get_db_session)],
     period: DashboardPeriod = "mtd",
 ) -> dict[str, Any]:
-    """S-DASH-SP: Sales Person visit/call KPIs, honouring `period`.
+    """Sales Person visit/call KPIs, honouring `period`.
 
     Manufacturer-scoped target progress is a separate call — see
     `/dashboards/sales-person/targets` — so switching manufacturer doesn't
@@ -67,7 +67,7 @@ def get_sales_person_targets(
     session: Annotated[Session, Depends(get_db_session)],
     manufacturer_id: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-DASH-SP: manufacturer-scoped target progress (always MTD)."""
+    """Sales Person dashboard: manufacturer-scoped target progress (always MTD)."""
     return ReportingService(session).get_sp_targets_kpis(
         claims=claims, manufacturer_id=manufacturer_id
     )
@@ -89,7 +89,7 @@ def get_manager_dashboard(
     manufacturer_id: Annotated[str | None, Query()] = None,
     designation_code: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-DASH-MGR: Manager team dashboard.
+    """Manager team dashboard.
 
     `team_metrics` honours `period`. `scatter`, `districts`, and `mom` are always MTD and
     whole-tree. `league` and `targets` are always MTD and scoped to one hierarchy level
@@ -111,7 +111,7 @@ def get_admin_dashboard(
     manufacturer_id: Annotated[str | None, Query()] = None,
     designation_code: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-DASH-ADM: Admin org-wide dashboard.
+    """Admin org-wide dashboard.
 
     `org_metrics` honours `period`. `targets`, `targets_summary`,
     `manufacturer_movement`, `approval_latency`, and `mom` are always MTD;

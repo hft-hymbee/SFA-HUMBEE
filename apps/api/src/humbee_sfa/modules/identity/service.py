@@ -25,6 +25,7 @@ from humbee_sfa.core.security import (
 )
 from humbee_sfa.core.settings import Settings, get_settings
 from humbee_sfa.modules.identity import events, policies, repository, schemas
+from humbee_sfa.modules.identity.models import OtpChallenge
 from humbee_sfa.modules.org import service as org_service
 from humbee_sfa.platform.domain_events import DomainEventPublisher
 from humbee_sfa.platform.idempotency import IdempotencyService
@@ -76,7 +77,7 @@ class IdentityService:
                 environment=self._settings.environment,
             )
 
-    def _hour_window_start(self):
+    def _hour_window_start(self) -> datetime:
         now = self._clock.now_utc()
         return now.replace(minute=0, second=0, microsecond=0)
 
@@ -89,9 +90,9 @@ class IdentityService:
         purpose: str,
         requester_ip: str | None,
         user_agent: str | None,
-        now,
+        now: datetime,
     ) -> None:
-        """R-IDN-07: one audit row, one domain event, one stable 429 for every limit."""
+        """One audit row, one domain event, one stable 429 for every limit."""
 
         repository.record_audit_event(
             self._session,
@@ -120,12 +121,12 @@ class IdentityService:
     def _enforce_verify_limits(
         self,
         *,
-        challenge,
+        challenge: OtpChallenge,
         requester_ip: str | None,
         user_agent: str | None,
-        now,
+        now: datetime,
     ) -> None:
-        """R-IDN-07 on the verify side: throttle per challenge, per phone and per IP.
+        """Rate limiting on the verify side: throttle per challenge, per phone and per IP.
 
         `max_attempts` alone only bounds one challenge; without these an attacker can keep
         requesting fresh challenges and spend the whole attempt budget of each.
@@ -257,11 +258,12 @@ class IdentityService:
         resolved_phone = phone_e164
         employee: org_service.EmployeeProjection | None = None
         if purpose == "login":
-            employee = org_service.find_employee_by_phone(
-                self._session,
-                tenant_id=self._settings.tenant_id,
-                phone_e164=resolved_phone,
-            )
+            if resolved_phone is not None:
+                employee = org_service.find_employee_by_phone(
+                    self._session,
+                    tenant_id=self._settings.tenant_id,
+                    phone_e164=resolved_phone,
+                )
         else:
             device = repository.get_device_by_client_id(
                 self._session,
@@ -869,7 +871,7 @@ class IdentityService:
             platform=device.platform,
         ).model_dump(mode="json")
 
-    # -- live-session enforcement (R-IDN-08, R-IDN-10, R-IDN-21) -----------
+    # -- live-session enforcement -----------
 
     def enforce_live_session(self, *, claims: AccessTokenClaims) -> None:
         """A valid signature is not a live session.
@@ -877,7 +879,7 @@ class IdentityService:
         Runs on every authenticated request: the token's session row must still exist and
         be unrevoked, and its employee must still be active. A deactivated employee's
         sessions are revoked here, inside this request, so the very next call after an
-        admin deactivation resolves to `account_deactivated` (R-IDN-21) instead of waiting
+        admin deactivation resolves to `account_deactivated` instead of waiting
         for the access token to expire.
         """
 
@@ -892,8 +894,8 @@ class IdentityService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         if row.revoked_at is not None:
-            # R-IDN-10: a revoked session never re-auths in place; it forces a full login,
-            # except when the reason is deactivation, which is terminal (S-A4).
+            # A revoked session never re-auths in place; it forces a full login,
+            # except when the reason is deactivation, which is terminal.
             if row.revocation_reason == "deactivated":
                 raise ApiError(403, "account_deactivated", "Account is deactivated.")
             raise ApiError(
@@ -927,7 +929,7 @@ class IdentityService:
         reason: str = "deactivated",
         actor_employee_id: str | None = None,
     ) -> int:
-        """Public entry point for revoking one employee's sessions (R-IDN-21).
+        """Public entry point for revoking one employee's sessions.
 
         Owns its transaction, so `org` can call it straight after a deactivation and see
         the revocation land with the deactivation itself.

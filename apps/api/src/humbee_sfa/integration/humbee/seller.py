@@ -1,4 +1,4 @@
-"""Humbee seller linkage — C-4.
+"""Humbee seller linkage.
 
 Order routing (PO-backed vs direct, manager-approval-required or not) comes from the outlet's real
 commercial relationships — per brand, per seller — never from an outlet-level tier.

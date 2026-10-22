@@ -1,8 +1,7 @@
 """`attendance_official_work_sessions` — meeting/training/collection time tracking.
-database-design.md §9.
 
-`duration_seconds` is persisted even though derivable: R-ATT-16 makes the server-computed
-duration authoritative over the client tick counter, and storing it is how that decision becomes
+`duration_seconds` is persisted even though derivable: the server-computed
+duration is authoritative over the client tick counter, and storing it is how that decision becomes
 auditable. `form_definition_id` is a logical pointer into `platform_form_definitions`.
 """
 
@@ -23,7 +22,7 @@ class OfficialWorkSession(Base, ConventionsMixin, FieldEventTimingMixin):
     __tablename__ = "attendance_official_work_sessions"
     __table_args__ = (
         Index("uq_attendance_official_idem", "tenant_id", "idempotency_key", unique=True),
-        # R-ATT-14: at most one running session per employee
+        # At most one running session per employee
         Index(
             "uq_attendance_official_running",
             "tenant_id",

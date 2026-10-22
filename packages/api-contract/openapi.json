@@ -257,7 +257,7 @@
         "type": "object"
       },
       "AdminUpdateBeatBody": {
-        "description": "Admin-only immediate edit (R-BEAT-17) \u2014 applies without approval.",
+        "description": "Admin-only immediate edit \u2014 applies without approval.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -668,7 +668,7 @@
         "type": "object"
       },
       "ApprovalSummaryResponse": {
-        "description": "Single source for every pending count on every surface (R-AP-30).",
+        "description": "Single source for every pending count on every surface.",
         "properties": {
           "pending_by_filter": {
             "additionalProperties": {
@@ -708,7 +708,7 @@
         "type": "object"
       },
       "AssignGeoScopeBody": {
-        "description": "`districts` must be non-empty (R-ORG-30).",
+        "description": "`districts` must be non-empty.",
         "properties": {
           "districts": {
             "items": {
@@ -843,7 +843,7 @@
         "type": "object"
       },
       "AttendanceTodayResponse": {
-        "description": "The single canonical duty-state payload \u2014 S-ATT1 mount, the punch-in gate, and the body of\nevery successful `POST /attendance/punches` (M09 \u00a75.1, \u00a75.2).",
+        "description": "The single canonical duty-state payload \u2014 the punch screen mount, the punch-in gate, and the body of\nevery successful `POST /attendance/punches`.",
         "properties": {
           "business_date": {
             "format": "date",
@@ -1929,7 +1929,7 @@
         "type": "object"
       },
       "CaptureLeadBody": {
-        "description": "S-LEAD1 \u2014 a salesperson captures a prospective business as a lead for follow-up. Leads are\nfor manufacturers not on Humbee, so they are named as free text \u2014 at least one \u2014 rather than\npicked from the Humbee roster.",
+        "description": "A salesperson captures a prospective business as a lead for follow-up. Leads are\nfor manufacturers not on Humbee, so they are named as free text \u2014 at least one \u2014 rather than\npicked from the Humbee roster.",
         "properties": {
           "annual_turnover_cr": {
             "anyOf": [
@@ -2514,7 +2514,7 @@
         "type": "object"
       },
       "CheckInBody": {
-        "description": "S-ROUTE4 entry / \"Add unplanned visit\" (transitions #2/#3).",
+        "description": "Visit entry or \"Add unplanned visit\".",
         "properties": {
           "gps": {
             "anyOf": [
@@ -2571,7 +2571,7 @@
         "type": "object"
       },
       "CombinedVisitFeedbackBody": {
-        "description": "S-CVIS2. `responses` absorbs the still-pending business schema as JSONB (R-RTE-33).",
+        "description": "`responses` absorbs the still-pending business schema as JSONB.",
         "properties": {
           "overall_rating": {
             "enum": [
@@ -2734,7 +2734,7 @@
         "type": "object"
       },
       "CoordinateCorrectionBody": {
-        "description": "O-4 \u2014 a field pin correction captured during a visit, possibly offline.\nThe outlet is the visit's own outlet (from the path), never a client-supplied id.",
+        "description": "A field pin correction captured during a visit, possibly offline.\nThe outlet is the visit's own outlet (from the path), never a client-supplied id.",
         "properties": {
           "accuracy_m": {
             "maximum": 99999.99,
@@ -3170,7 +3170,7 @@
         "type": "object"
       },
       "CreateBeatBody": {
-        "description": "S-BEAT2 entry (transition #1). `id` is the client-generated ULID (idempotent create).\n`owner_employee_id` lets an Admin/Manager create the beat for a salesperson; omitted, the\ncaller becomes the owner.",
+        "description": "Wizard entry. `id` is the client-generated ULID (idempotent create).\n`owner_employee_id` lets an Admin/Manager create the beat for a salesperson; omitted, the\ncaller becomes the owner.",
         "properties": {
           "id": {
             "anyOf": [
@@ -3246,7 +3246,6 @@
         "type": "object"
       },
       "CreateCombinedVisitBody": {
-        "description": "S-CVIS1 (R-RTE-28/29/30).",
         "properties": {
           "beat_id": {
             "title": "Beat Id",
@@ -3405,7 +3404,7 @@
         "type": "object"
       },
       "CreateTargetBody": {
-        "description": "S-TGT1 save, for an employee and month that has no active target of this type yet.",
+        "description": "Save for an employee and month that has no active target of this type yet.",
         "properties": {
           "employee_id": {
             "maxLength": 26,
@@ -3680,7 +3679,7 @@
         "type": "object"
       },
       "DocumentLookupResponse": {
-        "description": "ON-1 \u2014 the registered address behind a GSTIN or PAN, for pre-filling the firm form.\nOnly `document_type` is guaranteed; other fields are optional.",
+        "description": "The registered address behind a GSTIN or PAN, for pre-filling the firm form.\nOnly `document_type` is guaranteed; other fields are optional.",
         "properties": {
           "address_line_1": {
             "anyOf": [
@@ -4180,7 +4179,7 @@
         "type": "object"
       },
       "FirmAddressDistrictsResponse": {
-        "description": "C-15 \u2014 the district step, always bounded by one state.",
+        "description": "The district step, always bounded by one state.",
         "properties": {
           "districts": {
             "items": {
@@ -4215,7 +4214,7 @@
         "type": "object"
       },
       "FirmAddressOptionsResponse": {
-        "description": "C-16 \u2014 the locality and pincode steps. `location_id` and `pincode` are exactly the values\n`OperationalAddressBody` takes, so a picked option is copied straight into the firm body.\nEither list may legitimately be empty.",
+        "description": "The locality and pincode steps. `location_id` and `pincode` are exactly the values\n`OperationalAddressBody` takes, so a picked option is copied straight into the firm body.\nEither list may legitimately be empty.",
         "properties": {
           "as_of": {
             "format": "date-time",
@@ -4269,7 +4268,7 @@
         "type": "object"
       },
       "FirmAddressStatesResponse": {
-        "description": "C-14 \u2014 the state step of the firm address form.",
+        "description": "The state step of the firm address form.",
         "properties": {
           "states": {
             "items": {
@@ -4319,7 +4318,7 @@
         "type": "object"
       },
       "GeoLabel": {
-        "description": "`{id, name}` snapshot for a zone/state, taken at assignment time (epic 07 Story 7.2) \u2014 the\nmaster cache that used to let a stored id resolve back to a name is gone.",
+        "description": "`{id, name}` snapshot for a zone/state, taken at assignment time \u2014 the\nmaster cache that used to let a stored id resolve back to a name is gone.",
         "properties": {
           "id": {
             "title": "Id",
@@ -5181,7 +5180,7 @@
         "type": "object"
       },
       "LeavePreviewResponse": {
-        "description": "The S-LV1 info card, server-authoritative (M12 \u00a710). `exceeds_balance` drives the advisory\nbanner only \u2014 submission is never blocked on it (R-LV-11).",
+        "description": "The apply-leave info card, server-authoritative. `exceeds_balance` drives the advisory\nbanner only \u2014 submission is never blocked on it.",
         "properties": {
           "available_days": {
             "title": "Available Days",
@@ -5231,7 +5230,7 @@
         "type": "object"
       },
       "LeaveRequestItem": {
-        "description": "One S-LV2 row. `approval_request_id` is what the Withdraw action posts to \u2014\n`POST /api/v1/approvals/{id}/withdraw` (M12 \u00a74 S-LV2, \u00a710 \"Decisions \u2014 not here\").",
+        "description": "One own-history row. `approval_request_id` is what the Withdraw action posts to \u2014\n`POST /api/v1/approvals/{id}/withdraw`.",
         "properties": {
           "applied_at": {
             "format": "date-time",
@@ -5785,7 +5784,7 @@
         "type": "object"
       },
       "ManufacturerRosterResponse": {
-        "description": "The roster behind a sales target's lines. Humbee owns it; SFA may\nnever create, rename or delete a manufacturer (R-TGT-04). `basis`/`uom_label` say whether that\nmanufacturer's line is entered in \u20b9 or units \u2014 the form has no separate basis choice.",
+        "description": "The roster behind a sales target's lines. Humbee owns it; SFA may\nnever create, rename or delete a manufacturer. `basis`/`uom_label` say whether that\nmanufacturer's line is entered in \u20b9 or units \u2014 the form has no separate basis choice.",
         "properties": {
           "manufacturers": {
             "items": {
@@ -5820,7 +5819,7 @@
         "type": "object"
       },
       "MarkReadResponse": {
-        "description": "`changed` is false when the row was already read \u2014 re-marking is a no-op `200`, never a\n`409` (M06 \u00a710).",
+        "description": "`changed` is false when the row was already read \u2014 re-marking is a no-op `200`, never a\n`409`.",
         "properties": {
           "changed": {
             "title": "Changed",
@@ -6524,7 +6523,7 @@
         "type": "object"
       },
       "OrderContextResponse": {
-        "description": "S-ORD1 fan-out. `no_sellers_linked` and `seller_selection_required`\nare first-class recovery states, not errors \u2014 when either is true the routing/PO/ship-to/\nbanner fields are empty and the client renders the recovery screen instead.",
+        "description": "`no_sellers_linked` and `seller_selection_required`\nare first-class recovery states, not errors \u2014 when either is true the routing/PO/ship-to/\nbanner fields are empty and the client renders the recovery screen instead.",
         "properties": {
           "as_of": {
             "format": "date-time",
@@ -7185,7 +7184,6 @@
         "type": "object"
       },
       "OutcomeBody": {
-        "description": "S-VISIT1 (transition #6).",
         "properties": {
           "note": {
             "anyOf": [
@@ -7867,7 +7865,7 @@
         "type": "object"
       },
       "PatchDraftBody": {
-        "description": "Autosave for S-BEAT2 (`geo_scope`) and S-BEAT4 (`display_name`, `frequency`).",
+        "description": "Autosave for the wizard's geography step (`geo_scope`) and naming step (`display_name`, `frequency`).",
         "properties": {
           "code": {
             "anyOf": [
@@ -8000,7 +7998,7 @@
         "type": "object"
       },
       "PunchBody": {
-        "description": "`id` is the client-generated ULID for the `PunchEvent` (M09 \u00a73.2, R-ATT-18).",
+        "description": "`id` is the client-generated ULID for the `PunchEvent`.",
         "properties": {
           "direction": {
             "enum": [
@@ -9681,7 +9679,7 @@
         "type": "object"
       },
       "SubmitLeaveBody": {
-        "description": "S-LV1 submit. `id` is the client-generated ULID that makes a retried submit provably the\nsame request (M12 \u00a73.1); `is_half_day` has no S-LV1 control in v1 (\u00a712 Q4) and is not accepted.",
+        "description": "Leave submit. `id` is the client-generated ULID that makes a retried submit provably the\nsame request; `is_half_day` has no client control in v1 and is not accepted.",
         "properties": {
           "from_date": {
             "format": "date",
@@ -9789,7 +9787,6 @@
         "type": "object"
       },
       "SwitchBeatBody": {
-        "description": "S-ROUTE2b (transition #12).",
         "properties": {
           "beat_id": {
             "title": "Beat Id",
@@ -10063,7 +10060,7 @@
         "type": "object"
       },
       "TeamAttendanceResponse": {
-        "description": "S-ATT3/S-ATT4 \u2014 one endpoint, scope resolved from the actor (R-ATT-17). Summary counts are\ncomputed over the full scope, never the visible page (R-ATT-12).",
+        "description": "Team and org attendance \u2014 one endpoint, scope resolved from the actor. Summary counts are\ncomputed over the full scope, never the visible page.",
         "properties": {
           "after_9am_count": {
             "title": "After 9Am Count",
@@ -10179,7 +10176,7 @@
         "type": "object"
       },
       "TeamLeaveItem": {
-        "description": "One S-LV3 row. The avatar initials are derived client-side from `employee_name` (M12 \u00a78).",
+        "description": "One team-leave row. The avatar initials are derived client-side from `employee_name`.",
         "properties": {
           "approval_request_id": {
             "title": "Approval Request Id",
@@ -10266,7 +10263,7 @@
         "type": "object"
       },
       "TimelineStep": {
-        "description": "\u00a73a.5. `state` is one of `done` / `edited` / `current` / `rejected` \u2014 the four values the\ndesign-system component accepts, and not the same enum as `status`.",
+        "description": "`state` is one of `done` / `edited` / `current` / `rejected` \u2014 the four values the\ndesign-system component accepts, and not the same enum as `status`.",
         "properties": {
           "action": {
             "title": "Action",
@@ -10563,7 +10560,7 @@
         "type": "object"
       },
       "UnreadCountResponse": {
-        "description": "`bellCount`. `0` means the client renders no badge at all, not \"0\" (M06 \u00a78).",
+        "description": "`bellCount`. `0` means the client renders no badge at all, not \"0\".",
         "properties": {
           "count": {
             "title": "Count",
@@ -10657,7 +10654,7 @@
         "type": "object"
       },
       "UpdateTargetBody": {
-        "description": "S-TGT1 save over an existing target. Employee, type and month are the target's identity\n(R-TGT-08) and are not editable \u2014 changing one is a different target.",
+        "description": "Save over an existing target. Employee, type and month are the target's identity\nand are not editable \u2014 changing one is a different target.",
         "properties": {
           "lines": {
             "items": {
@@ -10798,7 +10795,7 @@
         "type": "object"
       },
       "VisitOutcomeDetail": {
-        "description": "Read-back for a visit's close-out (S-VISIT1) \u2014 reopening a completed visit shows what was\nrecorded, including the orders placed, without growing `RouteStopItem` (read by every stop on\nevery route-plan fetch) with per-visit detail only the opened stop needs.",
+        "description": "Read-back for a visit's close-out \u2014 reopening a completed visit shows what was\nrecorded, including the orders placed, without growing `RouteStopItem` (read by every stop on\nevery route-plan fetch) with per-visit detail only the opened stop needs.",
         "properties": {
           "no_order_reason": {
             "anyOf": [
@@ -11123,7 +11120,7 @@
   "paths": {
     "/api/v1/admin/jobs/end-of-day-sweep": {
       "post": {
-        "description": "Operator-only manual trigger for `routes.end_of_day_sweep` (M08 \u00a73b, \u00a710). Not a product\ncapability \u2014 no screen calls this; it is a manual recovery/re-run path beside the scheduled\nworker trigger.",
+        "description": "Operator-only manual trigger for `routes.end_of_day_sweep`. Not a product\ncapability \u2014 no screen calls this; it is a manual recovery/re-run path beside the scheduled\nworker trigger.",
         "operationId": "trigger_end_of_day_sweep_api_v1_admin_jobs_end_of_day_sweep_post",
         "parameters": [
           {
@@ -12405,7 +12402,7 @@
     },
     "/api/v1/beats": {
       "get": {
-        "description": "Serves S-BEAT1 (owner scope) and S-BEAT6 (org scope) \u2014 the same path, scope-resolved\nserver-side (M07 \u00a710).",
+        "description": "Serves the owner's beat list (owner scope) and the admin beat list (org scope) \u2014 the same path,\nscope-resolved server-side.",
         "operationId": "list_beats_api_v1_beats_get",
         "parameters": [
           {
@@ -12599,7 +12596,7 @@
         ]
       },
       "patch": {
-        "description": "Immediate edit, no approval (R-BEAT-17) \u2014 S-BEAT6 edit form. Admin may edit any beat;\na Manager may do the same for beats owned by Sales Persons in their own tree. Owner\nreassignment stays Admin-only.",
+        "description": "Immediate edit, no approval \u2014 the admin edit form. Admin may edit any beat;\na Manager may do the same for beats owned by Sales Persons in their own tree. Owner\nreassignment stays Admin-only.",
         "operationId": "admin_update_beat_api_v1_beats__beat_id__patch",
         "parameters": [
           {
@@ -12664,7 +12661,7 @@
     },
     "/api/v1/beats/{beat_id}/deactivate": {
       "post": {
-        "description": "Transition #13 (S-BEAT6 \"Deactivate\") \u2014 Admin-only, like reactivate (R-BEAT-21).",
+        "description": "Admin-only, like reactivate.",
         "operationId": "deactivate_beat_api_v1_beats__beat_id__deactivate_post",
         "parameters": [
           {
@@ -12772,7 +12769,7 @@
         ]
       },
       "patch": {
-        "description": "Autosave for S-BEAT2 (`geo_scope`) and S-BEAT4 (`display_name`, `frequency`).",
+        "description": "Autosave for the wizard's geography step (`geo_scope`) and naming step (`display_name`, `frequency`).",
         "operationId": "update_draft_api_v1_beats__beat_id__draft_patch",
         "parameters": [
           {
@@ -12827,7 +12824,7 @@
     },
     "/api/v1/beats/{beat_id}/draft/discard": {
       "post": {
-        "description": "S-BEAT7 \"Discard\" \u2014 abandons an in-progress edit and falls back to the current approved\nversion. Naturally idempotent (discarding when nothing is pending is a no-op), so no\n`Idempotency-Key` is required.",
+        "description": "Edit-screen \"Discard\" \u2014 abandons an in-progress edit and falls back to the current approved\nversion. Naturally idempotent (discarding when nothing is pending is a no-op), so no\n`Idempotency-Key` is required.",
         "operationId": "discard_draft_api_v1_beats__beat_id__draft_discard_post",
         "parameters": [
           {
@@ -12926,7 +12923,7 @@
     },
     "/api/v1/beats/{beat_id}/edit-requests": {
       "post": {
-        "description": "S-BEAT7 entry \u2014 branches a proposed version. Autosave and outlet edits reuse the same\n`/draft` and `/draft/outlets` endpoints as the creation wizard (`beat.draft_version_id` points\nat whichever version is currently being worked on).",
+        "description": "Edit-screen entry \u2014 branches a proposed version. Autosave and outlet edits reuse the same\n`/draft` and `/draft/outlets` endpoints as the creation wizard (`beat.draft_version_id` points\nat whichever version is currently being worked on).",
         "operationId": "create_edit_branch_api_v1_beats__beat_id__edit_requests_post",
         "parameters": [
           {
@@ -12971,7 +12968,7 @@
     },
     "/api/v1/beats/{beat_id}/edit-requests/submit": {
       "post": {
-        "description": "Transition #9 (S-BEAT7 \"Send for approval\") \u2014 `202` when it enters the approval queue,\n`200` when an Admin or Manager submits an edit to their own beat and it applies straight away\n(R-BEAT-17).",
+        "description": "Edit-screen \"Send for approval\" \u2014 `202` when it enters the approval queue,\n`200` when an Admin or Manager submits an edit to their own beat and it applies straight away.",
         "operationId": "submit_edit_api_v1_beats__beat_id__edit_requests_submit_post",
         "parameters": [
           {
@@ -13036,7 +13033,6 @@
     },
     "/api/v1/beats/{beat_id}/reactivate": {
       "post": {
-        "description": "Transition #14 (S-BEAT6 \"Reactivate\").",
         "operationId": "reactivate_beat_api_v1_beats__beat_id__reactivate_post",
         "parameters": [
           {
@@ -13091,7 +13087,7 @@
     },
     "/api/v1/beats/{beat_id}/scope-outlets": {
       "get": {
-        "description": "S-BEAT3 outlet pool, proxied from Humbee via `integration/humbee/outlet.py`.\n\nPaged: pass the previous response's `next_cursor` back as `cursor`. A null `next_cursor` is\nthe last page. Never construct or parse a cursor \u2014 it is opaque to us and to the client.\n`district_ids` (+ optional `shop_categories`) browse an unsaved scope.",
+        "description": "Outlet-picker pool, proxied from Humbee via `integration/humbee/outlet.py`.\n\nPaged: pass the previous response's `next_cursor` back as `cursor`. A null `next_cursor` is\nthe last page. Never construct or parse a cursor \u2014 it is opaque to us and to the client.\n`district_ids` (+ optional `shop_categories`) browse an unsaved scope.",
         "operationId": "search_scope_outlets_api_v1_beats__beat_id__scope_outlets_get",
         "parameters": [
           {
@@ -13220,7 +13216,7 @@
     },
     "/api/v1/beats/{beat_id}/submit": {
       "post": {
-        "description": "Transition #3 (S-BEAT4 \"Submit for approval\") \u2014 `202` when it enters the approval queue,\n`200` when an Admin or Manager submits a beat they built for a Sales Person and it lands\napproved straight away (R-BEAT-17).",
+        "description": "Wizard \"Submit for approval\" \u2014 `202` when it enters the approval queue,\n`200` when an Admin or Manager submits a beat they built for a Sales Person and it lands\napproved straight away.",
         "operationId": "submit_beat_api_v1_beats__beat_id__submit_post",
         "parameters": [
           {
@@ -13285,7 +13281,7 @@
     },
     "/api/v1/carts": {
       "post": {
-        "description": "S-ORD1 entry \u2014 creates or resumes the open cart for `(visit, outlet, manufacturer)`.",
+        "description": "Creates or resumes the open cart for `(visit, outlet, manufacturer)`.",
         "operationId": "create_cart_api_v1_carts_post",
         "requestBody": {
           "content": {
@@ -13327,7 +13323,7 @@
     },
     "/api/v1/carts/{cart_id}": {
       "get": {
-        "description": "S-ORD3 \u2014 re-prices and re-evaluates the scheme on every read.",
+        "description": "Re-prices and re-evaluates the scheme on every read.",
         "operationId": "get_cart_api_v1_carts__cart_id__get",
         "parameters": [
           {
@@ -13370,7 +13366,7 @@
         ]
       },
       "patch": {
-        "description": "Sets `source_po_id` (S-ORD1b), ship-to and the shipping-address override (S-ORD1).",
+        "description": "Sets `source_po_id`, ship-to and the shipping-address override.",
         "operationId": "patch_cart_api_v1_carts__cart_id__patch",
         "parameters": [
           {
@@ -13435,7 +13431,7 @@
     },
     "/api/v1/carts/{cart_id}/lines": {
       "put": {
-        "description": "S-ORD2/S-ORD3 line mutations. `qty = 0` removes the line.",
+        "description": "Cart line mutations. `qty = 0` removes the line.",
         "operationId": "upsert_line_api_v1_carts__cart_id__lines_put",
         "parameters": [
           {
@@ -13500,7 +13496,7 @@
     },
     "/api/v1/combined-visits": {
       "get": {
-        "description": "S-CVIS1's \"manager's scheduled and pending-feedback tag-alongs\" list.",
+        "description": "The \"manager's scheduled and pending-feedback tag-alongs\" list.",
         "operationId": "list_combined_visits_api_v1_combined_visits_get",
         "responses": {
           "200": {
@@ -13522,7 +13518,6 @@
         ]
       },
       "post": {
-        "description": "S-CVIS1.",
         "operationId": "create_combined_visit_api_v1_combined_visits_post",
         "parameters": [
           {
@@ -13576,7 +13571,6 @@
     },
     "/api/v1/combined-visits/{combined_visit_id}": {
       "get": {
-        "description": "S-CVIS2 entry.",
         "operationId": "get_combined_visit_api_v1_combined_visits__combined_visit_id__get",
         "parameters": [
           {
@@ -13621,7 +13615,6 @@
     },
     "/api/v1/combined-visits/{combined_visit_id}/feedback": {
       "post": {
-        "description": "S-CVIS2.",
         "operationId": "submit_combined_visit_feedback_api_v1_combined_visits__combined_visit_id__feedback_post",
         "parameters": [
           {
@@ -13686,7 +13679,7 @@
     },
     "/api/v1/coverage/team": {
       "get": {
-        "description": "S-ROUTE5 (Manager `OWN_TREE` / Admin `ORG`, same path).",
+        "description": "Manager `OWN_TREE` / Admin `ORG`, same path.",
         "operationId": "coverage_team_api_v1_coverage_team_get",
         "parameters": [
           {
@@ -13761,7 +13754,7 @@
     },
     "/api/v1/leads": {
       "post": {
-        "description": "S-LEAD1 save \u2014 a salesperson captures a prospective business as a lead for follow-up.",
+        "description": "Save \u2014 a salesperson captures a prospective business as a lead for follow-up.",
         "operationId": "capture_lead_api_v1_leads_post",
         "parameters": [
           {
@@ -14127,7 +14120,7 @@
     },
     "/api/v1/missed-visits": {
       "get": {
-        "description": "S-VISIT2 \u2014 read-only audit trail (R-RTE-19). Defaults to the trailing 7 days (\"this week\").",
+        "description": "Read-only missed-visit audit trail. Defaults to the trailing 7 days (\"this week\").",
         "operationId": "list_missed_visits_api_v1_missed_visits_get",
         "parameters": [
           {
@@ -14600,7 +14593,7 @@
     },
     "/api/v1/orders": {
       "get": {
-        "description": "S-ORD6 \u2014 SELF for a Sales Person, OWN_TREE for a Manager (M03 \u00a73b.2).",
+        "description": "SELF for a Sales Person, OWN_TREE for a Manager.",
         "operationId": "list_orders_api_v1_orders_get",
         "parameters": [
           {
@@ -14676,7 +14669,7 @@
         ]
       },
       "post": {
-        "description": "S-ORD4 submit. A seller not requiring manager approval routes straight to `approved`; one\nthat does opens a generic approval request (M10 \u00a75.5; epic 07 Story 7.4).",
+        "description": "A seller not requiring manager approval routes straight to `approved`; one\nthat does opens a generic approval request.",
         "operationId": "submit_order_api_v1_orders_post",
         "parameters": [
           {
@@ -14730,7 +14723,7 @@
     },
     "/api/v1/orders/catalog": {
       "get": {
-        "description": "S-ORD2 \u2014 products + prices + stock + cart quantity, merged.",
+        "description": "Products + prices + stock + cart quantity, merged.",
         "operationId": "get_catalog_api_v1_orders_catalog_get",
         "parameters": [
           {
@@ -14805,7 +14798,7 @@
     },
     "/api/v1/orders/context": {
       "get": {
-        "description": "S-ORD1 fan-out: manufacturer + sellers + routing + POs + ship-to, one call.",
+        "description": "Fan-out: manufacturer + sellers + routing + POs + ship-to, one call.",
         "operationId": "get_order_context_api_v1_orders_context_get",
         "parameters": [
           {
@@ -14900,7 +14893,7 @@
     },
     "/api/v1/orders/purchase-orders": {
       "get": {
-        "description": "S-ORD1b \u2014 open POs for `(outlet, manufacturer, outlet_esi_id)`, live, never cached.",
+        "description": "Open POs for `(outlet, manufacturer, outlet_esi_id)`, live, never cached.",
         "operationId": "get_purchase_orders_api_v1_orders_purchase_orders_get",
         "parameters": [
           {
@@ -15063,7 +15056,7 @@
     },
     "/api/v1/orders/{order_id}": {
       "get": {
-        "description": "S-ORD7/S-ORD7-M. Out-of-scope returns `404`, never `403` (R-ORD-42).",
+        "description": "Out-of-scope returns `404`, never `403`.",
         "operationId": "get_order_api_v1_orders__order_id__get",
         "parameters": [
           {
@@ -15108,7 +15101,7 @@
     },
     "/api/v1/orders/{order_id}/retry-submission": {
       "post": {
-        "description": "S-ORD7 \"Retry submission\" \u2014 re-attempts registration only; approval is never re-requested.",
+        "description": "Retry submission \u2014 re-attempts registration only; approval is never re-requested.",
         "operationId": "retry_submission_api_v1_orders__order_id__retry_submission_post",
         "parameters": [
           {
@@ -15896,7 +15889,7 @@
     },
     "/api/v1/outlets/onboarding/address/districts": {
       "get": {
-        "description": "C-15 \u2014 the district step. `state_id` is required; there is no national district listing.",
+        "description": "The district step. `state_id` is required; there is no national district listing.",
         "operationId": "firm_address_districts_api_v1_outlets_onboarding_address_districts_get",
         "parameters": [
           {
@@ -15942,7 +15935,7 @@
     },
     "/api/v1/outlets/onboarding/address/options": {
       "get": {
-        "description": "C-16 \u2014 the locality and pincode steps for the operational address. `pincode` narrows the\nlocality list, `location_id` narrows the pincode list; both may be omitted.",
+        "description": "The locality and pincode steps for the operational address. `pincode` narrows the\nlocality list, `location_id` narrows the pincode list; both may be omitted.",
         "operationId": "firm_address_options_api_v1_outlets_onboarding_address_options_get",
         "parameters": [
           {
@@ -16023,7 +16016,7 @@
     },
     "/api/v1/outlets/onboarding/address/states": {
       "get": {
-        "description": "C-14 \u2014 the state step of the firm address form. Not the territory tree: that is\n`/api/v1/org/geography/states`, which is zone-rooted and scoped to assignment.",
+        "description": "The state step of the firm address form. Not the territory tree: that is\n`/api/v1/org/geography/states`, which is zone-rooted and scoped to assignment.",
         "operationId": "firm_address_states_api_v1_outlets_onboarding_address_states_get",
         "responses": {
           "200": {
@@ -16118,7 +16111,7 @@
         ]
       },
       "post": {
-        "description": "Capture a firm for the sales person's manager to approve. Humbee is not called here \u2014 ON-3\nruns only after the approval is granted, off this request.",
+        "description": "Capture a firm for the sales person's manager to approve. Humbee is not called here \u2014\n`onboard-firm` runs only after the approval is granted, off this request.",
         "operationId": "submit_candidate_api_v1_outlets_onboarding_candidates_post",
         "parameters": [
           {
@@ -16218,7 +16211,7 @@
     },
     "/api/v1/outlets/onboarding/document-lookup": {
       "get": {
-        "description": "ON-1 \u2014 pre-fill the firm form from a GSTIN or PAN.",
+        "description": "Pre-fill the firm form from a GSTIN or PAN.",
         "operationId": "document_lookup_api_v1_outlets_onboarding_document_lookup_get",
         "parameters": [
           {
@@ -16309,7 +16302,7 @@
     },
     "/api/v1/outlets/onboarding/manufacturer-roles": {
       "get": {
-        "description": "ON-2 \u2014 the role picker's source.",
+        "description": "The role picker's source.",
         "operationId": "manufacturer_roles_api_v1_outlets_onboarding_manufacturer_roles_get",
         "responses": {
           "200": {
@@ -16332,7 +16325,7 @@
     },
     "/api/v1/outlets/onboarding/owner-otp/request": {
       "post": {
-        "description": "Send an OTP to a prospective firm owner's phone, ahead of ON-3.",
+        "description": "Send an OTP to a prospective firm owner's phone, ahead of `onboard-firm`.",
         "operationId": "request_owner_otp_api_v1_outlets_onboarding_owner_otp_request_post",
         "parameters": [
           {
@@ -16670,7 +16663,7 @@
     },
     "/api/v1/outlets/{outlet_id}/insights/profiler": {
       "get": {
-        "description": "Pre-authenticated link into the outlet's profiler screen, for the app to open in a web\nview. The token is PII-bearing \u2014 never log, persist or cache it (R-OUT-37).",
+        "description": "Pre-authenticated link into the outlet's profiler screen, for the app to open in a web\nview. The token is PII-bearing \u2014 never log, persist or cache it.",
         "operationId": "get_outlet_insight_profiler_api_v1_outlets__outlet_id__insights_profiler_get",
         "parameters": [
           {
@@ -17104,7 +17097,7 @@
     },
     "/api/v1/reporting/dashboards/admin": {
       "get": {
-        "description": "S-DASH-ADM: Admin org-wide dashboard.\n\n`org_metrics` honours `period`. `targets`, `targets_summary`,\n`manufacturer_movement`, `approval_latency`, and `mom` are always MTD;\n`targets_summary` and `manufacturer_movement` always span every manufacturer.\n`employee_progress` is always MTD; `designation_code` narrows it to one hierarchy\nlevel and defaults to `all` (every level, ordered by level then name) \u2014 see\n`designation_scope`.",
+        "description": "Admin org-wide dashboard.\n\n`org_metrics` honours `period`. `targets`, `targets_summary`,\n`manufacturer_movement`, `approval_latency`, and `mom` are always MTD;\n`targets_summary` and `manufacturer_movement` always span every manufacturer.\n`employee_progress` is always MTD; `designation_code` narrows it to one hierarchy\nlevel and defaults to `all` (every level, ordered by level then name) \u2014 see\n`designation_scope`.",
         "operationId": "get_admin_dashboard_api_v1_reporting_dashboards_admin_get",
         "parameters": [
           {
@@ -17184,7 +17177,7 @@
     },
     "/api/v1/reporting/dashboards/manager": {
       "get": {
-        "description": "S-DASH-MGR: Manager team dashboard.\n\n`team_metrics` honours `period`. `scatter`, `districts`, and `mom` are always MTD and\nwhole-tree. `league` and `targets` are always MTD and scoped to one hierarchy level\n(`designation_code`, defaulting to one level below the caller) \u2014 see `designation_scope`.",
+        "description": "Manager team dashboard.\n\n`team_metrics` honours `period`. `scatter`, `districts`, and `mom` are always MTD and\nwhole-tree. `league` and `targets` are always MTD and scoped to one hierarchy level\n(`designation_code`, defaulting to one level below the caller) \u2014 see `designation_scope`.",
         "operationId": "get_manager_dashboard_api_v1_reporting_dashboards_manager_get",
         "parameters": [
           {
@@ -17264,7 +17257,7 @@
     },
     "/api/v1/reporting/dashboards/sales-person": {
       "get": {
-        "description": "S-DASH-SP: Sales Person visit/call KPIs, honouring `period`.\n\nManufacturer-scoped target progress is a separate call \u2014 see\n`/dashboards/sales-person/targets` \u2014 so switching manufacturer doesn't\nre-run these queries.",
+        "description": "Sales Person visit/call KPIs, honouring `period`.\n\nManufacturer-scoped target progress is a separate call \u2014 see\n`/dashboards/sales-person/targets` \u2014 so switching manufacturer doesn't\nre-run these queries.",
         "operationId": "get_sales_person_dashboard_api_v1_reporting_dashboards_sales_person_get",
         "parameters": [
           {
@@ -17333,7 +17326,7 @@
     },
     "/api/v1/reporting/dashboards/sales-person/targets": {
       "get": {
-        "description": "S-DASH-SP: manufacturer-scoped target progress (always MTD).",
+        "description": "Sales Person dashboard: manufacturer-scoped target progress (always MTD).",
         "operationId": "get_sales_person_targets_api_v1_reporting_dashboards_sales_person_targets_get",
         "parameters": [
           {
@@ -17535,7 +17528,7 @@
     },
     "/api/v1/route-plans/current": {
       "get": {
-        "description": "S-ROUTE1/3. A manager/admin may pass `employee_id` for S-ROUTE5's drill-down.",
+        "description": "A manager/admin may pass `employee_id` for the coverage drill-down.",
         "operationId": "get_current_route_plan_api_v1_route_plans_current_get",
         "parameters": [
           {
@@ -17602,7 +17595,7 @@
     },
     "/api/v1/route-plans/days": {
       "get": {
-        "description": "S-CVIS1's day picker (R-RTE-30).",
+        "description": "The combined-visit day picker.",
         "operationId": "route_days_api_v1_route_plans_days_get",
         "parameters": [
           {
@@ -17665,7 +17658,6 @@
     },
     "/api/v1/route-plans/switch-beat": {
       "post": {
-        "description": "Transition #12 (S-ROUTE2b).",
         "operationId": "start_beat_api_v1_route_plans_switch_beat_post",
         "parameters": [
           {
@@ -17745,7 +17737,7 @@
     },
     "/api/v1/targets": {
       "get": {
-        "description": "S-TGT1 edit-mode load \u2014 the active targets an employee holds for one month.",
+        "description": "Edit-mode load \u2014 the active targets an employee holds for one month.",
         "operationId": "list_targets_api_v1_targets_get",
         "parameters": [
           {
@@ -17814,7 +17806,7 @@
         ]
       },
       "post": {
-        "description": "S-TGT1 save. 409 when a target of that type already exists for the month \u2014 the client\nreloads and PUTs, rather than a second active target being created.",
+        "description": "Save. 409 when a target of that type already exists for the month \u2014 the client\nreloads and PUTs, rather than a second active target being created.",
         "operationId": "create_target_api_v1_targets_post",
         "parameters": [
           {
@@ -18078,7 +18070,7 @@
     },
     "/api/v1/visits/{visit_id}/check-in": {
       "post": {
-        "description": "Transitions #2/#3 (S-ROUTE4 entry, or \"Add unplanned visit\").",
+        "description": "Visit entry or \"Add unplanned visit\".",
         "operationId": "check_in_api_v1_visits__visit_id__check_in_post",
         "parameters": [
           {
@@ -18143,7 +18135,7 @@
     },
     "/api/v1/visits/{visit_id}/check-out": {
       "post": {
-        "description": "\"End visit & check out\" (S-ROUTE4). `422 OUTCOME_REQUIRED` per R-RTE-15. Never mutates\nstate (see `RouteService.check_out`), so no `Idempotency-Key` is required.",
+        "description": "\"End visit & check out\"; may return `422 OUTCOME_REQUIRED`. Never mutates\nstate (see `RouteService.check_out`), so no `Idempotency-Key` is required.",
         "operationId": "check_out_api_v1_visits__visit_id__check_out_post",
         "parameters": [
           {
@@ -18188,7 +18180,7 @@
     },
     "/api/v1/visits/{visit_id}/outcome": {
       "get": {
-        "description": "Read-back for S-VISIT1 \u2014 reopening a completed visit shows its recorded outcome.",
+        "description": "Read-back for a visit's close-out \u2014 reopening a completed visit shows its recorded outcome.",
         "operationId": "get_visit_outcome_api_v1_visits__visit_id__outcome_get",
         "parameters": [
           {
@@ -18231,7 +18223,6 @@
         ]
       },
       "post": {
-        "description": "Transition #6 (S-VISIT1).",
         "operationId": "log_outcome_api_v1_visits__visit_id__outcome_post",
         "parameters": [
           {
@@ -18296,7 +18287,7 @@
     },
     "/api/v1/visits/{visit_id}/outlet-coordinates": {
       "post": {
-        "description": "O-4 field pin correction.",
+        "description": "Field pin correction.",
         "operationId": "submit_coordinate_correction_api_v1_visits__visit_id__outlet_coordinates_post",
         "parameters": [
           {
@@ -18373,6 +18364,22 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/livez": {
+      "get": {
+        "operationId": "livez_livez_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Livez"
       }
     }
   }

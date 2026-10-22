@@ -1,8 +1,8 @@
-"""`routes_combined_visit_feedback` — 1:1 feedback per combined visit. database-design.md §8.
+"""`routes_combined_visit_feedback` — 1:1 feedback per combined visit.
 
 `form_definition_id` is a logical pointer into `platform_form_definitions`. `responses` is
 `jsonb` + a form-version pointer instead of columns because the feedback field set is still
-pending from the business (`OQ-002`) — the pending schema lands as a form version, not a
+pending from the business — the pending schema lands as a form version, not a
 migration.
 """
 

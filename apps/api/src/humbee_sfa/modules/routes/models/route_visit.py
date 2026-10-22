@@ -1,9 +1,9 @@
-"""`routes_visits` — the visit lifecycle. database-design.md §8.
+"""`routes_visits` — the visit lifecycle.
 
 `route_plan_id`/`route_stop_id` are declared references within the `routes` context;
 `combined_visit_id` has no `REFERENCES` in the DDL (forward pointer into
-`routes_combined_visits`, created later) and is logical only. INV-06 (no visit without a same-day
-punch-in) spans `attendance` and is enforced in `routes.service`, not here.
+`routes_combined_visits`, created later) and is logical only. The rule that no visit exists without a same-day
+punch-in spans `attendance` and is enforced in `routes.service`, not here.
 """
 
 from __future__ import annotations
@@ -50,11 +50,11 @@ class RouteVisit(Base, ConventionsMixin, FieldEventTimingMixin):
         ),
         CheckConstraint("origin IN ('planned','unplanned')", name="origin_chk"),
         CheckConstraint("visit_type IN ('physical','telephonic')", name="type_chk"),
-        # R-RTE-14: telephonic visits capture no GPS
+        # Telephonic visits capture no GPS
         CheckConstraint(
             "visit_type <> 'telephonic' OR checkin_gps IS NULL", name="telephonic_no_gps_chk"
         ),
-        # R-RTE-13: unplanned visits never pass through `scheduled`
+        # Unplanned visits never pass through `scheduled`
         CheckConstraint(
             "origin <> 'unplanned' OR state <> 'scheduled'", name="unplanned_state_chk"
         ),
@@ -72,7 +72,7 @@ class RouteVisit(Base, ConventionsMixin, FieldEventTimingMixin):
     humbee_outlet_id: Mapped[str] = mapped_column(String(64), nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     origin: Mapped[str] = mapped_column(String(16), nullable=False)
-    visit_type: Mapped[str] = mapped_column(String(16), nullable=False)  # INV-07: never null
+    visit_type: Mapped[str] = mapped_column(String(16), nullable=False)  # never null
     planned_for_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

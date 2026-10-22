@@ -4,5 +4,5 @@ Support scripts for CI and repo automation.
 
 ## Directories
 
-- `ci/` — CI helper scripts invoked by GitHub workflows.
-- `scripts/` — local automation scripts (scaffold currently, add scripts as needed).
+- `ci/` — CI check scripts (`pnpm ci:api-baseline`, `pnpm ci:contract-drift`, `pnpm ci:web`).
+- `scripts/` — OpenAPI and TypeScript client generation, breaking-change check.

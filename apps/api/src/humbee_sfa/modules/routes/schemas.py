@@ -1,4 +1,4 @@
-"""Routes/Visits HTTP DTOs — M08 §4, §10.
+"""Routes/Visits HTTP DTOs.
 
 Field naming mirrors the beats convention (`outlet_ref` in the HTTP layer, `humbee_outlet_id` in
 the DB/ORM) so the two modules read the same on the wire.
@@ -84,8 +84,6 @@ class RoutePlanResponse(BaseModel):
 
 
 class SwitchBeatBody(BaseModel):
-    """S-ROUTE2b (transition #12)."""
-
     beat_id: str
 
 
@@ -103,7 +101,7 @@ class VisitResponse(BaseModel):
 
 
 class VisitOutcomeDetail(BaseModel):
-    """Read-back for a visit's close-out (S-VISIT1) — reopening a completed visit shows what was
+    """Read-back for a visit's close-out — reopening a completed visit shows what was
     recorded, including the orders placed, without growing `RouteStopItem` (read by every stop on
     every route-plan fetch) with per-visit detail only the opened stop needs."""
 
@@ -134,7 +132,7 @@ class LastOutletVisitResponse(BaseModel):
 
 
 class CheckInBody(BaseModel):
-    """S-ROUTE4 entry / "Add unplanned visit" (transitions #2/#3)."""
+    """Visit entry or "Add unplanned visit"."""
 
     occurred_at: datetime
     visit_type: VisitType
@@ -144,8 +142,6 @@ class CheckInBody(BaseModel):
 
 
 class OutcomeBody(BaseModel):
-    """S-VISIT1 (transition #6)."""
-
     reason: NoOrderReason
     note: str | None = Field(default=None, max_length=2000)
     photo_object_key: str | None = None
@@ -208,8 +204,6 @@ class RouteDaysResponse(BaseModel):
 
 
 class CreateCombinedVisitBody(BaseModel):
-    """S-CVIS1 (R-RTE-28/29/30)."""
-
     id: str | None = Field(default=None, min_length=26, max_length=26)
     sales_person_employee_id: str
     beat_id: str
@@ -237,7 +231,7 @@ class CombinedVisitResponse(BaseModel):
 
 
 class CombinedVisitFeedbackBody(BaseModel):
-    """S-CVIS2. `responses` absorbs the still-pending business schema as JSONB (R-RTE-33)."""
+    """`responses` absorbs the still-pending business schema as JSONB."""
 
     overall_rating: OverallRating
     responses: dict[str, str] = Field(default_factory=dict)
@@ -255,7 +249,7 @@ class UnplannedOutletItem(BaseModel):
 
 
 class CoordinateCorrectionBody(BaseModel):
-    """O-4 — a field pin correction captured during a visit, possibly offline.
+    """A field pin correction captured during a visit, possibly offline.
     The outlet is the visit's own outlet (from the path), never a client-supplied id."""
 
     lat: float

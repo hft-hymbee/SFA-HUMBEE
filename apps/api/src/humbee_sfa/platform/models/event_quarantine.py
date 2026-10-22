@@ -1,6 +1,5 @@
 """`platform_event_quarantine` — events older than the lateness window, or otherwise
 unprocessable, land here instead of being silently dropped or silently applied.
-database-design.md §12.2 (implements M11 §3b.4).
 """
 
 from __future__ import annotations

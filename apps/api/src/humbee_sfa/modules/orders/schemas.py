@@ -1,4 +1,4 @@
-"""Orders/cart HTTP DTOs (M10 §3.3, §4 S-ORD1-4; epic 07 Stories 7.4-7.6)."""
+"""Orders/cart HTTP DTOs."""
 
 from __future__ import annotations
 
@@ -95,12 +95,12 @@ class CartResponse(BaseModel):
     taxable_base_paise: int
     gst_amount_paise: int
     gross_total_paise: int
-    # epic 07 Story 7.5 PO caps: `po_cap_qty` is `min(max_dp_quantity, available_quantity)`,
+    # PO caps: `po_cap_qty` is `min(max_dp_quantity, available_quantity)`,
     # `po_cap_source` names whichever of the two bound it. Both null off the PO-backed path or
     # when no PO is selected yet.
     po_cap_qty: int | None
     po_cap_source: Literal["max_dp_quantity", "available_quantity"] | None
-    # per-product remaining PO quantity (P-2 `lines[].balance_qty`), keyed by product_id; only
+    # per-product remaining PO quantity (`lines[].balance_qty`), keyed by product_id; only
     # products the PO carries a line for are present, so a missing key means no per-SKU cap.
     po_line_balances: dict[str, int]
     expires_at: datetime
@@ -165,7 +165,7 @@ class SellerOut(BaseModel):
 
 
 class OrderContextResponse(BaseModel):
-    """S-ORD1 fan-out. `no_sellers_linked` and `seller_selection_required`
+    """`no_sellers_linked` and `seller_selection_required`
     are first-class recovery states, not errors — when either is true the routing/PO/ship-to/
     banner fields are empty and the client renders the recovery screen instead."""
 
@@ -218,7 +218,7 @@ class CatalogResponse(BaseModel):
     as_of: datetime
 
 
-# -- order submission / read (Story 4.2/4.3; epic 07 Story 7.6) -------------
+# -- order submission / read -------------
 
 
 class SubmitOrderBody(BaseModel):

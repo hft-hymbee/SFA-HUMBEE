@@ -1,15 +1,15 @@
-"""`LeaveAdapter` — M12's implementation of the M06 `ApprovalSubjectAdapter` contract (§3.7).
+"""`LeaveAdapter` — leave's implementation of the approvals `ApprovalSubjectAdapter` contract.
 
-This file is the **only** place `LeaveRequest.status` is written (R-LV-09) and the only place the
-balance reservation is converted or released (R-LV-12). Leave has no `approve()`, no state machine
-and no decision endpoint of its own (R-LV-01): the three callbacks below run inside M06's decision
-transaction, on M06's session, and mirror whatever the engine already decided.
+This file is the **only** place `LeaveRequest.status` is written and the only place the
+balance reservation is converted or released. Leave has no `approve()`, no state machine
+and no decision endpoint of its own: the three callbacks below run inside the approval engine's
+decision transaction, on its session, and mirror whatever the engine already decided.
 
 Reads and writes here use `internal_routing_scope` (tenant-only, no actor) on purpose. Visibility
 of the approval request was already resolved by the engine before it called us, and the deciding
 actor is the *approver*, whose own row scope would not cover the requester's leave.
 
-`LeaveGranted` / `LeaveRejected` / `LeaveWithdrawn` (M12 §10, cross-module interfaces) are returned
+`LeaveGranted` / `LeaveRejected` / `LeaveWithdrawn` (cross-module interfaces) are returned
 as `SubjectEvent`s rather than published here — `ApprovalService._run_callbacks_and_publish` writes
 them through `platform/domain_events.py` inside the same transaction.
 """
@@ -48,7 +48,7 @@ from humbee_sfa.modules.org.scope import internal_routing_scope
 STREAM = "leave"
 AGGREGATE_REQUEST = "leave_request"
 
-# Named in M12 §10 as `LeaveGranted` / `LeaveRejected` / `LeaveWithdrawn`; snake-cased to match the
+# Named as `LeaveGranted` / `LeaveRejected` / `LeaveWithdrawn`; snake-cased to match the
 # shared domain-event naming convention.
 LEAVE_GRANTED = "leave_granted"
 LEAVE_REJECTED = "leave_rejected"
@@ -74,7 +74,7 @@ _OUTCOME_TITLES: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Display derivations (M12 §8) — used for the strings M06 denormalises at write time
+# Display derivations — used for the strings the approval engine denormalises at write time
 # ---------------------------------------------------------------------------
 
 
@@ -152,7 +152,7 @@ class LeaveAdapter:
     # -- editing -----------------------------------------------------------
 
     def editable_fields(self, session: Session, *, subject_id: str) -> list[EditableField]:
-        # v1 has no partial approval of leave (M12 §3.7), so S-AP2 hides the Edit button (R-AP-13).
+        # v1 has no partial approval of leave, so the approval detail screen hides the Edit button.
         return []
 
     def apply_edit(
@@ -162,10 +162,12 @@ class LeaveAdapter:
         # Protocol is satisfied structurally, and so a future edit path fails loudly, not silently.
         raise SubjectEditRejected("Leave requests cannot be edited during approval.")
 
-    # -- outcome callbacks (all run inside M06's decision transaction) -----
+    # -- outcome callbacks (all run inside the approval engine's decision transaction) -----
 
-    def on_approved(self, session: Session, *, request: Request) -> list[SubjectEvent]:
-        """Grant: mirror the status and convert the reservation into consumption (R-LV-12)."""
+    def on_approved(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
+        """Grant: mirror the status and convert the reservation into consumption."""
 
         row = self._mirror(session, request=request)
         self._move_balance(
@@ -178,7 +180,7 @@ class LeaveAdapter:
         return [self._event(LEAVE_GRANTED, row)]
 
     def on_rejected(
-        self, session: Session, *, request: Request, reason: str
+        self, session: Session, *, request: Request, reason: str, decided_at: datetime
     ) -> list[SubjectEvent]:
         """Rejection: release the reservation, never debit."""
 
@@ -188,8 +190,10 @@ class LeaveAdapter:
         )
         return [self._event(LEAVE_REJECTED, row)]
 
-    def on_withdrawn(self, session: Session, *, request: Request) -> list[SubjectEvent]:
-        """Withdrawal (R-LV-13): release the reservation, never debit."""
+    def on_withdrawn(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
+        """Withdrawal: release the reservation, never debit."""
 
         row = self._mirror(session, request=request)
         self._move_balance(
@@ -200,15 +204,15 @@ class LeaveAdapter:
     # -- advisory + notification -------------------------------------------
 
     def advisories(self, session: Session, *, subject_id: str) -> list[ApprovalAdvisory]:
-        # No leave advisory is specified yet (M12 §12 Q5 is open). The hook stays empty rather than
+        # No leave advisory is specified yet. The hook stays empty rather than
         # inventing copy the approver would learn to ignore.
         return []
 
     def notification(
         self, request: Request, outcome: ApprovalStatus, *, occurred_at: datetime
     ) -> NotificationSpec:
-        """Materialised outcome copy (R-AP-22). No `session` here by contract, so the strings come
-        from the request's own denormalised `title` (`"Leave: 22–23 Jul"`), which M06 wrote from
+        """Materialised outcome copy. No `session` here by contract, so the strings come
+        from the request's own denormalised `title` (`"Leave: 22–23 Jul"`), which the approval engine wrote from
         `summary()` at submission. Deep-link fields stay unset so the engine resolves them per
         recipient through `deep_link()`."""
 
@@ -225,7 +229,7 @@ class LeaveAdapter:
         )
 
     def deep_link(self, request: Request, viewer: Actor) -> DeepLink:
-        # The requester lands on their own leave row (S-LV2); anyone else on the request (S-AP2).
+        # The requester lands on their own leave row; anyone else on the approval request.
         if viewer.employee_id == request.requester_id:
             return DeepLink(target_type="leave", target_id=request.subject_id)
         return DeepLink(target_type="approval_request", target_id=request.id)
@@ -244,11 +248,11 @@ class LeaveAdapter:
     def _mirror(
         self, session: Session, *, request: Request, decision_note: str | None = None
     ) -> LeaveRequest:
-        """The single write path for `LeaveRequest.status` in the whole codebase (R-LV-09).
+        """The single write path for `LeaveRequest.status` in the whole codebase.
 
         The status mirrored is `request.status` verbatim — the engine has already applied its own
         outcome by the time it calls us, so `auto_approved` and `approved` land as themselves and
-        S-LV3's separate filter buckets stay implementable (M12 §3.4).
+        the team view's separate filter buckets stay implementable.
         """
 
         row = self._row(session, tenant_id=request.tenant_id, subject_id=request.subject_id)
@@ -276,14 +280,14 @@ class LeaveAdapter:
             session,
             scope=scope,
             employee_id=row.employee_id,
-            leave_type=row.leave_type,
-            # §12 Q14: a range straddling the year boundary is attributed by `from_date` in v1,
+            leave_type=LeaveType(row.leave_type),
+            # A range straddling the year boundary is attributed by `from_date` in v1,
             # which is the same attribution submission used to reserve.
             period_year=row.from_date.year,
         )
         if balance is None:
             # Unreachable: submission creates the row before it reserves. Raising keeps a silently
-            # un-debited grant from becoming a reachable state (M12 §11.3).
+            # un-debited grant from becoming a reachable state.
             raise ApiError(
                 409,
                 "leave_balance_missing",

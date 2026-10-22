@@ -148,6 +148,14 @@ export function readDeactivatedChallenge() {
   return deactivatedChallengeId;
 }
 
+export function subscribeToDeactivatedChallenge() {
+  return () => {};
+}
+
+export function getServerDeactivatedChallenge(): string | null {
+  return null;
+}
+
 export function clearDeactivatedChallenge() {
   deactivatedChallengeId = null;
   dropStoredDeactivatedChallenge();

@@ -980,11 +980,20 @@ function OutletVisitContent({ stop }: { stop: RouteStop }) {
   const isPhysical = visitType === "Physical";
   const visitActive = (visitState === "active" || stopVisitInProgress) && !visitCompleted;
 
-  useEffect(() => {
-    if (!isRouteStopVisitInProgress(stop)) return;
-    setVisitState((current) => (current === "locating" ? current : "active"));
-    setActiveVisitId(stop.visitId ?? stop.id);
-  }, [stop.id, stop.visitId, stop.status, stop.checkedInAt, stop.checkedOutAt]);
+  const [syncedStop, setSyncedStop] = useState(stop);
+  if (
+    syncedStop.id !== stop.id
+    || syncedStop.visitId !== stop.visitId
+    || syncedStop.status !== stop.status
+    || syncedStop.checkedInAt !== stop.checkedInAt
+    || syncedStop.checkedOutAt !== stop.checkedOutAt
+  ) {
+    setSyncedStop(stop);
+    if (stopVisitInProgress) {
+      setVisitState((current) => (current === "locating" ? current : "active"));
+      setActiveVisitId(stop.visitId ?? stop.id);
+    }
+  }
   const outletTone = stop.outletLevel === "Dealer" ? "var(--color-info)" : "var(--color-primary)";
   const outletSnapshot = useOutletSnapshot(stop.outletRef);
   const outletSnapshotLocation = outletSnapshot.data?.location ?? null;
@@ -1287,7 +1296,7 @@ function OutletVisitContent({ stop }: { stop: RouteStop }) {
                                 loading={addingShopLocation || visits.coordinateCorrection.isPending}
                                 disabled={addingShopLocation || visits.coordinateCorrection.isPending}
                                 onClick={() => void addShopLocation()}
-                                style={{ minHeight: 38, paddingInline: "12px", width: "100%" }}
+                                style={{ minHeight: 38, paddingInline: 12, width: "100%" }}
                               />
                             </div>
                           {coordinateSaveError ? <div style={{ marginTop: 6 }}><SpInlineAlert tone="warning">{coordinateSaveError}</SpInlineAlert></div> : null}

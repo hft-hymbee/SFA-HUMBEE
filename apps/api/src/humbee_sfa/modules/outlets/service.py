@@ -148,23 +148,32 @@ class OutletOnboardingService:
         self._onboarding_port = onboarding_port or HumbeeOnboardingProvider(self._settings)
         self._idempotency = IdempotencyService(session)
 
-    def _check_idempotency(
+    def _stored_replay(
         self, *, tenant_id: str, endpoint: str, idempotency_key: str, raw_body: bytes
     ) -> tuple[int, dict[str, Any]] | None:
-        request_fp = _request_fingerprint(raw_body)
-        self._idempotency.claim(
-            tenant_id=tenant_id, endpoint=endpoint, key=idempotency_key
-        )
         existing = self._idempotency.get(
             tenant_id=tenant_id, endpoint=endpoint, key=idempotency_key
         )
         if existing is None:
             return None
-        if not self._idempotency.is_exact_replay(existing, request_fp):
+        if not self._idempotency.is_exact_replay(existing, _request_fingerprint(raw_body)):
             raise ApiError(
                 409, "idempotency_conflict", "Idempotency key was already used with a different payload."
             )
         return existing.status_code, existing.response_payload
+
+    def _check_idempotency(
+        self, *, tenant_id: str, endpoint: str, idempotency_key: str, raw_body: bytes
+    ) -> tuple[int, dict[str, Any]] | None:
+        self._idempotency.claim(
+            tenant_id=tenant_id, endpoint=endpoint, key=idempotency_key
+        )
+        return self._stored_replay(
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+            raw_body=raw_body,
+        )
 
     def _store_idempotency(
         self,
@@ -225,12 +234,20 @@ class OutletOnboardingService:
         raw_body: bytes,
         requester_ip: str | None,
     ) -> tuple[int, dict[str, Any]]:
+        endpoint = "/api/v1/outlets/onboarding/owner-otp/request"
+        replay = self._stored_replay(
+            tenant_id=claims.tenant_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+            raw_body=raw_body,
+        )
+        if replay is not None:
+            return replay
         phone_hash = self._ensure_phone_available_for_onboarding(
             tenant_id=claims.tenant_id,
             phone_e164=body.phone_e164,
         )
         with transaction(self._session, commit_on=ApiError):
-            endpoint = "/api/v1/outlets/onboarding/owner-otp/request"
             replay = self._check_idempotency(
                 tenant_id=claims.tenant_id,
                 endpoint=endpoint,
@@ -349,7 +366,7 @@ class OutletOnboardingService:
             )
             return 200, payload
 
-    # -- ON-1 / ON-2 reads ----------------------------------------------------
+    # -- document lookup / role reads ----------------------------------------------------
 
     def lookup_document(self, *, gstin: str | None, pan: str | None) -> dict[str, Any]:
         if not gstin and not pan:
@@ -489,7 +506,7 @@ class OutletOnboardingService:
     ) -> tuple[int, dict[str, Any]]:
         """Capture a firm and route it to the sales person's manager.
 
-        Nothing reaches Humbee here. ON-3 creates a real firm, organization and owner login and
+        Nothing reaches Humbee here. `onboard-firm` creates a real firm, organization and owner login and
         cannot be undone, so it waits behind the approval — `OutletVerificationAdapter.on_approved`
         makes the call once a manager grants it.
 
@@ -499,6 +516,14 @@ class OutletOnboardingService:
         """
 
         endpoint = "/api/v1/outlets/onboarding/candidates"
+        replay = self._stored_replay(
+            tenant_id=claims.tenant_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+            raw_body=raw_body,
+        )
+        if replay is not None:
+            return replay
         phone_hmac = self._ensure_phone_available_for_onboarding(
             tenant_id=claims.tenant_id,
             phone_e164=body.phone_number,
@@ -665,7 +690,7 @@ class OutletReadService:
         actor_employee_id: str | None = None,
         upsert_refs: set[str] | None = None,
     ) -> list[OutletRecord]:
-        """Run C-2, then stage the projection upsert — of every record, or only `upsert_refs`
+        """Run the outlet list call, then stage the projection upsert — of every record, or only `upsert_refs`
         when the caller needs just those rows. Never commits — the caller owns the transaction,
         so the refreshed outlets land with whatever command state it is writing."""
 
@@ -696,7 +721,7 @@ class OutletReadService:
     def search_humbee_outlets(
         self, *, tenant_id: str, district_ids: list[str]
     ) -> list[OutletRecord]:
-        """Every outlet Humbee has for `district_ids`, straight from C-2 — no local upsert.
+        """Every outlet Humbee has for `district_ids`, straight from the outlet list — no local upsert.
         For the admin unassigned-outlets report, which compares Humbee's own outlet master
         against what SFA has assigned, so it must never write to the local projection as a
         side effect of being generated. A district that cannot be read fails the whole call: a
@@ -730,7 +755,7 @@ class OutletReadService:
         limit: int,
         actor_employee_id: str | None = None,
     ) -> OutletSearchPage:
-        """One page of C-2, for a picker the user scrolls. Same staging contract as
+        """One page of the outlet list, for a picker the user scrolls. Same staging contract as
         `search_outlets`: the projection upsert commits with the caller's transaction."""
 
         try:
@@ -807,7 +832,7 @@ class OutletReadService:
         outlet_id: str,
         actor_employee_id: str | None = None,
     ) -> OutletRecord | None:
-        """Run exactly one C-3 call and refresh only the fields C-3 owns. Never commits — the
+        """Run exactly one outlet detail call and refresh only the fields it owns. Never commits — the
         caller owns the transaction."""
 
         try:
@@ -1087,7 +1112,7 @@ class OutletReadService:
 
 
 def display_name(candidate: OutletOnboardingCandidate) -> str:
-    """ON-3 falls back to `fullname` when there is no trading name — an influencer is a person."""
+    """`onboard-firm` falls back to `fullname` when there is no trading name — an influencer is a person."""
 
     return candidate.company_name or candidate.fullname or "Unnamed firm"
 

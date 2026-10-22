@@ -101,8 +101,8 @@
         "message": "<Checkbox> labelPlacement must be one of 'end' | 'start'."
       },
       {
-        "selector": "JSXOpeningElement[name.name='DateField'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|value|dateValue|placeholder|onClick|onChange|min|max|error|disabled|fullWidth|style|key|ref|className|style|children)$/]",
-        "message": "<DateField> doesn't accept that prop. Declared props: label, value, dateValue, placeholder, onClick, onChange, min, max, error, disabled, fullWidth, style."
+        "selector": "JSXOpeningElement[name.name='DateField'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|value|dateValue|placeholder|onClick|onChange|min|max|error|disabled|fullWidth|inline|isDateEnabled|compact|style|key|ref|className|style|children)$/]",
+        "message": "<DateField> doesn't accept that prop. Declared props: label, value, dateValue, placeholder, onClick, onChange, min, max, error, disabled, fullWidth, inline, isDateEnabled, compact, style."
       },
       {
         "selector": "JSXOpeningElement[name.name='Skeleton'] > JSXAttribute > JSXIdentifier[name!=/^(?:width|height|radius|style|key|ref|className|style|children)$/]",

@@ -138,7 +138,7 @@ def get_outlet_insight_profiler(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
     """Pre-authenticated link into the outlet's profiler screen, for the app to open in a web
-    view. The token is PII-bearing — never log, persist or cache it (R-OUT-37)."""
+    view. The token is PII-bearing — never log, persist or cache it."""
 
     response.headers["Cache-Control"] = "no-store"
     return OutletReadService(session).get_outlet_insight_profiler(
@@ -156,7 +156,7 @@ async def request_owner_otp(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Send an OTP to a prospective firm owner's phone, ahead of ON-3."""
+    """Send an OTP to a prospective firm owner's phone, ahead of `onboard-firm`."""
 
     status_code, payload = OutletOnboardingService(session).request_owner_otp(
         claims=claims,
@@ -191,7 +191,7 @@ def document_lookup(
     gstin: Annotated[str | None, Query(max_length=15)] = None,
     pan: Annotated[str | None, Query(max_length=10)] = None,
 ) -> dict[str, Any]:
-    """ON-1 — pre-fill the firm form from a GSTIN or PAN."""
+    """Pre-fill the firm form from a GSTIN or PAN."""
 
     del claims
     return OutletOnboardingService(session).lookup_document(gstin=gstin, pan=pan)
@@ -202,7 +202,7 @@ def manufacturer_roles(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """ON-2 — the role picker's source."""
+    """The role picker's source."""
 
     del claims
     return OutletOnboardingService(session).list_manufacturer_roles()
@@ -222,7 +222,7 @@ def firm_address_states(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """C-14 — the state step of the firm address form. Not the territory tree: that is
+    """The state step of the firm address form. Not the territory tree: that is
     `/api/v1/org/geography/states`, which is zone-rooted and scoped to assignment."""
 
     del claims
@@ -235,7 +235,7 @@ def firm_address_districts(
     session: Annotated[Session, Depends(get_db_session)],
     state_id: Annotated[str, Query(min_length=1, max_length=32)],
 ) -> dict[str, Any]:
-    """C-15 — the district step. `state_id` is required; there is no national district listing."""
+    """The district step. `state_id` is required; there is no national district listing."""
 
     del claims
     return OutletOnboardingService(session).list_firm_address_districts(state_id=state_id)
@@ -249,7 +249,7 @@ def firm_address_options(
     pincode: Annotated[str | None, Query(pattern=r"^\d{6}$")] = None,
     location_id: Annotated[str | None, Query(min_length=1, max_length=32)] = None,
 ) -> dict[str, Any]:
-    """C-16 — the locality and pincode steps for the operational address. `pincode` narrows the
+    """The locality and pincode steps for the operational address. `pincode` narrows the
     locality list, `location_id` narrows the pincode list; both may be omitted."""
 
     del claims
@@ -268,8 +268,8 @@ async def submit_candidate(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Capture a firm for the sales person's manager to approve. Humbee is not called here — ON-3
-    runs only after the approval is granted, off this request."""
+    """Capture a firm for the sales person's manager to approve. Humbee is not called here —
+    `onboard-firm` runs only after the approval is granted, off this request."""
 
     status_code, payload = OutletOnboardingService(session).submit_candidate(
         claims=claims,

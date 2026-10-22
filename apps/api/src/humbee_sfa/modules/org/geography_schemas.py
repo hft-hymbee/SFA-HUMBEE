@@ -1,11 +1,11 @@
 """Geography request and response DTOs.
 
-Field names follow the canonical geo-scope JSON in M03 §3a.3 (`zones`/`states`/`districts`) so the
-API, the picker component and the spec all use one vocabulary.
+Field names follow the canonical geo-scope JSON (`zones`/`states`/`districts`) so the API and
+the picker component use one vocabulary.
 
-No shop-category or outlet-count fields anywhere here: they were dropped end to end when G-2/G-3/
-G-4 (SFA-API-Contract v2.2) replaced the old single-call geography master, the only source either
-ever had (epics/humbee-sfa-build/07-humbee-real-integration.md Story 7.2, reconciled 2026-09-03).
+No shop-category or outlet-count fields anywhere here: they were dropped end to end when the
+per-level geography endpoints replaced the old single-call geography master, the only source
+either ever had.
 """
 
 from __future__ import annotations
@@ -14,11 +14,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-_ID_LIST = Field(default_factory=list)
+_ID_LIST: list[str] = Field(default_factory=list)
 
 
 class GeoLabel(BaseModel):
-    """`{id, name}` snapshot for a zone/state, taken at assignment time (epic 07 Story 7.2) — the
+    """`{id, name}` snapshot for a zone/state, taken at assignment time — the
     master cache that used to let a stored id resolve back to a name is gone."""
 
     id: str
@@ -81,7 +81,7 @@ class GeoScopeResponse(BaseModel):
 
 
 class AssignGeoScopeBody(BaseModel):
-    """`districts` must be non-empty (R-ORG-30)."""
+    """`districts` must be non-empty."""
 
     zones: list[str] = _ID_LIST
     states: list[str] = _ID_LIST

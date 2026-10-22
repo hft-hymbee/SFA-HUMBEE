@@ -1,7 +1,7 @@
-"""Org persistence. Every function here takes a resolved `ScopeContext` (R-ORG-22).
+"""Org persistence. Every function here takes a resolved `ScopeContext`.
 
 Scope is applied *here* and nowhere else, so a new endpoint cannot forget it — a repository
-function that took no scope argument would be unreviewable (`02-rbac-and-scoping.md` §2).
+function that took no scope argument would be unreviewable.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date, datetime
 
-from sqlalchemy import Select, delete, func, or_, select, update
+from sqlalchemy import ColumnElement, Select, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.errors.handlers import ApiError
@@ -77,7 +77,7 @@ def get_active_by_id(
 
 
 def get_by_id(session: Session, *, scope: ScopeContext, employee_id: str) -> Employee | None:
-    """Management read. Includes deactivated employees — R-ORG-07/R-ORG-08: the record is never
+    """Management read. Includes deactivated employees: the record is never
     removed and still appears to in-scope actors under the "Inactive" filter."""
 
     stmt = _scoped_employees(scope).where(Employee.id == employee_id)
@@ -159,13 +159,13 @@ def list_employees(
     limit: int | None,
     offset: int,
 ) -> tuple[list[Employee], int]:
-    """Rows and total from the *same* scoped predicate (R-ORG-23).
+    """Rows and total from the *same* scoped predicate.
 
-    Admins hold no position in the reporting tree and are not roster rows (M03 §4 S-ORG1 offers
-    no Admin facet).
+    Admins hold no position in the reporting tree and are not roster rows (the roster offers no
+    Admin facet).
     """
 
-    conditions = [Employee.role_code.in_(HIERARCHY_ROLES)]
+    conditions: list[ColumnElement[bool]] = [Employee.role_code.in_(HIERARCHY_ROLES)]
     if scope.scope is Scope.OWN_TREE and scope.actor_employee_id is not None:
         conditions.append(Employee.id != scope.actor_employee_id)
     if search:
@@ -215,8 +215,8 @@ def list_active_hierarchy_members(session: Session, *, scope: ScopeContext) -> l
 def list_hierarchy_members(session: Session, *, scope: ScopeContext) -> list[Employee]:
     """Every employee occupying a node in the reporting tree — the input to a rebuild.
 
-    `status = 'inactive'` stays indexed (R-ORG-07/08 keep it visible under the "Inactive"
-    filter); only soft-deleted rows drop out.
+    `status = 'inactive'` stays indexed (deactivated employees stay visible under the
+    "Inactive" filter); only soft-deleted rows drop out.
     """
 
     stmt = _scoped_employees(scope).where(
@@ -270,7 +270,7 @@ def list_move_candidates(
     session: Session, *, scope: ScopeContext, excluded_employee_ids: set[str]
 ) -> list[Employee]:
     """Legal new managers: every role that may hold reports, except the moved employee's own
-    subtree (cycle, R-ORG-12). There is no depth-based exclusion (§3b.3)."""
+    subtree (cycle). There is no depth-based exclusion."""
 
     stmt = (
         _scoped_employees(scope)
@@ -289,10 +289,10 @@ def list_move_candidates(
 def list_tree(
     session: Session, *, scope: ScopeContext, root_employee_ids: list[str]
 ) -> list[tuple[Employee, int]]:
-    """Flat, pre-ordered subtree for S-ORG4 — one query, no N+1 (M03 §5.4).
+    """Flat, pre-ordered subtree for the org tree — one query, no N+1.
 
     Ordered by `hierarchy_path`, which is exactly what that column exists for: rendering an
-    indented tree. It is a display aid, never the authorisation input (M03 §3b.1) — the scope
+    indented tree. It is a display aid, never the authorisation input — the scope
     predicate on the joined employee row is.
     """
 
@@ -373,8 +373,8 @@ def apply_employee_updates(
 def deactivate_employee(
     session: Session, *, scope: ScopeContext, employee: Employee, at: datetime
 ) -> None:
-    """R-ORG-07: soft only. The row, and every visit/order/attendance record pointing at it,
-    survive; the employee simply cannot hold a session any more (R-ORG-08)."""
+    """Soft only. The row, and every visit/order/attendance record pointing at it,
+    survive; the employee simply cannot hold a session any more."""
 
     _require_org_write(scope)
     employee.status = "inactive"
@@ -410,7 +410,7 @@ def set_hierarchy_paths(
 
 
 # ---------------------------------------------------------------------------
-# Closure table (M03 §3b.1)
+# Closure table
 # ---------------------------------------------------------------------------
 
 
@@ -514,7 +514,7 @@ def delete_all_edges(session: Session, *, scope: ScopeContext) -> None:
 def delete_edges_above_subtree(
     session: Session, *, scope: ScopeContext, subtree_employee_ids: list[str]
 ) -> None:
-    """Cut the moved subtree loose from its old ancestors (M03 §3b.1 step 4).
+    """Cut the moved subtree loose from its old ancestors.
 
     A real DELETE, unlike everywhere else in this schema: closure rows are *derived* data, and
     soft-deleting them would collide with `uq_org_hierarchy_edges` the next time the same

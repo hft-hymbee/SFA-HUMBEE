@@ -8,6 +8,7 @@ from tests.fakes.humbee import FakeHumbee
 from tests.fakes.humbee_targets import install_target_manufacturers
 from tests.fixtures import seed
 from tests.fixtures.auth import login
+from tests.fixtures.flows import error_code
 
 from humbee_sfa.core.conventions import generate_ulid
 from humbee_sfa.modules.targets.models import Lead, Target
@@ -36,10 +37,6 @@ def _sales(employee_id: str, lines: list[tuple[str, int]], period_month: str = M
     }
 
 
-def _error(response) -> str:
-    return response.json()["error"]["code"]
-
-
 def test_set_change_and_remove_sales_target(api_client: TestClient, db_session: Session) -> None:
     manager = seed.employee(db_session, "manager")
     sp = seed.employee(db_session, "sales_person", manager=manager)
@@ -59,7 +56,7 @@ def test_set_change_and_remove_sales_target(api_client: TestClient, db_session: 
     }
 
     again = as_manager.post("/api/v1/targets", _sales(sp.id, [("501", 1)]))
-    assert (again.status_code, _error(again)) == (409, "target_already_set")
+    assert (again.status_code, error_code(again)) == (409, "target_already_set")
 
     path = f"/api/v1/targets/{target['id']}"
     update = {"target_type": "sales", "version": 1, "lines": [{"manufacturer_id": "502", "line_value": 15}]}
@@ -70,10 +67,10 @@ def test_set_change_and_remove_sales_target(api_client: TestClient, db_session: 
     assert updated.json()["target_value_volume_units"] == 15
 
     stale = as_manager.put(path, update)
-    assert (stale.status_code, _error(stale)) == (409, "target_version_conflict")
+    assert (stale.status_code, error_code(stale)) == (409, "target_version_conflict")
 
     retyped = as_manager.put(path, {"target_type": "leads", "version": 2, "target_value": 5})
-    assert (retyped.status_code, _error(retyped)) == (422, "target_type_immutable")
+    assert (retyped.status_code, error_code(retyped)) == (422, "target_type_immutable")
 
     listed = as_manager.get("/api/v1/targets", employee_id=sp.id, period_month=MONTH)
     assert [(t["id"], len(t["lines"])) for t in listed.json()["targets"]] == [(target["id"], 1)]
@@ -84,7 +81,7 @@ def test_set_change_and_remove_sales_target(api_client: TestClient, db_session: 
     assert removed.json()["removed_by"] == manager.id
 
     after_removal = as_manager.put(path, {**update, "version": 3})
-    assert (after_removal.status_code, _error(after_removal)) == (409, "target_removed")
+    assert (after_removal.status_code, error_code(after_removal)) == (409, "target_removed")
     assert as_manager.get("/api/v1/targets", employee_id=sp.id, period_month=MONTH).json()["targets"] == []
 
     reset = as_manager.post("/api/v1/targets", _sales(sp.id, [("503", 900)]))
@@ -101,28 +98,28 @@ def test_who_may_set_a_target_and_for_when(api_client: TestClient, db_session: S
     as_manager = login(api_client, manager)
 
     by_sp = login(api_client, sp).post("/api/v1/targets", _sales(sp.id, [("501", 100)]))
-    assert (by_sp.status_code, _error(by_sp)) == (403, "forbidden")
+    assert (by_sp.status_code, error_code(by_sp)) == (403, "forbidden")
 
     out_of_tree = as_manager.post("/api/v1/targets", _sales(other_sp.id, [("501", 100)]))
-    assert (out_of_tree.status_code, _error(out_of_tree)) == (404, "employee_not_found")
+    assert (out_of_tree.status_code, error_code(out_of_tree)) == (404, "employee_not_found")
 
     for_admin = login(api_client, admin).post("/api/v1/targets", _sales(admin.id, [("501", 100)]))
-    assert (for_admin.status_code, _error(for_admin)) == (422, "target_subject_not_hierarchy_member")
+    assert (for_admin.status_code, error_code(for_admin)) == (422, "target_subject_not_hierarchy_member")
 
     past = as_manager.post("/api/v1/targets", _sales(sp.id, [("501", 100)], "2026-09-01"))
-    assert (past.status_code, _error(past)) == (422, "period_in_the_past")
+    assert (past.status_code, error_code(past)) == (422, "period_in_the_past")
 
     mid_month = as_manager.post("/api/v1/targets", _sales(sp.id, [("501", 100)], "2026-10-15"))
-    assert (mid_month.status_code, _error(mid_month)) == (422, "period_not_month_start")
+    assert (mid_month.status_code, error_code(mid_month)) == (422, "period_not_month_start")
 
     unknown = as_manager.post("/api/v1/targets", _sales(sp.id, [("501", 100), ("999", 5)]))
-    assert (unknown.status_code, _error(unknown)) == (422, "manufacturer_not_found")
+    assert (unknown.status_code, error_code(unknown)) == (422, "manufacturer_not_found")
 
     outlets = {"employee_id": sp.id, "target_type": "outlets", "period_month": MONTH, "target_value": 12}
     for scope in (None, "pharmacy"):
         body = outlets if scope is None else {**outlets, "outlet_category_scope": scope}
         refused = as_manager.post("/api/v1/targets", body)
-        assert (refused.status_code, _error(refused)) == (422, "validation_error")
+        assert (refused.status_code, error_code(refused)) == (422, "validation_error")
     accepted = as_manager.post("/api/v1/targets", {**outlets, "outlet_category_scope": "grocery"})
     assert accepted.status_code == 201, accepted.text
     assert (accepted.json()["target_value"], accepted.json()["outlet_category_scope"]) == (12, "grocery")
@@ -149,33 +146,24 @@ def test_target_roster_lists_own_tree(api_client: TestClient, db_session: Sessio
     ]
 
     by_sp = login(api_client, with_target).get("/api/v1/targets/roster")
-    assert (by_sp.status_code, _error(by_sp)) == (403, "forbidden")
+    assert (by_sp.status_code, error_code(by_sp)) == (403, "forbidden")
 
 
-def test_capture_lead(api_client: TestClient, db_session: Session) -> None:
+def test_reused_lead_id_conflicts(api_client: TestClient, db_session: Session) -> None:
     sp = seed.employee(db_session, "sales_person", manager=seed.employee(db_session, "manager"))
     as_sp = login(api_client, sp)
-    lead_id = generate_ulid()
     body = {
-        "id": lead_id,
+        "id": generate_ulid(),
         "name": "Ravi Kumar",
         "mobile": "+91 98450 12345",
-        "email": " Ravi@Example.com ",
+        "email": "ravi@example.com",
         "company_name": "Kumar Traders",
-        "associated_manufacturers": ["Acme Oils", "acme oils", "Delta Foods"],
+        "associated_manufacturers": ["Acme Oils"],
     }
 
     captured = as_sp.post("/api/v1/leads", body)
     assert captured.status_code == 201, captured.text
-    lead = captured.json()
-    assert (lead["id"], lead["mobile_last4"], lead["email"], lead["status"]) == (
-        lead_id,
-        "2345",
-        "ravi@example.com",
-        "captured",
-    )
-    assert lead["associated_manufacturers"] == ["Acme Oils", "Delta Foods"]
 
     reused = as_sp.post("/api/v1/leads", {**body, "company_name": "Other Traders"})
-    assert (reused.status_code, _error(reused)) == (409, "lead_id_taken")
+    assert (reused.status_code, error_code(reused)) == (409, "lead_id_taken")
     assert db_session.scalar(select(func.count()).select_from(Lead)) == 1

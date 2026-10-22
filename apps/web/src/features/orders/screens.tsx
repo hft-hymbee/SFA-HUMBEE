@@ -386,10 +386,11 @@ function CatalogProductImage({
 }) {
   const [loadFailed, setLoadFailed] = useState(false);
   const normalizedUrl = imageUrl?.trim() ?? "";
-
-  useEffect(() => {
+  const [attemptedUrl, setAttemptedUrl] = useState(normalizedUrl);
+  if (attemptedUrl !== normalizedUrl) {
+    setAttemptedUrl(normalizedUrl);
     setLoadFailed(false);
-  }, [normalizedUrl]);
+  }
 
   if (!normalizedUrl || loadFailed) {
     return <Icon name="Image" size={22} color="var(--color-text-disabled)" />;
@@ -1092,6 +1093,11 @@ export function StartOrderScreen({ entry: routeEntry }: { entry?: OrderEntry | n
   );
 
   const entry = draft.entry;
+  const [bootstrapEntry, setBootstrapEntry] = useState(entry);
+  if (bootstrapEntry !== entry) {
+    setBootstrapEntry(entry);
+    if (entry) setBootstrapState({ phase: "loading" });
+  }
   const entryKey = entry
     ? [
       entry.visitId,
@@ -1106,7 +1112,6 @@ export function StartOrderScreen({ entry: routeEntry }: { entry?: OrderEntry | n
 
     let cancelled = false;
     const controller = new AbortController();
-    setBootstrapState({ phase: "loading" });
 
     void (async () => {
       try {
@@ -1260,7 +1265,10 @@ export function StartOrderScreen({ entry: routeEntry }: { entry?: OrderEntry | n
           <ErrorState
             title="Order context unavailable"
             message={bootstrapState.message}
-            onRetry={() => setRetryCount((count) => count + 1)}
+            onRetry={() => {
+              setBootstrapState({ phase: "loading" });
+              setRetryCount((count) => count + 1);
+            }}
           />,
         )}
       </SpScreen>
@@ -1291,13 +1299,13 @@ export function EsiSelectionScreen() {
   const selectedBrand = entry
     ? findBrandByManufacturerId(sellerBrandGroups, entry.manufacturerId)
     : undefined;
-  const selectedSeller = entry
+  const selectedSeller = useMemo(() => (entry
     ? findOutletSeller(
       sellerBrandGroups,
       entry.manufacturerId,
       entry.sellerId,
     )
-    : undefined;
+    : undefined), [entry, sellerBrandGroups]);
   const poRequired = sellerRequiresPo(selectedSeller);
   const outletOptions = selectedSeller?.outlet_esi_records ?? [];
   const sellerOptions = selectedSeller?.seller_esi_records ?? [];
@@ -1965,7 +1973,7 @@ export function ShipToPartnerScreen() {
               </span>
               <span className="sp-order-setup-copy" style={{ flex: 1 }}>
                 <strong style={{ fontSize: 15 }}>{shipToSummaryTitle}</strong>
-                <span style={{ fontSize: 14, lineHeight: "20px" }}>{shipToSummarySubtitle}</span>
+                <span style={{ fontSize: 14, lineHeight: "var(--text-body-sm-line)" }}>{shipToSummarySubtitle}</span>
               </span>
               <Icon
                 name="KeyboardArrowDown"
@@ -1980,7 +1988,7 @@ export function ShipToPartnerScreen() {
             </button>
             {shipToMenuOpen ? (
               <SpCard padded={false} style={{ borderRadius: "var(--radius-md)" }}>
-                <div style={{ padding: "12px 14px 0" }}>
+                <div style={{ paddingTop: 12, paddingInline: 14, paddingBottom: 0 }}>
                   <TextField
                     placeholder="Search ship-to partners"
                     startAdornment={<Icon name="SearchOutlined" size={18} color="var(--color-text-placeholder)" />}
@@ -2010,7 +2018,7 @@ export function ShipToPartnerScreen() {
                     );
                   })}
                   {!filteredPartnerShipToOptions.length ? (
-                    <div style={{ padding: "4px 14px 14px" }}>
+                    <div style={{ paddingTop: "var(--space-xs)", paddingInline: 14, paddingBottom: 14 }}>
                       <SpInlineAlert tone="warning">No ship-to partners match your search.</SpInlineAlert>
                     </div>
                   ) : null}
@@ -2353,57 +2361,67 @@ export function ProductPickerScreen() {
     />
   );
 
-  useEffect(() => {
+  const [linesCartId, setLinesCartId] = useState(cartId);
+  if (linesCartId !== cartId) {
+    setLinesCartId(cartId);
     setDraftQuantities({});
     setServerQuantities({});
     setDraftFormTypes({});
     setServerFormTypes({});
     setSaveError(null);
-  }, [cartId]);
+  }
 
-  useEffect(() => {
-    if (!catalog.data?.products.length) return;
-    const cartFormTypeByProduct = new Map(
-      (cart.data?.lines ?? []).map((line) => [
-        line.product_id,
-        normalizeLineFormType(line.form_type),
-      ]),
-    );
-    setServerQuantities((current) => {
-      const next = { ...current };
-      for (const product of catalog.data.products) {
-        next[product.product_id] = Math.max(0, product.qty_in_cart ?? 0);
-      }
-      return next;
-    });
-    setServerFormTypes((current) => {
-      const next = { ...current };
-      for (const product of catalog.data.products) {
-        next[product.product_id] = cartFormTypeByProduct.get(product.product_id) ?? "";
-      }
-      return next;
-    });
-    setDraftQuantities((current) => {
-      const next = { ...current };
-      for (const product of catalog.data.products) {
-        if (next[product.product_id] == null) {
+  const catalogProducts = catalog.data?.products;
+  const cartLines = cart.data?.lines;
+  const [syncedLineSources, setSyncedLineSources] = useState<{
+    products: typeof catalogProducts;
+    lines: typeof cartLines;
+  }>({ products: undefined, lines: undefined });
+  if (syncedLineSources.products !== catalogProducts || syncedLineSources.lines !== cartLines) {
+    setSyncedLineSources({ products: catalogProducts, lines: cartLines });
+    if (catalogProducts?.length) {
+      const cartFormTypeByProduct = new Map(
+        (cartLines ?? []).map((line) => [
+          line.product_id,
+          normalizeLineFormType(line.form_type),
+        ]),
+      );
+      setServerQuantities((current) => {
+        const next = { ...current };
+        for (const product of catalogProducts) {
           next[product.product_id] = Math.max(0, product.qty_in_cart ?? 0);
         }
-      }
-      return next;
-    });
-    setDraftFormTypes((current) => {
-      const next = { ...current };
-      for (const product of catalog.data.products) {
-        if (next[product.product_id] != null) continue;
-        const cartFormType = cartFormTypeByProduct.get(product.product_id) ?? "";
-        next[product.product_id] = product.form_type_req
-          ? resolvedRequiredFormType(cartFormType)
-          : cartFormType;
-      }
-      return next;
-    });
-  }, [catalog.data?.products, cart.data?.lines]);
+        return next;
+      });
+      setServerFormTypes((current) => {
+        const next = { ...current };
+        for (const product of catalogProducts) {
+          next[product.product_id] = cartFormTypeByProduct.get(product.product_id) ?? "";
+        }
+        return next;
+      });
+      setDraftQuantities((current) => {
+        const next = { ...current };
+        for (const product of catalogProducts) {
+          if (next[product.product_id] == null) {
+            next[product.product_id] = Math.max(0, product.qty_in_cart ?? 0);
+          }
+        }
+        return next;
+      });
+      setDraftFormTypes((current) => {
+        const next = { ...current };
+        for (const product of catalogProducts) {
+          if (next[product.product_id] != null) continue;
+          const cartFormType = cartFormTypeByProduct.get(product.product_id) ?? "";
+          next[product.product_id] = product.form_type_req
+            ? resolvedRequiredFormType(cartFormType)
+            : cartFormType;
+        }
+        return next;
+      });
+    }
+  }
 
   const updateDraftQuantity = (productId: string, quantity: number) => {
     const nextQuantity = Math.max(0, quantity);
@@ -2466,17 +2484,14 @@ export function ProductPickerScreen() {
     },
     [allProducts, selectedCategories],
   );
-  useEffect(() => {
-    const available = new Set(
-      categoryOptions
-        .filter((option) => option.value !== "All")
-        .map((option) => option.value),
-    );
-    setSelectedCategories((current) => {
-      const next = current.filter((value) => available.has(value));
-      return next.length === current.length ? current : next;
-    });
-  }, [categoryOptions]);
+  const availableCategories = new Set(
+    categoryOptions
+      .filter((option) => option.value !== "All")
+      .map((option) => option.value),
+  );
+  if (selectedCategories.some((value) => !availableCategories.has(value))) {
+    setSelectedCategories(selectedCategories.filter((value) => availableCategories.has(value)));
+  }
 
   const toggleCategoryFilter = (value: string) => {
     if (value === "All") {

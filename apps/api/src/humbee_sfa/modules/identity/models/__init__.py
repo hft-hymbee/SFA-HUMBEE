@@ -1,5 +1,5 @@
-"""`identity` models — database-design.md §5. `Employee` moved to `org` (§3 item 1); this
-module reads it through `org.service`, never its own model.
+"""`identity` models. `Employee` lives in `org`; this module reads it through `org.service`,
+never its own model.
 
 - `otp_challenge.py`   `identity_otp_challenges` — phone + OTP login challenges.
 - `device.py`          `identity_devices` — one row per installed client.

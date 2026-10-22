@@ -1,6 +1,6 @@
-"""Notification HTTP DTOs — M06 §10.
+"""Notification HTTP DTOs.
 
-Rows carry only materialised strings (R-AP-22). Everything the S-NOTIF row renders — the four-tier
+Rows carry only materialised strings. Everything the notification row renders — the four-tier
 IST timestamp label and the `kind` → icon/colour mapping — is the client's job from `created_at` and
 `kind`; the server does not send display strings it would then have to keep in sync.
 """
@@ -32,14 +32,14 @@ class NotificationListResponse(BaseModel):
 
 
 class UnreadCountResponse(BaseModel):
-    """`bellCount`. `0` means the client renders no badge at all, not "0" (M06 §8)."""
+    """`bellCount`. `0` means the client renders no badge at all, not "0"."""
 
     count: int
 
 
 class MarkReadResponse(BaseModel):
     """`changed` is false when the row was already read — re-marking is a no-op `200`, never a
-    `409` (M06 §10)."""
+    `409`."""
 
     id: str
     read_at: datetime

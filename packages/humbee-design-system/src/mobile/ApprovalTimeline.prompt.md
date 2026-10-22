@@ -1,6 +1,6 @@
 # ApprovalTimeline
 
-Vertical status thread for the M6 approval engine (requested → approved / edited / rejected). Pair with StatusChip so the SP never wonders "did it go through?".
+Vertical status thread for the approval engine (requested → approved / edited / rejected). Pair with StatusChip so the SP never wonders "did it go through?".
 
 ```jsx
 <ApprovalTimeline steps={[

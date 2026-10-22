@@ -1,4 +1,4 @@
-"""Geography HTTP routes (S-ORG6).
+"""Geography HTTP routes.
 
 Validation and translation only: authorisation is the service's resolved `ScopeContext`, the
 transaction is the service's, and errors leave as raised `ApiError`s for the application-level

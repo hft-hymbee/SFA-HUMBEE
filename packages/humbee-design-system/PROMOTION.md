@@ -9,8 +9,7 @@
 
 That folder was the **source** the prototype's runtime bundle was generated from (confirmed by
 `archive/claude-drops/_ds_manifest.json`, which records `sourcePath: "components/core/Badge.jsx"` per
-component). Moving it here makes this package the single source of truth and closes problems **P1**
-and **P2** from the architecture cleanup workstream.
+component). Moving it here makes this package the single source of truth.
 
 The critical gain: **the SFA mobile kit is now in a production package.** Every finalized screen is
 built from these, and until now `apps/web` could not import any of them.
@@ -48,13 +47,11 @@ because doing so would silently change what `apps/web` renders.
 3. **Port the mobile kit onto MUI.** Highest effort, and it would re-derive components that already
    exist and are already approved.
 
-**Decided: option 1.** See
-[`target-architecture.md` §7.1](../../docs/architecture/target-architecture.md#71-decided) (2026-08-17) — `src/` is
-production, MUI is retired.
+**Decided: option 1** (2026-08-17) — `src/` is production, MUI is retired.
 
 ## Remaining work in Phase 1
 
-1. ~~Decide the above~~ **Decided (D-005).** Repoint `index.js` at `src/`.
+1. ~~Decide the above~~ **Decided.** Repoint `index.js` at `src/`.
 2. **Generate the MUI theme from `@humbee/design-tokens`** rather than hand-maintaining
    `theme/palette.js` etc. — otherwise the duplication returns.
 3. **Regenerate the prototype bundle from this package.** The prototype still loads the pre-built

@@ -3,8 +3,8 @@
 Configured once at process startup so every log line — from application code
 or from stdlib loggers such as uvicorn's — renders as one structured event
 carrying level, timestamp, environment, request context and a redacted
-payload. See CLAUDE.md: log at boundaries and decisions, never PII, levels
-mean something.
+payload. Log at boundaries and decisions, never PII, levels mean
+something.
 """
 
 from __future__ import annotations
@@ -19,8 +19,7 @@ from humbee_sfa.core.settings import Settings
 
 _REDACTED = "***redacted***"
 
-# Field names that must never reach a log sink verbatim (target-architecture.md
-# §5 PII & compliance; R-IDN-15/16).
+# Field names that must never reach a log sink verbatim.
 _SENSITIVE_KEYS = {
     "phone",
     "phone_number",

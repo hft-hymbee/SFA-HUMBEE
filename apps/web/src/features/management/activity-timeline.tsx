@@ -152,7 +152,7 @@ function ActivityTimelineStep({
     <div className={styles.activityTimelineStep}>
       <div className={styles.activityTimelineRail}>
         <span className={styles.activityTimelineDot} style={{ background: visual.background }}>
-          <Icon name={visual.icon} size={16} color="#fff" />
+          <Icon name={visual.icon} size={16} color="var(--color-text-inverse)" />
         </span>
         {!last ? <span className={styles.activityTimelineLine} aria-hidden="true" /> : null}
       </div>
@@ -223,18 +223,16 @@ function ActivityTimelineStep({
 export function CoverageActivityTimeline({ activities }: { activities: TeamDayActivity[] }) {
   const [visibleCount, setVisibleCount] = useState(0);
   const activityKey = activities.map((activity) => activity.id).join("|");
+  const [revealedKey, setRevealedKey] = useState(activityKey);
+  if (revealedKey !== activityKey) {
+    setRevealedKey(activityKey);
+    setVisibleCount(0);
+  }
+  const shownCount = prefersReducedMotion() ? activities.length : visibleCount;
 
   useEffect(() => {
-    if (!activities.length) {
-      setVisibleCount(0);
-      return;
-    }
-    if (prefersReducedMotion()) {
-      setVisibleCount(activities.length);
-      return;
-    }
+    if (!activities.length || prefersReducedMotion()) return;
 
-    setVisibleCount(0);
     let index = 0;
     let cancelled = false;
     let timer: number | undefined;
@@ -258,7 +256,7 @@ export function CoverageActivityTimeline({ activities }: { activities: TeamDayAc
 
   return (
     <div className={styles.activityTimeline}>
-      {activities.slice(0, visibleCount).map((activity, index) => (
+      {activities.slice(0, shownCount).map((activity, index) => (
         <ActivityTimelineStep
           key={activity.id}
           activity={activity}

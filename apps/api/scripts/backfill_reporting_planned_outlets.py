@@ -2,9 +2,9 @@
 
 The fold reads `planned`, `visit_type` and `checked_in_at` from `visit_completed`. This script
 publishes the missing `route_plan_saved` event for every plan that has stops but never published
-one (beat starts before the fix), and recomputes every affected employee-day from the event log
-(M11 §3b.3 rule 2). Re-running converges on the same rows. `last_event_at` is left untouched: a backfill is not folding an event (see
-`upsert_fact_employee_day`).
+one (beat starts before the fix), and recomputes every affected employee-day from the event log.
+Re-running converges on the same rows. `last_event_at` is left untouched: a backfill is not
+folding an event (see `upsert_fact_employee_day`).
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
-"""Routes/Visits business logic — M08 §3a (visit lifecycle), §5 (data assembly), §7 (invariants).
+"""Routes/Visits business logic: visit lifecycle, data assembly and invariants.
 
 Transaction ownership lives here, not in the router, mirroring `beats.service` / `leave.service`.
-The punch-in gate (R-RTE-01) is re-checked here on every write, in-process, via
+The punch-in gate is re-checked here on every write, in-process, via
 `attendance.service.get_duty_state` — never by re-deriving punch state from another module's
 tables. Beat data (approved+active listing, outlet snapshots) comes from `beats.service`'s public
 `BeatService` the same way.
@@ -63,7 +63,7 @@ AUDIT_ENTITY_VISIT = "routes_visit"
 AUDIT_ENTITY_COMBINED_VISIT = "routes_combined_visit"
 
 COMBINED_VISIT_FEEDBACK_FORM_KEY = "combined_visit_feedback"
-# R-RTE-33: the field set is still pending from the business; this is the fixed v1 shape.
+# The field set is still pending from the business; this is the fixed v1 shape.
 _COMBINED_VISIT_FEEDBACK_FORM_SCHEMA: dict[str, Any] = {
     "fields": ["went_well", "needs_coaching", "next_visit_action"]
 }
@@ -79,9 +79,9 @@ def _fingerprint(raw: bytes) -> str:
 
 
 def _next_visit_id(
-    stops: list[RouteStop], visits_by_stop: dict[str | None, RouteVisit], visits: list[RouteVisit]
+    stops: list[RouteStop], visits_by_stop: dict[str, RouteVisit], visits: list[RouteVisit]
 ) -> str | None:
-    """M08 §8 `next_stop`: the lowest-sequence stop whose visit is still `scheduled`, else the
+    """`next_stop`: the lowest-sequence stop whose visit is still `scheduled`, else the
     oldest visit in progress."""
 
     pending = [
@@ -111,7 +111,7 @@ def _outlets_by_ref(outlets: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 
 def _weekday_assigned(frequency: dict[str, Any], business_date: date) -> bool:
-    """Does the beat's frequency (M07 §3.5 jsonb) schedule it for this weekday?
+    """Does the beat's frequency (jsonb) schedule it for this weekday?
 
     Beats store `visit_days` as 0=Sunday..6=Saturday.
     """
@@ -144,7 +144,7 @@ class RouteService:
 
     def _scope(self, claims: AccessTokenClaims) -> ScopeContext:
         # Routes/visits are activity data: SELF for the owning Sales Person, OWN_TREE (read-only)
-        # for their manager, ORG (read-only) for Admin (M08 §9, R-RTE-36).
+        # for their manager, ORG (read-only) for Admin.
         return ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
 
     def _require_self(self, scope: ScopeContext) -> None:
@@ -178,7 +178,7 @@ class RouteService:
         """Refresh the outlet projection without enclosing the network wait in a route transaction.
 
         Everything before this gate is read-only, so the transaction is closed for the duration of
-        the C-3 call. The refreshed projection is only staged; it commits with the visit transition
+        the outlet detail call. The refreshed projection is only staged; it commits with the visit transition
         the caller goes on to apply, which reloads the visit first.
         """
 
@@ -200,7 +200,7 @@ class RouteService:
             return None
 
     def _assert_punched_in(self, *, tenant_id: str, employee_id: str) -> None:
-        """R-RTE-01, defence in depth. M09 unavailable fails closed (M08 §11.3): any exception
+        """Punch-in gate, defence in depth. Attendance unavailable fails closed: any exception
         surfacing from `get_duty_state` is a 5xx already handled by the global error handler, not
         silently treated as punched-in."""
 
@@ -216,10 +216,10 @@ class RouteService:
     ) -> None:
         """Only one of {outlet visit, official work} may run at a time per employee. Re-checked at
         both `check_in` call sites for the same reason as `_assert_punched_in` (defence in depth
-        around the C-3 network wait)."""
+        around the outlet detail network wait)."""
 
         active_visit = repository.get_active_visit(
-            self._session, tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id
+            self._session, tenant_id=scope.tenant_id, employee_id=claims.employee_id
         )
         if active_visit is not None and active_visit.id != visit_id:
             raise ApiError(
@@ -275,7 +275,7 @@ class RouteService:
         plan = repository.lock_or_create_plan(
             self._session,
             tenant_id=scope.tenant_id,
-            employee_id=scope.actor_employee_id,
+            employee_id=claims.employee_id,
             business_date=business_date,
             beat_id=beat["id"],
             beat_version_id=beat_version_id,
@@ -284,7 +284,7 @@ class RouteService:
         repository.attach_day_visits_to_plan(
             self._session,
             tenant_id=scope.tenant_id,
-            employee_id=scope.actor_employee_id,
+            employee_id=claims.employee_id,
             business_date=business_date,
             route_plan_id=plan.id,
         )
@@ -297,7 +297,7 @@ class RouteService:
         day_visits = repository.list_day_visits(
             self._session,
             tenant_id=scope.tenant_id,
-            employee_id=scope.actor_employee_id,
+            employee_id=claims.employee_id,
             business_date=business_date,
         )
         stopless_visits_by_outlet = {
@@ -534,7 +534,7 @@ class RouteService:
         resolved_business_date = business_date or current_business_date(
             self._clock, settings=self._settings
         )
-        target_employee_id = employee_id or scope.actor_employee_id
+        target_employee_id = employee_id or claims.employee_id
         if employee_id is None or employee_id == scope.actor_employee_id:
             self._require_self(scope)
         else:
@@ -551,7 +551,7 @@ class RouteService:
         )
 
     def list_unplanned_outlets(self, *, claims: AccessTokenClaims) -> list[dict[str, Any]]:
-        """Outlet search (C-2) never returns locality — only the per-outlet detail call (C-3)
+        """Outlet search never returns locality — only the per-outlet detail call
         does, and this list is too large to fetch one at a time. `UnplannedOutletItem` carries
         no locality field for that reason; the picker shows name only."""
 
@@ -565,8 +565,8 @@ class RouteService:
         """The outlet behind one of the caller's own visits, in progress right now.
 
         Unlike `get_day`, this does not require a `RoutePlan` to exist — an unplanned visit
-        (M08 transition #2) has no plan at all, only a `RouteVisit` row. Story 4.1 needs this to
-        resolve cart context for both planned and unplanned visits (R-ORD-53).
+        has no plan at all, only a `RouteVisit` row. This resolves cart context for both planned
+        and unplanned visits.
         """
 
         scope = self._scope(claims)
@@ -578,13 +578,13 @@ class RouteService:
 
     def get_active_visit_id(self, *, claims: AccessTokenClaims) -> str | None:
         """The caller's own visit currently `in_progress`, if any (at most one, per the unique
-        `ix_routes_visits_open` index). Attendance's official-work/punch-out mutex (M09) uses this
+        `ix_routes_visits_open` index). Attendance's official-work/punch-out mutex uses this
         to block starting official work or punching out while a visit is running."""
 
         scope = self._scope(claims)
         self._require_self(scope)
         visit = repository.get_active_visit(
-            self._session, tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id
+            self._session, tenant_id=scope.tenant_id, employee_id=claims.employee_id
         )
         return visit.id if visit is not None else None
 
@@ -636,8 +636,6 @@ class RouteService:
         self, *, claims: AccessTokenClaims, body: schemas.SwitchBeatBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """Transition #12 (S-ROUTE2b)."""
-
         scope = self._scope(claims)
         self._require_self(scope)
         endpoint = "POST /route-plans/switch-beat"
@@ -648,9 +646,9 @@ class RouteService:
         if replay is not None:
             return replay
 
-        self._assert_punched_in(tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id)
+        self._assert_punched_in(tenant_id=scope.tenant_id, employee_id=claims.employee_id)
         if repository.get_active_visit(
-            self._session, tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id
+            self._session, tenant_id=scope.tenant_id, employee_id=claims.employee_id
         ) is not None:
             raise ApiError(409, "visit_already_in_progress", "End your current visit before switching.")
 
@@ -689,7 +687,7 @@ class RouteService:
             )
             payload = self._day_payload(
                 tenant_id=scope.tenant_id,
-                employee_id=scope.actor_employee_id,
+                employee_id=claims.employee_id,
                 business_date=business_date,
                 plan=plan,
             )
@@ -712,6 +710,7 @@ class RouteService:
     def _resolve_check_in_visit(
         self,
         *,
+        claims: AccessTokenClaims,
         scope: ScopeContext,
         visit_id: str,
         outlet_ref: str | None,
@@ -721,7 +720,7 @@ class RouteService:
             self._session, tenant_id=scope.tenant_id, visit_id=visit_id
         )
         if existing_visit is not None:
-            if existing_visit.employee_id != scope.actor_employee_id:
+            if existing_visit.employee_id != claims.employee_id:
                 raise ApiError(404, "visit_not_found", "Visit was not found.")
             if existing_visit.business_date != business_date:
                 raise ApiError(
@@ -735,7 +734,7 @@ class RouteService:
         planned_visit = repository.find_scheduled_day_visit(
             self._session,
             tenant_id=scope.tenant_id,
-            employee_id=scope.actor_employee_id,
+            employee_id=claims.employee_id,
             business_date=business_date,
             outlet_ref=outlet_ref,
         )
@@ -747,7 +746,7 @@ class RouteService:
         self, *, claims: AccessTokenClaims, visit_id: str, body: schemas.CheckInBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """Transitions #2 (unplanned) / #3 (planned) — S-ROUTE4 entry."""
+        """Unplanned or planned visit entry."""
 
         scope = self._scope(claims)
         self._require_self(scope)
@@ -759,7 +758,7 @@ class RouteService:
         if replay is not None:
             return replay
 
-        self._assert_punched_in(tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id)
+        self._assert_punched_in(tenant_id=scope.tenant_id, employee_id=claims.employee_id)
         occurred_at = body.occurred_at
         if occurred_at.tzinfo is None:
             raise ApiError(422, "invalid_timestamp", "occurred_at must be timezone-aware.")
@@ -770,7 +769,7 @@ class RouteService:
                 422, "invalid_business_date", "occurred_at is not for today's business date."
             )
         visit, resolved_outlet_ref, create_new_visit = self._resolve_check_in_visit(
-            scope=scope, visit_id=visit_id, outlet_ref=body.outlet_ref
+            claims=claims, scope=scope, visit_id=visit_id, outlet_ref=body.outlet_ref
         )
         resolved_visit_id = visit.id if visit is not None else visit_id
         self._assert_no_conflicting_activity(
@@ -785,7 +784,7 @@ class RouteService:
                 outlet_id=resolved_outlet_ref,
                 actor_employee_id=claims.employee_id,
             )
-            # `end_read_transaction` above closed the preflight transaction for the C-3 wait.
+            # `end_read_transaction` above closed the preflight transaction for the outlet detail wait.
             # Re-check mutable command preconditions before applying route state.
             replay = self._check_idempotency(
                 endpoint=endpoint,
@@ -796,10 +795,10 @@ class RouteService:
             if replay is not None:
                 return replay
             self._assert_punched_in(
-                tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id
+                tenant_id=scope.tenant_id, employee_id=claims.employee_id
             )
             visit, resolved_outlet_ref, create_new_visit = self._resolve_check_in_visit(
-                scope=scope, visit_id=visit_id, outlet_ref=body.outlet_ref
+                claims=claims, scope=scope, visit_id=visit_id, outlet_ref=body.outlet_ref
             )
             resolved_visit_id = visit.id if visit is not None else visit_id
             self._assert_no_conflicting_activity(
@@ -817,7 +816,7 @@ class RouteService:
                 if create_new_visit:
                     business_date = to_business_date(occurred_at, self._settings.day_boundary_hour_ist)
                     active_plan = repository.get_active_plan(
-                        self._session, tenant_id=scope.tenant_id, employee_id=scope.actor_employee_id,
+                        self._session, tenant_id=scope.tenant_id, employee_id=claims.employee_id,
                         business_date=business_date,
                     )
                     visit = RouteVisit(
@@ -897,9 +896,9 @@ class RouteService:
         self, *, claims: AccessTokenClaims, visit_id: str, body: schemas.CoordinateCorrectionBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """O-4. Queued in `captured_at` order and committed durably before the
-        Humbee call — the same "commit before the network call" rule the write path uses for H7
-        (`docs/features/03-humbee-integration-contract.md` §5), generalised to this write."""
+        """Queued in `captured_at` order and committed durably before the
+        Humbee call — the same "commit before the network call" rule the order write path uses,
+        generalised to this write."""
 
         scope = self._scope(claims)
         self._require_self(scope)
@@ -1050,7 +1049,7 @@ class RouteService:
         self, *, claims: AccessTokenClaims, visit_id: str, body: schemas.OutcomeBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """Transition #6 (S-VISIT1 "Mark visited — no order"). R-RTE-16."""
+        """"Mark visited — no order"."""
 
         scope = self._scope(claims)
         self._require_self(scope)
@@ -1086,10 +1085,10 @@ class RouteService:
         return 200, payload
 
     def check_out(self, *, claims: AccessTokenClaims, visit_id: str) -> tuple[int, dict[str, Any]]:
-        """"End visit & check out" (S-ROUTE4). A visit stays `in_progress` across multiple orders
-        (M10's `submit_order` no longer closes it) — check-out is where it actually closes: if
-        orders exist for it, this closes the visit with all of them now (transition #5); with none,
-        it's blocked without an outcome (transition #7, R-RTE-15). A no-op success if the visit is
+        """"End visit & check out". A visit stays `in_progress` across multiple orders
+        (`submit_order` no longer closes it) — check-out is where it actually closes: if
+        orders exist for it, this closes the visit with all of them now; with none,
+        it's blocked without an outcome. A no-op success if the visit is
         already closed. Not an `Idempotency-Key` command: the multi-order path is naturally
         idempotent (re-derives the order list, and `check_out` is a no-op on an already-closed
         visit), and the rest only reads persisted state."""
@@ -1231,13 +1230,13 @@ class RouteService:
         self._session.flush()
         return missed_visits
 
-    # -- missed visits (S-VISIT2) -------------------------------------------
+    # -- missed visits -------------------------------------------
 
     def list_missed_visits(
         self, *, claims: AccessTokenClaims, employee_id: str | None,
         from_date: date | None, to_date: date | None,
     ) -> dict[str, Any]:
-        """S-VISIT2. Defaults to the trailing 7 days ("this week") from the injected clock."""
+        """Defaults to the trailing 7 days ("this week") from the injected clock."""
 
         scope = self._scope(claims)
         target_employee = employee_id or scope.actor_employee_id
@@ -1280,7 +1279,7 @@ class RouteService:
             summary=schemas.MissedVisitsSummary(missed=missed, visited=visited, adherence_pct=adherence_pct),
         ).model_dump(mode="json")
 
-    # -- coverage (S-ROUTE5) -------------------------------------------------
+    # -- coverage -------------------------------------------------
 
     def day_totals(
         self, *, tenant_id: str, employee_ids: list[str], business_date: date
@@ -1345,7 +1344,7 @@ class RouteService:
             coverage_pct=team_total.coverage_pct, items=rows,
         ).model_dump(mode="json")
 
-    # -- combined visits (S-CVIS1/2) -----------------------------------------
+    # -- combined visits -----------------------------------------
 
     def route_days(
         self, *, claims: AccessTokenClaims, employee_id: str, from_date: date, to_date: date,
@@ -1364,12 +1363,7 @@ class RouteService:
     ) -> schemas.CombinedVisitFeedbackResponse | None:
         if feedback is None:
             return None
-        return schemas.CombinedVisitFeedbackResponse(
-            overall_rating=feedback.overall_rating,
-            responses=feedback.responses,
-            submitted_at=feedback.submitted_at,
-            submitted_by_employee_id=feedback.submitted_by_employee_id,
-        )
+        return schemas.CombinedVisitFeedbackResponse.model_validate(feedback, from_attributes=True)
 
     def _combined_visit_payload(self, row: RouteCombinedVisit) -> dict[str, Any]:
         feedback = repository.get_combined_visit_feedback(
@@ -1387,8 +1381,6 @@ class RouteService:
         self, *, claims: AccessTokenClaims, body: schemas.CreateCombinedVisitBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-CVIS1 (R-RTE-27/28/29/30)."""
-
         scope = ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
         if scope.scope is Scope.SELF:
             raise ApiError(403, "forbidden", "Only a manager may schedule a combined visit.")
@@ -1400,18 +1392,16 @@ class RouteService:
         if replay is not None:
             return replay
 
-        # R-RTE-28: the beat's owner must be the named SP, and that SP must be in the manager's
+        # The beat's owner must be the named SP, and that SP must be in the manager's
         # tree — `BeatService.get_beat_detail` already enforces OWN_TREE scoping on the load.
         beats = BeatService(self._session)
         beat = beats.get_beat_detail(claims=claims, beat_id=body.beat_id)
         if beat["owner_employee_id"] != body.sales_person_employee_id:
             raise ApiError(403, "forbidden", "The beat does not belong to that Sales Person.")
 
-        # R-RTE-29
         if body.outlet_ref not in {o["outlet_ref"] for o in beat["outlets"]}:
             raise ApiError(422, "outlet_not_in_beat", "The outlet must belong to the chosen beat.")
 
-        # R-RTE-30
         plannable_days = repository.route_business_dates(
             self._session, tenant_id=scope.tenant_id, employee_id=body.sales_person_employee_id,
             from_date=body.scheduled_business_date, to_date=body.scheduled_business_date,
@@ -1475,8 +1465,6 @@ class RouteService:
         self, *, claims: AccessTokenClaims, combined_visit_id: str,
         body: schemas.CombinedVisitFeedbackBody, idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-CVIS2 (R-RTE-33)."""
-
         scope = ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
         endpoint = f"POST /combined-visits/{combined_visit_id}/feedback"
         replay = self._check_idempotency(

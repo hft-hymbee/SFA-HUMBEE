@@ -4,9 +4,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-
 from tests.fixtures import seed
 from tests.fixtures.auth import Authed, login
+from tests.fixtures.flows import error_code, team
 
 
 def _casual(user: Authed) -> dict[str, Any]:
@@ -31,9 +31,7 @@ def _decide(user: Authed, approval_id: str, action: str, body: dict[str, Any] | 
 
 
 def test_balance_lifecycle_through_approve_reject_withdraw(api_client: TestClient, db_session: Session) -> None:
-    manager = seed.employee(db_session, "manager")
-    sp = login(api_client, seed.employee(db_session, "sales_person", manager=manager))
-    boss = login(api_client, manager)
+    sp, boss = team(db_session, api_client)
 
     balances = sp.get("/api/v1/leave/balances/me").json()
     assert balances["period_year"] == 2026
@@ -60,7 +58,7 @@ def test_balance_lifecycle_through_approve_reject_withdraw(api_client: TestClien
         "/api/v1/leave/requests", {"leave_type": "sick", "from_date": "2026-10-23", "to_date": "2026-10-23"}
     )
     assert overlapping.status_code == 409
-    assert overlapping.json()["error"]["code"] == "overlapping_leave"
+    assert error_code(overlapping) == "overlapping_leave"
 
     weekend = _file(sp, "casual", "2026-10-24", "2026-10-25")
     assert weekend["day_count"] == 2
@@ -82,12 +80,11 @@ def test_balance_lifecycle_through_approve_reject_withdraw(api_client: TestClien
         "/api/v1/leave/requests", {"leave_type": "casual", "from_date": "2026-10-30", "to_date": "2026-10-29"}
     )
     assert inverted.status_code == 422
-    assert inverted.json()["error"]["code"] == "invalid_date_range"
+    assert error_code(inverted) == "invalid_date_range"
 
 
 def test_over_balance_is_advisory(api_client: TestClient, db_session: Session) -> None:
-    manager = seed.employee(db_session, "manager")
-    sp = login(api_client, seed.employee(db_session, "sales_person", manager=manager))
+    sp, _ = team(db_session, api_client)
 
     preview = sp.get("/api/v1/leave/preview", leave_type="casual", from_date="2026-10-21", to_date="2026-10-28")
     assert preview.status_code == 200, preview.text
@@ -130,4 +127,4 @@ def test_team_leave_is_scoped_to_own_tree(api_client: TestClient, db_session: Se
 
     refused = sp_a.get("/api/v1/leave/team")
     assert refused.status_code == 403
-    assert refused.json()["error"]["code"] == "forbidden"
+    assert error_code(refused) == "forbidden"

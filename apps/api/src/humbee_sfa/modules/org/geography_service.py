@@ -1,34 +1,30 @@
-"""Geography master reads and per-employee geography assignment (M03 §3a).
+"""Geography master reads and per-employee geography assignment.
 
 Why this lives inside `org` rather than in a `geography` module of its own: the capability is
 defined entirely in terms of `org` internals. It writes `org_geography_scope_assignments` (FK to
 `org_employees`), authorises through `org.scope`'s `ScopeContext` /
-`OrgResource.GEOGRAPHY_ASSIGNMENT`, and M03 §3b.2 lists geography assignment as a *row-scoped org
-resource* alongside employee records. A separate module would have to reach across the boundary
+`OrgResource.GEOGRAPHY_ASSIGNMENT`, and geography assignment is a *row-scoped org resource*
+alongside employee records. A separate module would have to reach across the boundary
 for all three, which the architecture forbids. It is a sibling capability of the employee service,
 not a separate domain.
 
 OPEN, UNRESOLVED — the Humbee `Location` level. STOP before implementing anything Location-shaped.
     Humbee exposes Zone / State / District only. Screens in the geography lane also want a
     `Location` level, which the upstream master does not provide. That is a product / master-data
-    decision that has not been made:
-      - `epics/humbee-sfa-build/EPIC.md` — "Humbee G-1 does not currently provide the `Location`
-        level required by geography assignment."
-      - `epics/humbee-sfa-build/01-organization-identity-access.md` Story 1.2 — "Resolve the
-        missing Humbee `Location` level before Location-dependent behavior is released."
-      - `docs/rpi/2026-08-22-backend-epic-restructure/research.md` §Location — the decision belongs
-        to organization/master-data and blocks *only* Location-dependent assignment behaviour.
+    decision that has not been made. The missing `Location` level must be resolved before
+    Location-dependent behavior is released; the decision belongs to organization/master-data and
+    blocks *only* Location-dependent assignment behaviour.
     Everything in this module is deliberately Location-free: no Location column, no Location id in
     `GeoScope`, no Location level in `integration/humbee/geography.py`. Fabricating one would mean guessing at
     an API shape Humbee does not expose. Location-dependent behaviour stays out of scope until the
-    decision lands in `docs/features/M03-org-workforce-and-geography.md` §3a.
+    decision lands.
 
-No shop categories, no outlet counts. G-2/G-3/G-4 (SFA-API-Contract v2.2) carry neither, so
+No shop categories, no outlet counts. The geography endpoints carry neither, so
 geography assignment has no category fields, outlet roll-up, or corresponding DB columns.
 
 No local geography master cache, either. The four ACL-written cache tables
 (`org_zone_clusters`/`org_state_clusters`/`org_district_clusters`/`org_shop_categories`) were
-retired in epic 07 Story 7.2 — every read goes straight through `HumbeeGeographyMasterProvider`.
+retired — every read goes straight through `HumbeeGeographyMasterProvider`.
 """
 
 from __future__ import annotations
@@ -132,11 +128,11 @@ def list_district_labels(session: Session, *, tenant_id: str) -> dict[str, str]:
         for item in districts:
             if not isinstance(item, dict):
                 continue
-            district_id = item.get("id")
-            if not district_id:
+            item_id = item.get("id")
+            if not item_id:
                 continue
             name = item.get("name")
-            labels[str(district_id)] = str(name) if name else str(district_id)
+            labels[str(item_id)] = str(name) if name else str(item_id)
     return labels
 
 
@@ -191,7 +187,7 @@ def district_geography_labels(session: Session, *, tenant_id: str) -> dict[str, 
     return labels
 
 
-# R-ORG-39. Named here rather than in `events.py` because geography is the only publisher.
+# Named here rather than in `events.py` because geography is the only publisher.
 GEO_SCOPE_ASSIGNED = "geo_scope_assigned"
 
 
@@ -217,7 +213,7 @@ class GeographyService:
         return ScopeResolver.resolve_from_claims(claims, OrgResource.GEOGRAPHY_ASSIGNMENT)
 
     def _require_assign(self, scope: ScopeContext) -> None:
-        """R-ORG-38: assignment is Admin-only; a Manager's picker is read-only."""
+        """Assignment is Admin-only; a Manager's picker is read-only."""
 
         if not scope.can_write or scope.scope is not Scope.ORG:
             raise ApiError(403, "forbidden", "Geography assignment is Admin-only.")
@@ -229,13 +225,13 @@ class GeographyService:
         if repository.get_by_id(self._session, scope=employee_scope, employee_id=employee_id) is None:
             raise ApiError(404, "employee_not_found", "Employee was not found.")
 
-    # -- picker (G-2/G-3/G-4) -----------------------------------------------
+    # -- picker -----------------------------------------------
 
     def _port(self) -> HumbeeGeographyMasterProvider:
         return self._master_port or HumbeeGeographyMasterProvider(self._settings)
 
     def list_zones(self, *, claims: AccessTokenClaims) -> dict[str, Any]:
-        """G-2 drill-down — the picker's first click. Unfiltered master data; the caller's
+        """Zone drill-down — the picker's first click. Unfiltered master data; the caller's
         salesperson-specific geoscope is fetched separately and filtered on the UI."""
 
         scope = self._scope(claims)
@@ -245,7 +241,7 @@ class GeographyService:
         ).model_dump(mode="json")
 
     def list_states(self, *, claims: AccessTokenClaims, zone_ids: list[str]) -> dict[str, Any]:
-        """G-3 drill-down — states under the zones picked in `list_zones`."""
+        """State drill-down — states under the zones picked in `list_zones`."""
 
         scope = self._scope(claims)
         states = self._fetch_states(scope.tenant_id, _dedupe(zone_ids))
@@ -259,7 +255,7 @@ class GeographyService:
         ).model_dump(mode="json")
 
     def list_districts(self, *, claims: AccessTokenClaims, state_ids: list[str]) -> dict[str, Any]:
-        """G-4 drill-down — districts under the states picked in `list_states`."""
+        """District drill-down — districts under the states picked in `list_states`."""
 
         scope = self._scope(claims)
         districts = self._fetch_districts(scope.tenant_id, _dedupe(state_ids))
@@ -337,8 +333,8 @@ class GeographyService:
         body: geography_schemas.AssignGeoScopeBody,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        """S-ORG6 — full replacement of one employee's scope in one transaction with its audit row
-        and `GeoScopeAssigned` event (R-ORG-39). Naturally idempotent: the body is the whole scope.
+        """Full replacement of one employee's scope in one transaction with its audit row and
+        `GeoScopeAssigned` event. Naturally idempotent: the body is the whole scope.
         """
 
         scope = self._scope(claims)
@@ -421,17 +417,16 @@ class GeographyService:
     def _validate_and_label(
         self, body: geography_schemas.AssignGeoScopeBody, *, tenant_id: str
     ) -> tuple[_Selection, dict[str, list[dict[str, Any]]]]:
-        """Server-side mirror of the picker cascade (R-ORG-31…R-ORG-33, R-ORG-35), and the
-        `{id, name}` label snapshot taken at assignment time (epic 07 Story 7.2) — combined so
-        neither state nor district is fetched twice.
+        """Server-side mirror of the picker cascade, and the `{id, name}` label snapshot taken at
+        assignment time — combined so neither state nor district is fetched twice.
 
         Each level is fetched scoped to the *submitted* parent ids — `fetch_states(zone_ids=...)`,
-        `fetch_districts(state_ids=...)` — the same narrow calls a beat-creation picker makes,
-        never a full-country read. A submitted id that doesn't come back in its parent's scoped
-        result is rejected as unknown, whether that's because the id doesn't exist at all or
-        because it belongs to a different, non-submitted parent (an orphan) — G-3/G-4's own
-        "an id outside the filter contributes no group" contract makes the two indistinguishable,
-        and for a hand-rolled request they deserve the same 422 either way.
+        `fetch_districts(state_ids=...)` — the same narrow calls a beat-creation picker makes, never
+        a full-country read. A submitted id that doesn't come back in its parent's scoped result is
+        rejected as unknown, whether that's because the id doesn't exist at all or because it
+        belongs to a different, non-submitted parent (an orphan) — the state and district endpoints'
+        own "an id outside the filter contributes no group" contract makes the two
+        indistinguishable, and for a hand-rolled request they deserve the same 422 either way.
         """
 
         zones = _dedupe(body.zones)
@@ -482,8 +477,7 @@ class GeographyService:
 def _dedupe(values: list[str]) -> list[str]:
     """Order-preserving de-duplication."""
 
-    seen: set[str] = set()
-    return [value for value in values if not (value in seen or seen.add(value))]
+    return list(dict.fromkeys(values))
 
 
 __all__ = ["GEO_SCOPE_ASSIGNED", "GeographyService", "list_district_labels"]

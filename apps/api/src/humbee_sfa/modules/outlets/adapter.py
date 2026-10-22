@@ -1,6 +1,6 @@
-"""`OutletVerificationAdapter` — outlets' implementation of the M06 `ApprovalSubjectAdapter`.
+"""`OutletVerificationAdapter` — outlets' implementation of the approvals `ApprovalSubjectAdapter`.
 
-Humbee has no candidate stage and no approver: ON-3 creates a real firm, organization and owner
+Humbee has no candidate stage and no approver: `onboard-firm` creates a real firm, organization and owner
 login immediately. So the approval cannot wrap the Humbee call — it gates it. This adapter is the
 only place `OutletOnboardingCandidate.status` moves out of `pending_approval`, and the grant path
 makes the Humbee call inline, inside the engine's decision transaction.
@@ -12,9 +12,9 @@ Reads use `internal_routing_scope` for the same reason `LeaveAdapter` does: the 
 resolved who may see the request, and the deciding actor is the *manager*, whose own row scope does
 not cover the sales person's submission.
 
-Routing is the engine's default — the requester's direct manager. M14 R-OUT-14 specifies Admin
-instead, and honouring that would mean changing `approvals/routing.py`, not this file; manager
-approval is the behaviour asked for and the deviation is recorded in epic 08.
+Routing is the engine's default — the requester's direct manager. Routing to Admin
+instead would mean changing `approvals/routing.py`, not this file; manager approval is the
+behaviour asked for.
 """
 
 from __future__ import annotations
@@ -170,7 +170,9 @@ class OutletVerificationAdapter:
 
     # -- outcome callbacks (all inside the engine's decision transaction) -----
 
-    def on_approved(self, session: Session, *, request: Request) -> list[SubjectEvent]:
+    def on_approved(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         """Grant: onboard the firm at Humbee now, and record how far it got.
 
         `approved` is the intermediate the submission moves off immediately — a committed candidate
@@ -183,7 +185,9 @@ class OutletVerificationAdapter:
         submit_candidate_to_humbee(session, candidate=candidate, clock=SystemClock())
         return [self._event(CANDIDATE_APPROVED, candidate)]
 
-    def on_rejected(self, session: Session, *, request: Request, reason: str) -> list[SubjectEvent]:
+    def on_rejected(
+        self, session: Session, *, request: Request, reason: str, decided_at: datetime
+    ) -> list[SubjectEvent]:
         candidate = self._transition(session, request=request, status="rejected")
         if candidate is None:
             return []
@@ -191,7 +195,9 @@ class OutletVerificationAdapter:
         # the same firm — that is the partial unique index's `status` predicate doing its job.
         return [self._event(CANDIDATE_REJECTED, candidate, reason=reason or None)]
 
-    def on_withdrawn(self, session: Session, *, request: Request) -> list[SubjectEvent]:
+    def on_withdrawn(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         candidate = self._transition(session, request=request, status="withdrawn")
         if candidate is None:
             return []

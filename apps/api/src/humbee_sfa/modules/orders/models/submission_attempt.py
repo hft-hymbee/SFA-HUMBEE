@@ -1,5 +1,4 @@
 """`orders_submission_attempts` — append-only log of every Humbee submission attempt.
-database-design.md §10.
 
 `request_idempotency_key` must be byte-identical on every attempt for an order (it equals
 `orders.order_number`) — a fresh key per retry is exactly how a retry becomes a duplicate order at
@@ -81,8 +80,8 @@ class SubmissionAttempt(Base, ConventionsMixin):
     humbee_http_status: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     sfa_display_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     downstream_dp_order_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # epic 07 Story 7.6 reconciliation: the total Humbee accepted, compared against the
-    # manager-approved total. Null when the response carried none (unverified shape, §8) or B3
+    # Reconciliation: the total Humbee accepted, compared against the manager-approved total.
+    # Null when the response carried none (unverified shape) or a null `unit_price_net_paise`
     # left nothing on the SFA side to compare — a missing total is "not checked", not a mismatch.
     humbee_accepted_gross_total_paise: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

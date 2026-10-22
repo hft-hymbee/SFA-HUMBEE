@@ -1,7 +1,6 @@
 """`reporting_projector_offset` — per-stream/partition checkpoint for the reporting projector.
-database-design.md §13.
 
-Exempt from `ConventionsMixin` (§2.4 rule 2, §13 header): derived and droppable, the durable truth
+Exempt from `ConventionsMixin`: derived and droppable, the durable truth
 is `platform_domain_events` — this table only tracks how far the projector has consumed that log.
 Primary key is the natural composite key `(stream, partition)` — no ULID `id`, no
 tenant/actor/soft-delete columns (a projector offset is not tenant-scoped data).

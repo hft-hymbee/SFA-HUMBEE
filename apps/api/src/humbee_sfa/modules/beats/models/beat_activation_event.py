@@ -1,5 +1,4 @@
 """`beats_activation_events` — append-only audit trail of beat deactivate/reactivate actions.
-database-design.md §7.
 """
 
 from __future__ import annotations

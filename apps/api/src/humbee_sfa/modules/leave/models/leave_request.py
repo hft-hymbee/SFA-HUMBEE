@@ -1,4 +1,4 @@
-"""`leave_requests` — the leave-application record. database-design.md §11.1.
+"""`leave_requests` — the leave-application record.
 
 The exclusion constraint is the `is_on_leave()` oracle: it prevents overlapping live/granted leave
 for the same employee at the database level rather than a check-then-insert race in the service.
@@ -53,11 +53,11 @@ class LeaveRequest(Base, ConventionsMixin):
         CheckConstraint("to_date >= from_date", name="leave_date_order_chk"),
         CheckConstraint("day_count > 0", name="leave_day_count_chk"),
         CheckConstraint("NOT is_half_day OR from_date = to_date", name="leave_half_day_chk"),
-        # R-LV-08: no overlapping live or granted leave for the same employee. Columns are
+        # No overlapping live or granted leave for the same employee. Columns are
         # referenced via literal_column, not LeaveRequest.from_date/.to_date, because __table_args__
         # is evaluated while this class body is still executing — the class object doesn't exist
         # yet to attribute-access into. literal_column emits the bare column name, which is all
-        # `daterange()` needs; the requires btree_gist extension (database-design.md §2.7).
+        # `daterange()` needs; the requires btree_gist extension.
         ExcludeConstraint(
             ("tenant_id", "="),
             ("employee_id", "="),
@@ -75,7 +75,7 @@ class LeaveRequest(Base, ConventionsMixin):
     day_count: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)
     is_half_day: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)  # mirrored from M06, never independent
+    status: Mapped[str] = mapped_column(String(32), nullable=False)  # mirrored from approvals, never independent
     approval_request_id: Mapped[str] = mapped_column(String(26), nullable=False)  # logical → approvals_requests
     balance_before: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)
     balance_after_projected: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)

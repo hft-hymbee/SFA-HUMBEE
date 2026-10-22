@@ -1,4 +1,4 @@
-"""`routes` models — database-design.md §8. Read this file for the index; open a specific module
+"""`routes` models. Read this file for the index; open a specific module
 for column detail.
 
 - `route_plan.py`                  `routes_plans` — one plan per employee per business date.
@@ -8,7 +8,7 @@ for column detail.
 - `route_missed_visit_audit.py`    `routes_missed_visit_audits` — written only by the EOD sweep.
 - `route_combined_visit.py`        `routes_combined_visits` — manager/sales-person joint visits.
 - `route_combined_visit_feedback.py`  `routes_combined_visit_feedback` — 1:1 feedback per combined visit.
-- `route_outlet_coordinate_correction.py`  `routes_outlet_coordinate_corrections` — O-4 pin-correction queue.
+- `route_outlet_coordinate_correction.py`  `routes_outlet_coordinate_corrections` — field pin-correction queue.
 """
 
 from __future__ import annotations

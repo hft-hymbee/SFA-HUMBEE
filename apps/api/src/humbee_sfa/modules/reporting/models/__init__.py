@@ -1,8 +1,8 @@
-"""`reporting` models — the star schema. database-design.md §13. Read this file for the index;
-open a specific module for column detail.
+"""`reporting` models — the star schema. Read this file for the index; open a specific
+module for column detail.
 
-Whole-module exemption: every table here is EXEMPT from the naming and conventions rules (§2.1,
-§2.4) that every other module's tables follow via `ConventionsMixin` — no ULID `id`, no
+Whole-module exemption: every table here is EXEMPT from the naming and conventions rules
+that every other module's tables follow via `ConventionsMixin` — no ULID `id`, no
 `tenant_id`-via-mixin/timestamps/actor columns/soft-delete. Each table instead carries its own
 explicit primary key (an identity surrogate for `dim_employee`, natural composite keys
 elsewhere), because every table here is derived and droppable — the durable truth is
@@ -16,7 +16,7 @@ elsewhere), because every table here is derived and droppable — the durable tr
 
 `dim_business_date`, `fact_employee_sku_day` and
 `reporting_recompute_queue` were removed — no producer, service, or screen ever read or wrote
-them. See `docs/rpi/2026-09-08-kpi-scope-cleanup/plan.md`.
+them.
 """
 
 from __future__ import annotations

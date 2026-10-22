@@ -1,5 +1,4 @@
-"""`approvals` models — database-design.md §6. Read this file for the index; open a specific
-module for column detail.
+"""`approvals` models. Read this file for the index; open a specific module for column detail.
 
 - `request.py`   `Request` — `approvals_requests`, the single approval-request table serving beat
   create/edit, DP orders, leave and outlet verification.

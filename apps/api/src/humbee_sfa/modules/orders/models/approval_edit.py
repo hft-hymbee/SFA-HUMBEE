@@ -1,5 +1,4 @@
 """`orders_approval_edits` — audit trail of manager quantity edits made during approval.
-database-design.md §10.
 
 `field` is constrained to `'qty'` because quantity is the only thing an approver may edit today;
 `orders_approval_edits_change_chk` rejects a no-op "edit" so this table only ever records an actual

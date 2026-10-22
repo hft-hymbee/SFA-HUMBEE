@@ -1,7 +1,7 @@
-"""Beats persistence — M07 §3/§7. Thin, scoped, no business decisions.
+"""Beats persistence. Thin, scoped, no business decisions.
 
 Actor-facing reads take a resolved `ScopeContext` from `org.scope` (beats are activity data: SELF
-for the owning Sales Person, OWN_TREE for their manager, ORG for Admin — M07 §9). Engine-adjacent
+for the owning Sales Person, OWN_TREE for their manager, ORG for Admin). Engine-adjacent
 reads used by the approval adapters (`beats/adapter.py`) take `tenant_id` only, mirroring
 `leave/adapter.py`'s use of `internal_routing_scope`: the engine has already resolved visibility of
 the approval request, and the deciding actor is not the beat's owner.
@@ -9,7 +9,7 @@ the approval request, and the deciding actor is not the beat's owner.
 `geo_scope["districts"]` is deliberately **omitted** (not stored as `[]`) while a draft has no
 district selected yet: `ck_beats_versions_districts_chk` evaluates `jsonb_array_length(NULL)` as
 NULL, which Postgres CHECK constraints treat as satisfied, whereas an explicit `[]` evaluates to
-`0 >= 1` and is rejected. This lets a brand-new draft (M07 transition #1, R-BEAT-05 not yet met)
+`0 >= 1` and is rejected. This lets a brand-new draft (no district selected yet)
 exist without lying about having a district.
 """
 
@@ -30,7 +30,7 @@ from humbee_sfa.modules.beats.models.beat_version import BeatVersion
 from humbee_sfa.modules.org.scope import ScopeContext, apply_scope
 
 STATUS_PREDICATES: dict[str, Any] = {
-    # "Pending" (M07 §3.1) covers a first-time submission awaiting approval *and* an approved
+    # "Pending" covers a first-time submission awaiting approval *and* an approved
     # beat with a submitted edit awaiting approval — never an unsubmitted edit branch, which has
     # a `draft_version_id` too but no pending edit request.
     "approved": Beat.lifecycle_state == "approved",
@@ -64,7 +64,7 @@ def read_districts(geo_scope: dict[str, Any]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Scoped reads (beats are activity data — M07 §9)
+# Scoped reads (beats are activity data)
 # ---------------------------------------------------------------------------
 
 
@@ -178,7 +178,7 @@ def list_memberships_for_versions(
 
 
 def code_taken(session: Session, *, tenant_id: str, code: str, exclude_beat_id: str) -> bool:
-    """R-BEAT-04 friendly pre-check; `uq_beats_tenant_code` is the authoritative backstop, armed
+    """Friendly beat-code pre-check; `uq_beats_tenant_code` is the authoritative backstop, armed
     once a beat's own `code` is synced from its approved version."""
 
     stmt = select(Beat.id).where(
@@ -402,9 +402,9 @@ def replace_outlets(
     created_by_employee_id: str | None,
     now: datetime,
 ) -> int:
-    """Last-write-wins replacement of a version's outlet membership (S-BEAT3).
+    """Last-write-wins replacement of a version's outlet membership.
 
-    No hard delete exists for beats data (R-BEAT-20): a de-selected outlet is soft-deactivated,
+    No hard delete exists for beats data: a de-selected outlet is soft-deactivated,
     never removed, and re-selecting it later reactivates the same row rather than colliding with
     `uq_beats_outlets`.
     """

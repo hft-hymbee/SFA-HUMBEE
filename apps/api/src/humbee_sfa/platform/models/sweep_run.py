@@ -1,6 +1,6 @@
-"""`platform_sweep_runs` — one row per scheduled-job run. database-design.md §12.2.
+"""`platform_sweep_runs` — one row per scheduled-job run.
 
-The unique index is the idempotency guarantee behind R-RTE-25: one run per sweep type per
+The unique index is the idempotency guarantee: one run per sweep type per
 business date.
 """
 

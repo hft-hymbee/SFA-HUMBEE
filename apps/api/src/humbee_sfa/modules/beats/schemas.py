@@ -1,7 +1,7 @@
-"""Beats HTTP DTOs — M07 §10.
+"""Beats HTTP DTOs.
 
-`geo_scope` and `frequency` are stored as `jsonb` value objects (M07 §3.4/§3.5) and are passed
-through largely as-is; only the fields the wizard screens (S-BEAT2–4, S-BEAT7) actually write are
+`geo_scope` and `frequency` are stored as `jsonb` value objects and are passed
+through largely as-is; only the fields the wizard and edit screens actually write are
 modelled here.
 """
 
@@ -115,7 +115,7 @@ class BeatDetailResponse(BaseModel):
 
 
 class CreateBeatBody(BaseModel):
-    """S-BEAT2 entry (transition #1). `id` is the client-generated ULID (idempotent create).
+    """Wizard entry. `id` is the client-generated ULID (idempotent create).
     `owner_employee_id` lets an Admin/Manager create the beat for a salesperson; omitted, the
     caller becomes the owner."""
 
@@ -124,7 +124,7 @@ class CreateBeatBody(BaseModel):
 
 
 class PatchDraftBody(BaseModel):
-    """Autosave for S-BEAT2 (`geo_scope`) and S-BEAT4 (`display_name`, `frequency`)."""
+    """Autosave for the wizard's geography step (`geo_scope`) and naming step (`display_name`, `frequency`)."""
 
     display_name: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"\S")
     code: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"\S")
@@ -160,7 +160,7 @@ class DeactivateBody(BaseModel):
 
 
 class AdminUpdateBeatBody(BaseModel):
-    """Admin-only immediate edit (R-BEAT-17) — applies without approval."""
+    """Admin-only immediate edit — applies without approval."""
 
     display_name: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"\S")
     owner_employee_id: str | None = Field(default=None, min_length=1, max_length=26)

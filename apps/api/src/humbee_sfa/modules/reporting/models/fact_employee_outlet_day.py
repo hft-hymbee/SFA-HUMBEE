@@ -1,5 +1,4 @@
 """`fact_employee_outlet_day` — outlet-grain daily fact, one row per (tenant, employee, business_date, humbee_outlet_id).
-database-design.md §13.2 (proposed).
 
 Exempt from `ConventionsMixin` — same rationale as `FactEmployeeDay`: derived from `platform_domain_events`,
 no ULID id or soft-delete. The composite key is natural: `(tenant_id, employee_id, business_date, humbee_outlet_id)`.

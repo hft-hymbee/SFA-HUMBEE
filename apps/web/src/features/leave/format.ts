@@ -57,7 +57,7 @@ export function leaveTypeLabel(leaveType: string) {
   return leaveTypeMeta(leaveType).shortLabel;
 }
 
-// R-LV-15: auto-approval only ever happens at the top of the hierarchy (R-LV-03), so the suffix is
+// Auto-approval only ever happens at the top of the hierarchy, so the suffix is
 // derived from the status rather than stored as prose.
 export function leaveRoutingSuffix(status: string) {
   return status === "auto_approved" ? " · highest level" : "";

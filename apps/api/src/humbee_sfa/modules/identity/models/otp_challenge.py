@@ -1,5 +1,5 @@
-"""`identity_otp_challenges`. database-design.md §5, §3 reconciliation item 8 (adds `purpose`,
-`employee_id`, `requester_ip`, and the partial unique index on the live challenge per phone).
+"""`identity_otp_challenges`. Carries `purpose`, `employee_id`, `requester_ip`, and the partial
+unique index on the live challenge per phone.
 """
 
 from __future__ import annotations

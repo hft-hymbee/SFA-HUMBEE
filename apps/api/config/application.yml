@@ -2,6 +2,10 @@ app_name: Humbee SFA Backend
 host: 0.0.0.0
 port: 8001
 reload: false
+api_docs_enabled: false
+cors_app_origins:
+  - https://localhost
+  - capacitor://localhost
 day_boundary_hour_ist: 0
 otp_length: 6
 otp_ttl_seconds: 600

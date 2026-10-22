@@ -10,17 +10,18 @@ import {
   TopAppBar,
 } from "humbee-design-system";
 import humbeeLogo from "humbee-design-system/assets/humbee_logo.svg";
-import humbeeHoneycomb from "../../../../../brand/humbee-honeycomb.svg";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   clearDeactivatedChallenge,
   clearPendingLogin,
+  getServerDeactivatedChallenge,
   getServerPendingLogin,
   homeForRole,
   readDeactivatedChallenge,
   readPendingLogin,
+  subscribeToDeactivatedChallenge,
   subscribeToPendingLogin,
   writePendingLogin,
 } from "@/src/shared/auth/session";
@@ -160,7 +161,7 @@ export function LoginScreen() {
   return (
     <section
       className="sp-screen sp-login-screen sp-login-screen--combined"
-      style={{ backgroundImage: `url("${humbeeHoneycomb.src}")` }}
+      style={{ backgroundImage: 'url("/brand/humbee-honeycomb.svg")' }}
     >
       <div className="sp-scroll">
         <div className="sp-login-brand" aria-hidden="true" />
@@ -336,11 +337,11 @@ export function OtpScreen() {
 
 export function AccountDeactivatedScreen() {
   const router = useRouter();
-  const [challengeId, setChallengeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setChallengeId(readDeactivatedChallenge());
-  }, []);
+  const challengeId = useSyncExternalStore(
+    subscribeToDeactivatedChallenge,
+    readDeactivatedChallenge,
+    getServerDeactivatedChallenge,
+  );
 
   const contact = useQuery({
     queryKey: ["identity", "manager-contact", challengeId],

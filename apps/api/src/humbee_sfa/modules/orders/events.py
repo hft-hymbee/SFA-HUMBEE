@@ -1,7 +1,7 @@
 """Orders domain event names and publish helper.
 
 `order_submitted` is published when an order is successfully created (accepted into the cart).
-This event feeds the reporting rollups (epic 05 Story 5.1).
+This event feeds the reporting rollups.
 """
 
 from __future__ import annotations

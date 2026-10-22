@@ -1,4 +1,4 @@
-"""Seed dev identity/org rows after SQL schema bootstrap."""
+"""Seed local Admin rows after `alembic upgrade head`."""
 
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ def main() -> None:
     if missing_tables:
         missing = ", ".join(missing_tables)
         raise RuntimeError(
-            "Schema is not bootstrapped. Run apps/api/scripts/apply_dev_sql_bootstrap.sh first. "
+            "Schema is not migrated. Run `alembic upgrade head` from apps/api first. "
             f"Missing tables: {missing}"
         )
     session_factory = get_sessionmaker(settings.database_url)

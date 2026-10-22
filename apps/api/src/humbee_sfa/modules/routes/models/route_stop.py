@@ -1,4 +1,4 @@
-"""`routes_stops` — snapshotted stop list for a plan. database-design.md §8.
+"""`routes_stops` — snapshotted stop list for a plan.
 
 Snapshots are retained even when locality is unavailable, so running a route makes no Humbee call
 and historical stops never drift with the current outlet projection. `visit_id` is a logical
@@ -22,7 +22,7 @@ class RouteStop(Base, ConventionsMixin):
     __tablename__ = "routes_stops"
     __table_args__ = (
         UniqueConstraint("route_plan_id", "humbee_outlet_id", name="uq_routes_stops_outlet"),
-        # drag-to-reorder (S-ROUTE2a) rewrites several sequence_no values in one transaction;
+        # drag-to-reorder rewrites several sequence_no values in one transaction;
         # a non-deferrable unique index would fail on the first intermediate collision.
         UniqueConstraint(
             "route_plan_id",
@@ -39,7 +39,7 @@ class RouteStop(Base, ConventionsMixin):
     humbee_outlet_id: Mapped[str] = mapped_column(String(64), nullable=False)
     sequence_no: Mapped[int] = mapped_column(Integer, nullable=False)
     beat_id: Mapped[str] = mapped_column(String(26), nullable=False)  # logical -> beats
-    beat_version_id: Mapped[str] = mapped_column(String(26), nullable=False)  # snapshot, R-RTE-07
+    beat_version_id: Mapped[str] = mapped_column(String(26), nullable=False)  # snapshot
     run_origin: Mapped[str] = mapped_column(String(32), nullable=False)
     distance_from_prev_km: Mapped[float | None] = mapped_column(
         Numeric(5, 1), nullable=True

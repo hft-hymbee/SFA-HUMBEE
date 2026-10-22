@@ -40,7 +40,7 @@ class OutletRecord:
 
 @dataclass(frozen=True)
 class OutletSearchPage:
-    """One page of a C-2 search. `next_cursor` is `None` on the last page."""
+    """One page of an outlet search. `next_cursor` is `None` on the last page."""
 
     records: list[OutletRecord]
     next_cursor: str | None
@@ -114,7 +114,7 @@ def _record_from_detail(data: dict[str, Any]) -> OutletRecord:
         external_id=str(data["outlet_id"]),
         name=data.get("name") or "",
         locality=data.get("locality") or None,
-        category=None,  # C-3 carries no shop-category field at all
+        category=None,  # Outlet detail carries no shop-category field at all
         district_external_id=None,
         lat=_decimal(data.get("latitude")),
         lng=_decimal(data.get("longitude")),
@@ -132,7 +132,7 @@ def _record_from_detail(data: dict[str, Any]) -> OutletRecord:
 
 
 class HumbeeOutletMasterProvider:
-    """C-2 search and singular C-3 detail adapter."""
+    """Outlet search and singular outlet detail adapter."""
 
     def __init__(self, settings: Settings) -> None:
         self._client = get_humbee_client(settings)
@@ -171,7 +171,8 @@ class HumbeeOutletMasterProvider:
         cursor: str | None,
         limit: int,
     ) -> OutletSearchPage:
-        """Exactly one C-2 request. Pass a previous page's `next_cursor` back to walk forward."""
+        """Exactly one outlet search request. Pass a previous page's `next_cursor` back to walk
+        forward."""
 
         del tenant_id  # derived from the api-key credential
         if not district_ids:
@@ -200,8 +201,9 @@ class HumbeeOutletMasterProvider:
     ) -> OutletSearchPage:
         """Fetch one page of outlets across every district in the filter.
 
-        C-2 pages across districts rather than within one, so a district's group can span pages —
-        callers merge groups themselves rather than assuming one group per district per page.
+        Outlet search pages across districts rather than within one, so a district's group can span
+        pages — callers merge groups themselves rather than assuming one group per district per
+        page.
         """
 
         params: dict[str, Any] = {"district_ids": district_ids, "limit": limit}

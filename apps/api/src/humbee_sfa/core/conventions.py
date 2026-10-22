@@ -9,7 +9,7 @@ from sqlalchemy import Boolean, Date, DateTime, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 try:
-    from ulid import ULID  # type: ignore[import-not-found]
+    from ulid import ULID
 
     def generate_ulid() -> str:
         return str(ULID())

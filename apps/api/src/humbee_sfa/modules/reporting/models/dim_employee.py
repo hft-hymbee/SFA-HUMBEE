@@ -1,6 +1,6 @@
-"""`dim_employee` — SCD type 2 employee dimension. database-design.md §13.
+"""`dim_employee` — SCD type 2 employee dimension.
 
-Exempt from `ConventionsMixin` (§2.4 rule 2, §13 header): this whole module is derived and
+Exempt from `ConventionsMixin`: this whole module is derived and
 droppable, the durable truth is `platform_domain_events`. No ULID `id`, no actor columns, no
 soft-delete — the surrogate key is `employee_key` (identity bigint), and history is modelled via
 `valid_from`/`valid_to` rather than an `is_active`/timestamp convention column set.

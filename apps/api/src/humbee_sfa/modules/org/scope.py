@@ -1,6 +1,6 @@
-"""The one place row scoping is decided — M03 §3b.2, `02-rbac-and-scoping.md` §2.
+"""The one place row scoping is decided.
 
-Public surface other modules consume (R-ORG-17, R-ORG-22):
+Public surface other modules consume:
 
     from humbee_sfa.modules.org.scope import (
         OrgResource, Scope, ScopeContext, ScopeResolver, apply_scope,
@@ -27,7 +27,6 @@ from typing import Any
 
 from sqlalchemy import ColumnElement, Select, or_, select, true
 from sqlalchemy.orm import InstrumentedAttribute
-from sqlalchemy.sql.elements import ColumnClause
 
 from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.core.errors.handlers import ApiError
@@ -47,7 +46,7 @@ class Role(StrEnum):
 
 
 class OrgResource(StrEnum):
-    """Resource families in the M03 §3b.2 resolution table."""
+    """Resource families in the scope resolution table."""
 
     EMPLOYEE = "employee"
     GEOGRAPHY_ASSIGNMENT = "geography_assignment"
@@ -55,8 +54,8 @@ class OrgResource(StrEnum):
     HIERARCHY_MUTATION = "hierarchy_mutation"
 
 
-# M03 §3b.2 resolution table. Managers read their tree and write nothing (R-ORG-20);
-# Sales Persons read only themselves (R-ORG-21); hierarchy mutation is Admin-only.
+# Scope resolution table. Managers read their tree and write nothing;
+# Sales Persons read only themselves; hierarchy mutation is Admin-only.
 _SCOPE_BY_ROLE: dict[Role, Scope] = {
     Role.SALES_PERSON: Scope.SELF,
     Role.MANAGER: Scope.OWN_TREE,
@@ -102,7 +101,7 @@ class ScopeContext:
 
 
 class ScopeResolver:
-    """Maps `(actor, resource)` onto exactly one of SELF / OWN_TREE / ORG (R-ORG-17)."""
+    """Maps `(actor, resource)` onto exactly one of SELF / OWN_TREE / ORG."""
 
     @staticmethod
     def resolve(
@@ -160,7 +159,7 @@ def authentication_scope(tenant_id: str) -> ScopeContext:
 
 def internal_routing_scope(tenant_id: str) -> ScopeContext:
     """Tenant-only scope for cross-module system routines with no human actor — e.g. approvals
-    walking the hierarchy to find an escalation target (M06 §3b.1). Same shape as
+    walking the hierarchy to find an escalation target. Same shape as
     `authentication_scope`, kept as its own named function so each call site stays greppable and
     neither can be reached by accident from an authenticated request path.
     """
@@ -215,7 +214,7 @@ def employee_scope_condition(
     if context.scope is Scope.SELF:
         return employee_id_column == context.actor_employee_id
 
-    # R-ORG-19: OWN_TREE includes the actor. The closure self-row (depth 0) already carries
+    # OWN_TREE includes the actor. The closure self-row (depth 0) already carries
     # them, but asserting it structurally means a missing self-row cannot blank a manager's
     # own data.
     return or_(
@@ -224,13 +223,13 @@ def employee_scope_condition(
     )
 
 
-def apply_scope(
-    statement: Select[Any],
+def apply_scope[RowT: tuple[Any, ...]](
+    statement: Select[RowT],
     context: ScopeContext,
     *,
-    tenant_column: ColumnClause[str],
-    employee_id_column: ColumnClause[str],
-) -> Select[Any]:
+    tenant_column: ColumnElement[str] | InstrumentedAttribute[str],
+    employee_id_column: ColumnElement[str] | InstrumentedAttribute[str],
+) -> Select[RowT]:
     """Apply tenant + row scope to `statement`. The only sanctioned way to scope a query."""
 
     return statement.where(

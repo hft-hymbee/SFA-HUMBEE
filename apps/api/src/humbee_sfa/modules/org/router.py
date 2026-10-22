@@ -34,7 +34,7 @@ def list_employees(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
     q: Annotated[str | None, Query(max_length=120)] = None,
-    # Roster facets are All / Sales / Managers / Inactive (M03 §4 S-ORG1): an Admin holds no
+    # Roster facets are All / Sales / Managers / Inactive: an Admin holds no
     # position in the reporting tree and is not a row here, so it is not a filter value either.
     role: Annotated[str | None, Query(pattern=r"^(sales_person|manager)$")] = None,
     employee_status: Annotated[

@@ -1,6 +1,6 @@
-"""`orders_status_events` — append-only order timeline for S-ORD7. database-design.md §10, §10.3.
+"""`orders_status_events` — append-only order timeline.
 
-The timeline terminates at registration ("Sent to PO/DP") per §10.3: SFA's job ends at taking the
+The timeline terminates at registration ("Sent to PO/DP"): SFA's job ends at taking the
 order, so there is no downstream-status section here and no event kind beyond that node.
 """
 

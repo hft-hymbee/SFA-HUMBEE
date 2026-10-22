@@ -26,7 +26,7 @@ def get_projected(
     """Return projection rows in request order, dropping ids with no row.
 
     `ids_are_local` selects between the local ULID and the Humbee id; beat membership holds the
-    former, everything coming off a C-2 response the latter.
+    former, everything coming off an outlet list response the latter.
     """
 
     requested = list(dict.fromkeys(outlet_ids))
@@ -60,7 +60,7 @@ def bulk_upsert(
     fetched_at: datetime,
     actor_employee_id: str | None,
 ) -> None:
-    """Upsert one C-2 page as the latest authoritative projection."""
+    """Upsert one outlet list page as the latest authoritative projection."""
 
     records_by_id = {record.external_id: record for record in records}
     if not records_by_id:
@@ -113,7 +113,8 @@ def upsert_detail(
     fetched_at: datetime,
     actor_employee_id: str | None,
 ) -> None:
-    """Apply only fields C-3 owns, preserving C-2 district and category values."""
+    """Apply only fields the outlet detail call owns, preserving the outlet list's district and
+    category values."""
 
     statement = insert(Outlet).values(
         id=generate_ulid(),

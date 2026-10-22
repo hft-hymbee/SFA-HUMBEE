@@ -1,6 +1,6 @@
-"""`routes_plans` — one plan per employee per business date. database-design.md §8.
+"""`routes_plans` — one plan per employee per business date.
 
-`beat_id`/`beat_version_id` are logical references into `beats` (module boundary, §2.6) — never
+`beat_id`/`beat_version_id` are logical references into `beats` (module boundary) — never
 declared FKs.
 """
 
@@ -18,7 +18,7 @@ from humbee_sfa.core.db import Base
 class RoutePlan(Base, ConventionsMixin):
     __tablename__ = "routes_plans"
     __table_args__ = (
-        # R-RTE-08: one live plan per employee per business date
+        # One live plan per employee per business date
         Index(
             "uq_routes_plans_employee_date",
             "tenant_id",
@@ -38,7 +38,7 @@ class RoutePlan(Base, ConventionsMixin):
     employee_id: Mapped[str] = mapped_column(String(26), nullable=False)
     business_date: Mapped[date] = mapped_column(Date, nullable=False)
     beat_id: Mapped[str] = mapped_column(String(26), nullable=False)  # logical -> beats
-    beat_version_id: Mapped[str] = mapped_column(String(26), nullable=False)  # snapshot, R-RTE-07
+    beat_version_id: Mapped[str] = mapped_column(String(26), nullable=False)  # snapshot
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

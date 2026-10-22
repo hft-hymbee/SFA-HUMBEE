@@ -54,7 +54,7 @@ def find_active(
     target_type: str,
     period_month: date,
 ) -> Target | None:
-    """The one active target for this employee, type and month, if any (R-TGT-08)."""
+    """The one active target for this employee, type and month, if any."""
 
     return session.execute(
         _scoped(scope).where(

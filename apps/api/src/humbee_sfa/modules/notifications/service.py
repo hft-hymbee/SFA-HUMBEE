@@ -1,17 +1,16 @@
-"""The in-app notification feed — M06 §5.4, S-NOTIF.
+"""The in-app notification feed.
 
 Two halves, and the split matters:
 
 * **`record()`** is the write primitive other modules call. It never commits. A notification is
-  written **synchronously, inside the producing module's own transaction** (R-AP-16): the approval
+  written **synchronously, inside the producing module's own transaction**: the approval
   decision and the notification it causes are one unit, so a committed decision can never be
   missing its notification and a rolled-back decision can never leave a phantom one. Delivery here
-  is poll-based and in-app only, with no transport to fail: §12 Q14 closed push, device tokens and
-  any `NotificationTransport` abstraction permanently.
+  is poll-based and in-app only, with no transport to fail: push, device tokens and any
+  `NotificationTransport` abstraction are closed permanently.
 * **`NotificationService`** serves the four read/ack endpoints. Every one of them is
-  `recipient_id = actor.employee_id`, unconditionally, for every role (M06 §9: "read another
-  user's notification feed — ✗ ✗ ✗"). There is no scope resolver here on purpose; see
-  `repository.py`.
+  `recipient_id = actor.employee_id`, unconditionally, for every role. There is no scope resolver
+  here on purpose; see `repository.py`.
 """
 
 from __future__ import annotations
@@ -70,9 +69,10 @@ def record(
     """Append one notification inside the caller's transaction. Returns the new id, or `None` when
     `dedupe_key` was already used for this recipient.
 
-    R-AP-24 is enforced by `uq_notifications_dedupe`, not by a pre-check: the insert runs inside a
-    SAVEPOINT so a collision — a replayed decision, a retried job — rolls back that statement alone
-    and leaves the caller's transaction fully usable, rather than being a race the caller can lose.
+    At-least-once safety is enforced by `uq_notifications_dedupe`, not by a pre-check: the insert
+    runs inside a SAVEPOINT so a collision — a replayed decision, a retried job — rolls back that
+    statement alone and leaves the caller's transaction fully usable, rather than being a race the
+    caller can lose.
 
     `kind` and the deep-link pair are validated here because this table's CHECK constraints are
     this module's to uphold; a bad value is a programming error in the calling module, not user
@@ -150,7 +150,7 @@ class NotificationService:
     def list_feed(
         self, *, claims: AccessTokenClaims, cursor: str | None, limit: int
     ) -> dict[str, Any]:
-        """S-NOTIF. Opening the feed does **not** mark anything read (R-AP-23) — this is a pure
+        """Opening the feed does **not** mark anything read — this is a pure
         read, which is why it does not commit."""
 
         rows = repository.list_feed(
@@ -172,13 +172,13 @@ class NotificationService:
     def get_notification(
         self, *, claims: AccessTokenClaims, notification_id: str
     ) -> dict[str, Any]:
-        """Resolves a deep-link target. Reading it does not mark it read (R-AP-23)."""
+        """Resolves a deep-link target. Reading it does not mark it read."""
 
         return _item_payload(self._load_own(claims, notification_id))
 
     def mark_read(self, *, claims: AccessTokenClaims, notification_id: str) -> dict[str, Any]:
         """One transaction. Re-marking is a no-op `200` that keeps the original `read_at`, so a
-        retried fire-and-forget tap from the client cannot rewrite history (M06 §10)."""
+        retried fire-and-forget tap from the client cannot rewrite history."""
 
         with transaction(self._session):
             row = repository.lock_own(
@@ -190,7 +190,7 @@ class NotificationService:
             if row is None:
                 raise ApiError(404, "notification_not_found", "Notification was not found.")
             changed = row.read_at is None
-            if changed:
+            if row.read_at is None:
                 row.read_at = self._clock.now_utc()
                 self._session.flush()
             read_at = row.read_at
@@ -229,7 +229,7 @@ class NotificationService:
         )
         if row is None:
             # 404, not 403: another recipient's notification must not be distinguishable from a
-            # non-existent one (M06 §11.2).
+            # non-existent one.
             raise ApiError(404, "notification_not_found", "Notification was not found.")
         return row
 

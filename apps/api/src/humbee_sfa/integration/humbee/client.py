@@ -74,7 +74,7 @@ _ERROR_CODE_EXCEPTIONS: dict[str, type[HumbeeError]] = {
     "030": HumbeeNotFoundError,
     "998": HumbeeBadRequestError,
     "999": HumbeeUpstreamFault,
-    # SFA - onboarding (ON-1..ON-4), SFA-API-Contract v2.2 §4A/§8 — unique to this section.
+    # SFA - onboarding — unique to this section.
     # Verified against api-dev.humbee.in: the verify endpoint's already-registered response is 088,
     # and the document-lookup endpoint returns 090 for a GSTIN or PAN whose firm already exists.
     "088": HumbeeAlreadyRegisteredError,  # phone number already has a Humbee account
@@ -83,11 +83,11 @@ _ERROR_CODE_EXCEPTIONS: dict[str, type[HumbeeError]] = {
     "091": HumbeeBadRequestError,  # missing gstin and pan on the document-lookup endpoint
     "092": HumbeeInvalidDocumentFormatError,  # GSTIN/PAN pattern is malformed
     "093": HumbeeInvalidDocumentFormatError,  # (as above)
-    # ON-1: the GSTIN/PAN is well-formed but no record resolves upstream. A dead end for this
+    # The GSTIN/PAN is well-formed but no record resolves upstream. A dead end for this
     # document, not an outage — the caller gets 404, not 503.
     "094": HumbeeNotFoundError,
     "099": HumbeeRefusedError,  # document does not verify, or a replayed write is refused
-    # G-3/G-4: a zone_ids/state_ids value is not an integer. An unknown but well-formed id is not
+    # A zone_ids/state_ids value is not an integer. An unknown but well-formed id is not
     # an error (contributes no group), so this is only the malformed case.
     "041": HumbeeBadRequestError,
 }

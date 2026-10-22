@@ -7,9 +7,8 @@ Price and stock are fields on `ProductRecord` — there is no separate price or 
 `unit_price_net_paise`/`stock_status` are nullable and mean unverified/unknown, never zero or
 "out of stock".
 
-Reconciled against `SFA-API-Contract` v2.2, the live OpenAPI document, and live calls against
-`api-dev.humbee.in` on 2026-08-30 — see `docs/features/03-humbee-integration-contract.md` §9.
-Almost every capability here is keyed on an **ESI id**, not a firm id (§9.1); `outlet_id` and
+Reconciled against the live OpenAPI document and live calls against `api-dev.humbee.in` on
+2026-08-30. Almost every capability here is keyed on an **ESI id**, not a firm id; `outlet_id` and
 `manufacturer_id` alone are not enough to resolve pricing, stock, ship-to or order routing.
 
 `GET /sfa/v1/manufacturers/{id}` does not exist — only the outlet-scoped list
@@ -43,8 +42,8 @@ class PartnerRecord:
 class ShipToOption:
     """One deliverable (party, ESI) combination — a genuinely distinct destination (a separate
     internal shop or registration), not a duplicate to collapse. A party with more than one
-    operational address appears once per ESI, per C-9. `esi_id` is sent as `deliver_to_esi_id`,
-    `party_id` as `deliver_to`, on C-10. `esi_code` is the external/SAP code (§9.1) — shown to the
+    operational address appears once per ESI. `esi_id` is sent as `deliver_to_esi_id`, `party_id`
+    as `deliver_to`, on order registration. `esi_code` is the external/SAP code — shown to the
     user for reconciliation, never sent on a write; Humbee holds the SAP mapping against `esi_id`
     itself."""
 
@@ -58,7 +57,7 @@ class ShipToOption:
     state_id: str | None
     district_id: str | None
     pincode: str | None
-    geographic_info: dict[str, Any] | None
+    geographic_info: dict[str, Any]
     is_self: bool
 
 
@@ -76,7 +75,7 @@ class ServiceableDistrict:
 
 @dataclass(frozen=True)
 class PurchaseOrderLineRecord:
-    """One PO line (`docs/features/03a-humbee-api-requirements.md` P-2 `lines[]`). Never cached —
+    """One PO line (the purchase-order `lines[]`). Never cached —
     `balance_qty` is as volatile as the header totals. Inactive lines are excluded by
     `_parse_po_line` filtering at the call site, not carried as a flag here."""
 
@@ -323,57 +322,57 @@ class HumbeeCommerceProvider:
         except HumbeeError as exc:
             raise CommerceUnavailable(str(exc)) from exc
         options: list[ShipToOption] = []
-        for entry in data.get("ship_to_options") or ():
-            party_id = entry.get("ship_to_party_id")
-            if party_id is None:
-                continue
-            is_self = bool(entry.get("is_self"))
-            name = str(entry.get("name") or "")
-            geographic_info_raw = entry.get("geographic_info")
-            geographic_info = (
-                geographic_info_raw if isinstance(geographic_info_raw, dict) else None
-            )
-            for esi_entry in entry.get("esi_info_with_operational_address") or ():
-                esi_info = esi_entry.get("esi_info") or {}
-                esi_id = esi_info.get("esi_id")
-                if esi_id is None:
+        try:
+            for entry in data.get("ship_to_options") or ():
+                party_id = entry.get("ship_to_party_id")
+                if party_id is None:
                     continue
-                esi_code = esi_info.get("esi_code")
-                address = esi_entry.get("address") or {}
-                address_info = address.get("address_info") or {}
-                state_info = address.get("state_info") or {}
-                district_info = address.get("district_info") or {}
-                pincode_info = address.get("pincode_info") or {}
-                geographic_state = (geographic_info.get("state_info") or {}).get("state_id")
-                geographic_district = (geographic_info.get("district_info") or {}).get("district_id")
-                geographic_pincode = (geographic_info.get("pincode_info") or {}).get("pincode_id")
-                options.append(
-                    ShipToOption(
-                        party_id=str(party_id),
-                        esi_id=str(esi_id),
-                        esi_code=str(esi_code) if esi_code is not None else None,
-                        name=name,
-                        address_line1=str(address_info.get("address_line_1") or ""),
-                        address_line2=_text_or_none(address_info.get("address_line_2")),
-                        address_line3=_text_or_none(address_info.get("address_line_3")),
-                        state_id=(
-                            _text_or_none(state_info.get("state_id"))
-                            or _text_or_none(geographic_state)
-                        ),
-                        district_id=(
-                            _text_or_none(district_info.get("district_id"))
-                            or _text_or_none(geographic_district)
-                        ),
-                        pincode=(
-                            _text_or_none(pincode_info.get("pincode_id"))
-                            or _text_or_none(pincode_info.get("pincode_name"))
-                            or _text_or_none(pincode_info.get("pincode"))
-                            or _text_or_none(geographic_pincode)
-                        ),
-                        geographic_info=geographic_info,
-                        is_self=is_self,
+                is_self = bool(entry.get("is_self"))
+                name = str(entry.get("name") or "")
+                geographic_info: dict[str, Any] = entry["geographic_info"]
+                for esi_entry in entry.get("esi_info_with_operational_address") or ():
+                    esi_info = esi_entry.get("esi_info") or {}
+                    esi_id = esi_info.get("esi_id")
+                    if esi_id is None:
+                        continue
+                    esi_code = esi_info.get("esi_code")
+                    address = esi_entry.get("address") or {}
+                    address_info = address.get("address_info") or {}
+                    state_info = address.get("state_info") or {}
+                    district_info = address.get("district_info") or {}
+                    pincode_info = address.get("pincode_info") or {}
+                    geographic_state = (geographic_info.get("state_info") or {}).get("state_id")
+                    geographic_district = (geographic_info.get("district_info") or {}).get("district_id")
+                    geographic_pincode = (geographic_info.get("pincode_info") or {}).get("pincode_id")
+                    options.append(
+                        ShipToOption(
+                            party_id=str(party_id),
+                            esi_id=str(esi_id),
+                            esi_code=str(esi_code) if esi_code is not None else None,
+                            name=name,
+                            address_line1=str(address_info.get("address_line_1") or ""),
+                            address_line2=_text_or_none(address_info.get("address_line_2")),
+                            address_line3=_text_or_none(address_info.get("address_line_3")),
+                            state_id=(
+                                _text_or_none(state_info.get("state_id"))
+                                or _text_or_none(geographic_state)
+                            ),
+                            district_id=(
+                                _text_or_none(district_info.get("district_id"))
+                                or _text_or_none(geographic_district)
+                            ),
+                            pincode=(
+                                _text_or_none(pincode_info.get("pincode_id"))
+                                or _text_or_none(pincode_info.get("pincode_name"))
+                                or _text_or_none(pincode_info.get("pincode"))
+                                or _text_or_none(geographic_pincode)
+                            ),
+                            geographic_info=geographic_info,
+                            is_self=is_self,
+                        )
                     )
-                )
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise CommerceUnavailable(f"unexpected ship-to response shape: {exc}") from exc
         return options
 
     def list_open_purchase_orders(
@@ -456,11 +455,11 @@ class HumbeeCommerceProvider:
     def list_serviceable_states(
         self, *, tenant_id: str, manufacturer_id: str
     ) -> list[ServiceableState]:
-        """C-14 with `manufacturer_id` — every state this manufacturer delivers to, for the
-        shipping-address state dropdown. The same endpoint answers a different question without
-        `manufacturer_id` — where a firm may be addressed at all — and that reading lives in
-        `onboarding.py`; the two stay apart because their failures differ (an address form
-        degrades to manual entry, an unanswerable serviceability check blocks an order)."""
+        """`GET /sfa/v1/states` with `manufacturer_id` — every state this manufacturer delivers to,
+        for the shipping-address state dropdown. The same endpoint answers a different question
+        without `manufacturer_id` — where a firm may be addressed at all — and that reading lives in
+        `onboarding.py`; the two stay apart because their failures differ (an address form degrades
+        to manual entry, an unanswerable serviceability check blocks an order)."""
 
         del tenant_id
         try:
@@ -485,7 +484,7 @@ class HumbeeCommerceProvider:
     def list_serviceable_districts(
         self, *, tenant_id: str, manufacturer_id: str, state_id: str
     ) -> list[ServiceableDistrict]:
-        """C-15 — the districts, within one state, this manufacturer delivers to.
+        """The districts, within one state, this manufacturer delivers to.
 
         `state_id` is required upstream and bounds the answer; there is no national district
         listing, so this can only be asked one state at a time — the UI supplies it from whichever

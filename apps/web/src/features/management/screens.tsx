@@ -1494,9 +1494,11 @@ function TeamDay() {
   const employeeName = searchParams.get("name") ?? "";
   const requestedDate = searchParams.get("date");
   const [businessDate, setBusinessDate] = useState(() => isIsoBusinessDate(requestedDate) ? requestedDate : istDateISO());
-  useEffect(() => {
+  const [businessDateParam, setBusinessDateParam] = useState(requestedDate);
+  if (businessDateParam !== requestedDate) {
+    setBusinessDateParam(requestedDate);
     setBusinessDate(isIsoBusinessDate(requestedDate) ? requestedDate : istDateISO());
-  }, [requestedDate]);
+  }
   const route = useRouteDay(businessDate, { enabled: Boolean(employeeId) }, employeeId);
   const retryRoute = () => { void route.refetch(); };
   const footer = !isAdmin
@@ -2091,10 +2093,7 @@ function EmployeeFormFields({
       .map((manager) => ({ value: manager.id, label: `${manager.full_name} (Manager)` })),
     [managers.data, employeeId, employeeRole, designation],
   );
-  useEffect(() => {
-    if (!parentId) return;
-    if (!options.some((option) => option.value === parentId)) setParentId("");
-  }, [options, parentId]);
+  if (parentId && !options.some((option) => option.value === parentId)) setParentId("");
   const save = async () => {
     setSubmitted(true);
     setError(null);
@@ -2241,10 +2240,7 @@ function HierarchyEditor({
         })),
     ];
   }, [candidates, managers, member.designation_code, member.role_code]);
-  useEffect(() => {
-    if (!nextId) return;
-    if (!options.some((option) => option.value === nextId)) setNextId("");
-  }, [nextId, options]);
+  if (nextId && !options.some((option) => option.value === nextId)) setNextId("");
   const nextManager = candidates.find((candidate) => candidate.id === nextId);
   const move = async () => {
     setError(null);
@@ -3656,7 +3652,7 @@ function Beats() {
     const editBeat = editDetail ? mapBeat(editDetail) : null;
     const active = row?.activation_state === "active";
     const pendingApproval = row?.lifecycle_state === "pending_approval";
-    // Admin and Manager share the same direct-edit-and-auto-approve form now (R-BEAT-17-style):
+    // Admin and Manager share the same direct-edit-and-auto-approve form now:
     // Manager is scoped to beats owned by Sales Persons in their own tree by `_load`'s server-side
     // OWN_TREE filter, same as every other beat read/write here. Deactivate/reactivate and owner
     // reassignment stay Admin-only.

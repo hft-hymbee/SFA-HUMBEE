@@ -1,8 +1,8 @@
 """Org domain event names and publish helper.
 
-`EmployeeMoved` is the contract downstream modules act on (M03 §5.5): `approvals` re-routes open
+`EmployeeMoved` is the contract downstream modules act on: `approvals` re-routes open
 requests to the new parent, `reporting` invalidates tree rollups. Geography scope belongs to the
-employee and needs no re-parenting (R-ORG-40) — only its visibility changes, which follows scope.
+employee and needs no re-parenting — only its visibility changes, which follows scope.
 """
 
 from __future__ import annotations

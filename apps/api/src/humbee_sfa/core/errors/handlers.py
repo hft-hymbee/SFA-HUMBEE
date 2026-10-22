@@ -30,7 +30,7 @@ _SENSITIVE_FIELD_MARKERS = {
     "phone_e164",
     "otp",
     "otp_code",
-    "code",  # the OTP verify body field — R-IDN-15: never echoed, never logged
+    "code",  # the OTP verify body field: never echoed, never logged
     "refresh_token",
     "password",
     "token",

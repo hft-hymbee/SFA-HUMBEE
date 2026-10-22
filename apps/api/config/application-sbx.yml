@@ -1,6 +1,7 @@
 environment: sbx
 debug: false
 reload: false
+api_docs_enabled: true
 tenant_id: humbee-sbx
 
 # Keep credentials in environment variables:

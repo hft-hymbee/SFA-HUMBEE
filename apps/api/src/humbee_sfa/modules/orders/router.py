@@ -1,5 +1,4 @@
-"""Orders/cart HTTP routes — Story 4.1 (S-ORD1-4) + 4.2/4.3 (S-ORD4/6/7). Handlers translate HTTP
-only; transaction ownership and scope resolution live in `CartService`/`OrderService`.
+"""Orders/cart HTTP routes. Handlers translate HTTP only; transaction ownership and scope resolution live in `CartService`/`OrderService`.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ async def create_cart(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-ORD1 entry — creates or resumes the open cart for `(visit, outlet, manufacturer)`."""
+    """Creates or resumes the open cart for `(visit, outlet, manufacturer)`."""
 
     status_code, payload = CartService(session).create_or_get_cart(claims=claims, body=body)
     return JSONResponse(status_code=status_code, content=payload)
@@ -44,7 +43,7 @@ def get_cart(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """S-ORD3 — re-prices and re-evaluates the scheme on every read."""
+    """Re-prices and re-evaluates the scheme on every read."""
 
     return CartService(session).get_cart(claims=claims, cart_id=cart_id)
 
@@ -58,7 +57,7 @@ async def patch_cart(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Sets `source_po_id` (S-ORD1b), ship-to and the shipping-address override (S-ORD1)."""
+    """Sets `source_po_id`, ship-to and the shipping-address override."""
 
     status_code, payload = CartService(session).patch_cart(
         claims=claims, cart_id=cart_id, body=body, idempotency_key=idempotency_key,
@@ -76,7 +75,7 @@ async def upsert_line(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-ORD2/S-ORD3 line mutations. `qty = 0` removes the line."""
+    """Cart line mutations. `qty = 0` removes the line."""
 
     status_code, payload = CartService(session).upsert_line(
         claims=claims, cart_id=cart_id, body=body, idempotency_key=idempotency_key,
@@ -95,7 +94,7 @@ def get_order_context(
     seller_id: Annotated[str | None, Query()] = None,
     outlet_esi_id: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-ORD1 fan-out: manufacturer + sellers + routing + POs + ship-to, one call."""
+    """Fan-out: manufacturer + sellers + routing + POs + ship-to, one call."""
 
     return CartService(session).get_order_context(
         claims=claims,
@@ -115,7 +114,7 @@ def get_purchase_orders(
     manufacturer_id: OrderManufacturerId,
     outlet_esi_id: Annotated[str, Query(min_length=1)],
 ) -> dict[str, Any]:
-    """S-ORD1b — open POs for `(outlet, manufacturer, outlet_esi_id)`, live, never cached."""
+    """Open POs for `(outlet, manufacturer, outlet_esi_id)`, live, never cached."""
 
     return CartService(session).get_purchase_orders(
         claims=claims,
@@ -160,7 +159,7 @@ def get_catalog(
     q: Annotated[str | None, Query()] = None,
     category: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-ORD2 — products + prices + stock + cart quantity, merged."""
+    """Products + prices + stock + cart quantity, merged."""
 
     return CartService(session).get_catalog(
         claims=claims, cart_id=cart_id, query=q, category=category
@@ -175,8 +174,8 @@ async def submit_order(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-ORD4 submit. A seller not requiring manager approval routes straight to `approved`; one
-    that does opens a generic approval request (M10 §5.5; epic 07 Story 7.4)."""
+    """A seller not requiring manager approval routes straight to `approved`; one
+    that does opens a generic approval request."""
 
     status_code, payload = OrderService(session).submit_order(
         claims=claims, body=body, idempotency_key=idempotency_key, raw_body=await request.body(),
@@ -192,7 +191,7 @@ def list_orders(
     cursor: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> dict[str, Any]:
-    """S-ORD6 — SELF for a Sales Person, OWN_TREE for a Manager (M03 §3b.2)."""
+    """SELF for a Sales Person, OWN_TREE for a Manager."""
 
     return OrderService(session).list_orders(
         claims=claims, status=status, cursor=cursor, limit=limit
@@ -205,7 +204,7 @@ def get_order(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """S-ORD7/S-ORD7-M. Out-of-scope returns `404`, never `403` (R-ORD-42)."""
+    """Out-of-scope returns `404`, never `403`."""
 
     return OrderService(session).get_order(claims=claims, order_id=order_id)
 
@@ -218,7 +217,7 @@ async def retry_submission(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-ORD7 "Retry submission" — re-attempts registration only; approval is never re-requested."""
+    """Retry submission — re-attempts registration only; approval is never re-requested."""
 
     status_code, payload = OrderService(session).retry_submission(
         claims=claims, order_id=order_id, idempotency_key=idempotency_key,

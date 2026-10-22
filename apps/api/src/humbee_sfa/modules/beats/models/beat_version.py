@@ -1,11 +1,12 @@
-"""`beats_versions` — versioned snapshot of a beat's territory and cadence. database-design.md §7.
-`geo_scope`/`frequency` are `jsonb` value objects (GeoScope M03 §3a.3, BeatFrequency M07 §3.5),
+"""`beats_versions` — versioned snapshot of a beat's territory and cadence.
+`geo_scope`/`frequency` are `jsonb` value objects (GeoScope, BeatFrequency),
 always read whole with their version, never queried across beats.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -28,7 +29,7 @@ class BeatVersion(Base, ConventionsMixin):
     __tablename__ = "beats_versions"
     __table_args__ = (
         UniqueConstraint("beat_id", "version_no", name="uq_beats_versions_no"),
-        # R-BEAT-15: exactly one approved version per beat.
+        # Exactly one approved version per beat.
         Index(
             "uq_beats_versions_one_approved",
             "beat_id",
@@ -47,7 +48,7 @@ class BeatVersion(Base, ConventionsMixin):
         ),
         CheckConstraint("version_no >= 1", name="version_no_chk"),
         CheckConstraint("outlet_count >= 0", name="outlet_count_chk"),
-        # R-BEAT-05: at least one district cluster.
+        # At least one district cluster.
         CheckConstraint("jsonb_array_length(geo_scope -> 'districts') >= 1", name="districts_chk"),
     )
 
@@ -56,8 +57,8 @@ class BeatVersion(Base, ConventionsMixin):
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
-    geo_scope: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    frequency: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    geo_scope: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    frequency: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     outlet_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by_employee_id: Mapped[str | None] = mapped_column(

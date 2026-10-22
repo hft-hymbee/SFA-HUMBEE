@@ -1,12 +1,12 @@
-"""`BeatCreateAdapter` / `BeatEditAdapter` — beats' implementation of the M06
-`ApprovalSubjectAdapter` contract for `beat_create` and `beat_edit` (M07 §3a.2 transitions #3–#12).
+"""`BeatCreateAdapter` / `BeatEditAdapter` — beats' implementation of the approvals
+`ApprovalSubjectAdapter` contract for `beat_create` and `beat_edit`.
 
 Both use the **beat id** as `subject_id` — not the version or edit-request id — because
-`deep_link()`/`notification()` get no `session` (M06 contract) and S-BEAT5 is the one screen either
+`deep_link()`/`notification()` get no `session` and the beat detail screen is the one screen either
 outcome lands on. At most one pending version and one pending edit request can exist per beat at a
 time (`uq_beats_versions_one_pending`, `uq_beats_edit_one_pending`), so this is unambiguous.
 
-These callbacks run **inside** the engine's decision transaction on its own session (R-AP-16): they
+These callbacks run **inside** the engine's decision transaction on its own session: they
 must never commit, roll back, or open a session of their own — exactly the `LeaveAdapter` contract.
 """
 
@@ -118,14 +118,14 @@ def apply_create_approved(
 def apply_edit_approved(
     session: Session, *, tenant_id: str, beat_id: str, approved_at: datetime, approved_by_id: str | None
 ) -> SubjectEvent:
-    """Transition #10 — the proposed version becomes current; the old one is superseded, never
-    deleted (R-BEAT-14, R-BEAT-19)."""
+    """The proposed version becomes current; the old one is superseded, never
+    deleted."""
 
     beat = _beat(session, tenant_id=tenant_id, beat_id=beat_id)
     edit_request = _pending_edit(session, tenant_id=tenant_id, beat_id=beat.id)
     current = _version(session, tenant_id=tenant_id, version_id=beat.current_version_id)
     proposed = _version(session, tenant_id=tenant_id, version_id=edit_request.proposed_version_id)
-    # `uq_beats_versions_one_approved` is a non-deferrable partial unique index (R-BEAT-15):
+    # `uq_beats_versions_one_approved` is a non-deferrable partial unique index:
     # the old version must stop being `approved` in its own flush before the proposed one
     # becomes `approved`, or the two UPDATEs can be ordered either way within the transaction.
     current.state = "superseded"
@@ -215,16 +215,18 @@ class BeatCreateAdapter:
     ) -> EditResult:
         raise SubjectEditRejected("Beats cannot be edited during approval.")
 
-    def on_approved(self, session: Session, *, request: Request) -> list[SubjectEvent]:
+    def on_approved(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         return [
             apply_create_approved(
                 session, tenant_id=request.tenant_id, beat_id=request.subject_id,
-                approved_at=request.decided_at, approved_by_id=request.decided_by_id,
+                approved_at=decided_at, approved_by_id=request.decided_by_id,
             )
         ]
 
     def on_rejected(
-        self, session: Session, *, request: Request, reason: str
+        self, session: Session, *, request: Request, reason: str, decided_at: datetime
     ) -> list[SubjectEvent]:
         beat = _beat(session, tenant_id=request.tenant_id, beat_id=request.subject_id)
         version = _version(session, tenant_id=request.tenant_id, version_id=beat.draft_version_id)
@@ -232,15 +234,15 @@ class BeatCreateAdapter:
         beat.lifecycle_state = "rejected"
         beat.draft_version_id = None
         beat.is_active = False
-        beat.deactivated_at = request.decided_at
+        beat.deactivated_at = decided_at
         beat.deactivated_by = request.decided_by_id
         beat.code = beat.id
         session.flush()
         return [_event("beat_rejected", beat_id=beat.id, version_id=version.id)]
 
-    def on_withdrawn(self, session: Session, *, request: Request) -> list[SubjectEvent]:
-        """Transition #7."""
-
+    def on_withdrawn(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         beat = _beat(session, tenant_id=request.tenant_id, beat_id=request.subject_id)
         version = _version(session, tenant_id=request.tenant_id, version_id=beat.draft_version_id)
         version.state = "draft"
@@ -314,18 +316,20 @@ class BeatEditAdapter:
     ) -> EditResult:
         raise SubjectEditRejected("Beat edits cannot be edited during approval.")
 
-    def on_approved(self, session: Session, *, request: Request) -> list[SubjectEvent]:
+    def on_approved(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         return [
             apply_edit_approved(
                 session, tenant_id=request.tenant_id, beat_id=request.subject_id,
-                approved_at=request.decided_at, approved_by_id=request.decided_by_id,
+                approved_at=decided_at, approved_by_id=request.decided_by_id,
             )
         ]
 
     def on_rejected(
-        self, session: Session, *, request: Request, reason: str
+        self, session: Session, *, request: Request, reason: str, decided_at: datetime
     ) -> list[SubjectEvent]:
-        """Transition #11 — `current_version_id` is untouched; the beat keeps running (R-BEAT-14)."""
+        """`current_version_id` is untouched; the beat keeps running."""
 
         beat = _beat(session, tenant_id=request.tenant_id, beat_id=request.subject_id)
         edit_request = _pending_edit(session, tenant_id=request.tenant_id, beat_id=beat.id)
@@ -335,14 +339,16 @@ class BeatEditAdapter:
         proposed.state = "rejected"
         beat.draft_version_id = None
         repository.resolve_edit_request(
-            session, edit_request=edit_request, state="rejected", resolved_at=request.decided_at
+            session, edit_request=edit_request, state="rejected", resolved_at=decided_at
         )
         session.flush()
         return [_event("beat_edit_rejected", beat_id=beat.id, version_id=proposed.id)]
 
-    def on_withdrawn(self, session: Session, *, request: Request) -> list[SubjectEvent]:
-        """Transition #12 — reached either by the SP's own withdraw or by
-        `approvals.service.withdraw_for_subject` when Admin deactivates the beat (R-BEAT-28).
+    def on_withdrawn(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
+        """Reached either by the SP's own withdraw or by
+        `approvals.service.withdraw_for_subject` when Admin deactivates the beat.
         Idempotent: an already-resolved edit (no pending row left) is a no-op."""
 
         beat = _beat(session, tenant_id=request.tenant_id, beat_id=request.subject_id)
@@ -357,7 +363,7 @@ class BeatEditAdapter:
         proposed.state = "withdrawn"
         beat.draft_version_id = None
         repository.resolve_edit_request(
-            session, edit_request=edit_request, state="withdrawn", resolved_at=request.decided_at
+            session, edit_request=edit_request, state="withdrawn", resolved_at=decided_at
         )
         session.flush()
         return [_event("beat_edit_withdrawn", beat_id=beat.id, version_id=proposed.id)]

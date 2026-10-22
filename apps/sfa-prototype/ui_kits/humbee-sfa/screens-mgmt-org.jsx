@@ -1,4 +1,4 @@
-/* Humbee SFA — Manager & Admin screens, part B: Org & workforce (M3/M4/M5). */
+/* Humbee SFA — Manager & Admin screens, part B: Org & workforce. */
 const HM2 = window.HumbeeDesignSystem_c38d59;
 const MScreen2 = window.MScreen, CardMg2 = window.CardMg, secMg2 = window.secMg, FooterMg2 = window.FooterMg;
 const { useState: useStateOrg } = React;

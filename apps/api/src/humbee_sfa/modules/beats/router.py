@@ -1,23 +1,22 @@
-"""Beats HTTP routes — M07 §10.
+"""Beats HTTP routes.
 
 Handlers validate and translate HTTP only; transaction ownership and scope resolution are the
 service's. Decisions on a submitted beat or beat edit are **not** here by design — they go through
-`POST /api/v1/approvals/{approval_request_id}/{approve|reject|withdraw}` (R-AP-01), using the
+`POST /api/v1/approvals/{approval_request_id}/{approve|reject|withdraw}`, using the
 `approval_request_id` carried on the beat detail response (`approval_request_id` / `pending_edit`).
 
-Endpoints intentionally **not** built, matching M07 §10/§12 and Story 2.4's precedent of naming
-skips explicitly:
+Endpoints intentionally **not** built:
 - `GET /beats/code-available` — advisory-only early check; the DB unique constraint at submit is
-  the authoritative one (M07 §10), so it is not worth a second code path.
+  the authoritative one, so it is not worth a second code path.
 - `GET /beats/{beat_id}/outlets` (paginated) — the beat detail response embeds the full outlet
   list; beat sizes in this product are tens of outlets, not thousands, so pagination adds
   complexity no real beat needs yet.
-- `GET /beats/{beat_id}/versions` — "no prototype screen yet" per M07 §10 itself.
+- `GET /beats/{beat_id}/versions` — no prototype screen yet.
 - `POST /beats/{beat_id}/withdraw-submission` and a `{id}`-addressed edit-request sub-resource —
   folded into the generic approvals withdraw endpoint and into `/draft` + `/edit-requests/submit`
   respectively, since a beat has at most one in-flight draft/edit at a time
   (`uq_beats_versions_one_pending`, `uq_beats_edit_one_pending`).
-- `DELETE /beats/{beat_id}` — deliberately absent; no hard delete exists (R-BEAT-20).
+- `DELETE /beats/{beat_id}` — deliberately absent; no hard delete exists.
 """
 
 from __future__ import annotations
@@ -69,8 +68,8 @@ def list_beats(
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Any]:
-    """Serves S-BEAT1 (owner scope) and S-BEAT6 (org scope) — the same path, scope-resolved
-    server-side (M07 §10)."""
+    """Serves the owner's beat list (owner scope) and the admin beat list (org scope) — the same path,
+    scope-resolved server-side."""
 
     return BeatService(session).list_beats(
         claims=claims, status_filter=beat_status, business_date=business_date, limit=limit, offset=offset
@@ -115,7 +114,7 @@ def update_draft(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """Autosave for S-BEAT2 (`geo_scope`) and S-BEAT4 (`display_name`, `frequency`)."""
+    """Autosave for the wizard's geography step (`geo_scope`) and naming step (`display_name`, `frequency`)."""
 
     return BeatService(session).update_draft(claims=claims, beat_id=beat_id, body=body)
 
@@ -131,7 +130,7 @@ def search_scope_outlets(
     district_ids: Annotated[list[str] | None, Query()] = None,
     shop_categories: Annotated[list[schemas.ShopCategory] | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-BEAT3 outlet pool, proxied from Humbee via `integration/humbee/outlet.py`.
+    """Outlet-picker pool, proxied from Humbee via `integration/humbee/outlet.py`.
 
     Paged: pass the previous response's `next_cursor` back as `cursor`. A null `next_cursor` is
     the last page. Never construct or parse a cursor — it is opaque to us and to the client.
@@ -160,7 +159,7 @@ def discard_draft(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """S-BEAT7 "Discard" — abandons an in-progress edit and falls back to the current approved
+    """Edit-screen "Discard" — abandons an in-progress edit and falls back to the current approved
     version. Naturally idempotent (discarding when nothing is pending is a no-op), so no
     `Idempotency-Key` is required."""
 
@@ -181,9 +180,9 @@ def submit_beat(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Transition #3 (S-BEAT4 "Submit for approval") — `202` when it enters the approval queue,
+    """Wizard "Submit for approval" — `202` when it enters the approval queue,
     `200` when an Admin or Manager submits a beat they built for a Sales Person and it lands
-    approved straight away (R-BEAT-17)."""
+    approved straight away."""
 
     status_code, payload = BeatService(session).submit_beat(
         claims=claims, beat_id=beat_id, idempotency_key=idempotency_key,
@@ -198,7 +197,7 @@ def create_edit_branch(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """S-BEAT7 entry — branches a proposed version. Autosave and outlet edits reuse the same
+    """Edit-screen entry — branches a proposed version. Autosave and outlet edits reuse the same
     `/draft` and `/draft/outlets` endpoints as the creation wizard (`beat.draft_version_id` points
     at whichever version is currently being worked on)."""
 
@@ -219,9 +218,8 @@ def submit_edit(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Transition #9 (S-BEAT7 "Send for approval") — `202` when it enters the approval queue,
-    `200` when an Admin or Manager submits an edit to their own beat and it applies straight away
-    (R-BEAT-17)."""
+    """Edit-screen "Send for approval" — `202` when it enters the approval queue,
+    `200` when an Admin or Manager submits an edit to their own beat and it applies straight away."""
 
     status_code, payload = BeatService(session).submit_edit(
         claims=claims, beat_id=beat_id, idempotency_key=idempotency_key,
@@ -239,7 +237,7 @@ def admin_update_beat(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """Immediate edit, no approval (R-BEAT-17) — S-BEAT6 edit form. Admin may edit any beat;
+    """Immediate edit, no approval — the admin edit form. Admin may edit any beat;
     a Manager may do the same for beats owned by Sales Persons in their own tree. Owner
     reassignment stays Admin-only."""
 
@@ -258,7 +256,7 @@ def deactivate_beat(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """Transition #13 (S-BEAT6 "Deactivate") — Admin-only, like reactivate (R-BEAT-21)."""
+    """Admin-only, like reactivate."""
 
     return BeatService(session).deactivate(
         claims=claims, beat_id=beat_id, body=body, idempotency_key=idempotency_key,
@@ -274,8 +272,6 @@ def reactivate_beat(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """Transition #14 (S-BEAT6 "Reactivate")."""
-
     return BeatService(session).reactivate(
         claims=claims, beat_id=beat_id, idempotency_key=idempotency_key, raw_body=raw_body,
     )

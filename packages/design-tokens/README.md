@@ -25,8 +25,8 @@ src/
 
 The same tokens previously existed twice — in the prototype and in
 `packages/humbee-design-system/theme/` — with a third copy baked into
-`archive/claude-drops/_ds_bundle.js`. A colour change needed three edits, so drift was guaranteed
-(problems **P2**/**P3** in the restructure doc §1.2). Tokens also have to be consumable by non-React
+`archive/claude-drops/_ds_bundle.js`. A colour change needed three edits, so drift was guaranteed.
+Tokens also have to be consumable by non-React
 things, which is why they live here rather than inside the component package.
 
 ## Still to do

@@ -1,7 +1,7 @@
-"""`org_hierarchy_edges` — the closure table. database-design.md §4.
+"""`org_hierarchy_edges` — the closure table.
 
 Carries the self-row (x, x, 0) for every employee. No upper bound on `depth` — the ≤5-level cap
-(INV-01) was removed 2026-08-21 for multi-tenant SaaS; see database-design.md §19.8.
+was removed 2026-08-21 for multi-tenant SaaS.
 """
 
 from __future__ import annotations

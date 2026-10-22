@@ -1,11 +1,12 @@
 """`approvals_decisions` — append-only audit trail of every action taken on an approval request.
-database-design.md §6. `ApprovalTimelineStep`/`ApprovalAdvisory` are projections computed from this
-table at read time, not separate tables.
+`ApprovalTimelineStep`/`ApprovalAdvisory` are projections computed from this table at read time,
+not separate tables.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -47,5 +48,5 @@ class Decision(Base, ConventionsMixin):
     )  # NULL = system actor
     actor_role: Mapped[str | None] = mapped_column(String(32), nullable=True)  # snapshot at decision time
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    edit_patch: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    edit_patch: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

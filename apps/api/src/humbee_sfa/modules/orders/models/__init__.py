@@ -1,6 +1,6 @@
-"""`orders` models — database-design.md §10. The highest-risk module: the database, not the
-service layer, enforces the path/approval/money invariants. Read this file for the index; open a
-specific module for column detail.
+"""`orders` models. The highest-risk module: the database, not the service layer, enforces the
+path/approval/money invariants. Read this file for the index; open a specific module for column
+detail.
 
 - `cart_draft.py`          `orders_cart_drafts` — the provisional basket before submit.
 - `cart_line.py`           `orders_cart_lines` — child rows of a cart draft.
@@ -9,7 +9,7 @@ specific module for column detail.
 - `po_reference.py`        `orders_po_references` — the PO an order draws down, one per order.
 - `po_reference_line.py`   `orders_po_reference_lines` — per-SKU snapshot of that PO's lines.
 - `submission_attempt.py`  `orders_submission_attempts` — append-only Humbee submission log.
-- `status_event.py`        `orders_status_events` — append-only order timeline for S-ORD7.
+- `status_event.py`        `orders_status_events` — append-only order timeline.
 - `approval_edit.py`       `orders_approval_edits` — audit trail of manager quantity edits.
 """
 

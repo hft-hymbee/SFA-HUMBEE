@@ -9,9 +9,10 @@ import hashlib
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
+from humbee_sfa.core.clock import utc_now
 from humbee_sfa.platform.models import IdempotencyRecord
 
 
@@ -59,7 +60,7 @@ class IdempotencyService:
             IdempotencyRecord.is_active.is_(True),
             or_(
                 IdempotencyRecord.expires_at.is_(None),
-                IdempotencyRecord.expires_at > func.now(),
+                IdempotencyRecord.expires_at > utc_now(),
             ),
         )
         return self._session.execute(stmt).scalar_one_or_none()

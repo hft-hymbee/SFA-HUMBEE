@@ -1,5 +1,4 @@
-"""`platform_rate_limit_counters` — per-IP/per-endpoint rate limiting (target-architecture.md §5).
-Not detailed in database-design.md's numbered sections; scope is set by epic Story 0.2.
+"""`platform_rate_limit_counters` — per-IP/per-endpoint rate limiting.
 """
 
 from __future__ import annotations

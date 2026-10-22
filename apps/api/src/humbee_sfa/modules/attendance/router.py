@@ -1,4 +1,4 @@
-"""Attendance / Official-Work HTTP routes — M09 §10.
+"""Attendance / Official-Work HTTP routes.
 
 Handlers translate HTTP only; scope resolution and transaction ownership are the services'.
 """

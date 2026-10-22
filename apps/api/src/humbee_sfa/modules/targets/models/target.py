@@ -1,7 +1,7 @@
-"""`targets` — the per-employee, per-month target record. database-design.md §11.2.
+"""`targets` — the per-employee, per-month target record.
 
-`target_value` for `sales` targets is stored derived (Σ lines) and re-derived on every write per
-R-TGT-09. Achievement is never a column here (`INV-14`) — it is read live from Humbee.
+`target_value` for `sales` targets is stored derived (Σ lines) and re-derived on every write.
+Achievement is never a column here — it is read live from Humbee.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from humbee_sfa.core.db import Base
 class Target(Base, ConventionsMixin):
     __tablename__ = "targets"
     __table_args__ = (
-        # R-TGT-08: one active target per (employee, type, month)
+        # one active target per (employee, type, month)
         Index(
             "uq_targets_active",
             "tenant_id",

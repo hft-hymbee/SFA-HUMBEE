@@ -1,9 +1,7 @@
-"""Orders/cart business logic — Story 4.1 (M10 §3.3, §5.1-5.4, §7 R-ORD-03/07/16/17/22/26/27),
-reshaped by epic 07 Stories 7.4-7.6 around the verified Humbee contract
-(`docs/features/03-humbee-integration-contract.md` §8).
+"""Orders/cart business logic, shaped around the verified Humbee contract.
 
 Transaction ownership lives here, mirroring `routes.service`. A cart is `SELF`-only end to end
-(M10 §9: "Add products / edit cart — ✅ own cart" only, no manager/admin path exists for a cart),
+(no manager/admin path exists for a cart),
 so ownership is a direct `employee_id` equality check rather than the full `ScopeResolver` —
 there is no OWN_TREE/ORG cart read to resolve against. "A valid visit" is established by calling
 `routes.service.RouteService.get_day` — the module's own public read — never by querying
@@ -11,13 +9,15 @@ there is no OWN_TREE/ORG cart read to resolve against. "A valid visit" is establ
 
 Order routing (PO-backed vs direct, approval-required or not) is decided entirely by the seller
 chosen for the outlet+brand (`integration/humbee/seller.py`) — there is no outlet classification
-or tier anywhere in this file any more; the verified build does not expose one (§8).
+or tier anywhere in this file any more; the verified build does not expose one.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -76,9 +76,9 @@ from humbee_sfa.platform.idempotency import IdempotencyService
 
 logger = structlog.get_logger("humbee_sfa.orders")
 
-CART_TTL_HOURS = 24  # R-ORD-21 default; M10 §3.3
-DP_SLA = timedelta(hours=1)  # M10 §3a "1-hour DP creation SLA"; runtime-config default
-MANUAL_RETRY_COOLDOWN = timedelta(minutes=5)  # M10 §11.3 "default 1 per 5 min per order"
+CART_TTL_HOURS = 24
+DP_SLA = timedelta(hours=1)  # runtime-config default
+MANUAL_RETRY_COOLDOWN = timedelta(minutes=5)  # default 1 per 5 min per order
 _ORDERED_STATUSES = (
     "submitted",
     "pending_approval",
@@ -94,11 +94,11 @@ def _previous_month_start(month_start: date) -> date:
         return month_start.replace(year=month_start.year - 1, month=12)
     return month_start.replace(month=month_start.month - 1)
 
-# M10 §11.2: classes a manual retry must never be offered for. Terminal classes need a new order,
+# Classes a manual retry must never be offered for. Terminal classes need a new order,
 # not a resubmission; `timeout` (which also covers Humbee's own `999` unhandled-exception code,
 # integration/humbee/commerce.py) means whether the write landed at Humbee is genuinely
-# unknown — a resubmission here is exactly the "risks a duplicate order" case M10 §11.2 warns
-# against, so it stays operator-resolved rather than auto- or user-blind-retried.
+# unknown — a resubmission here is exactly the "risks a duplicate order" case,
+# so it stays operator-resolved rather than auto- or user-blind-retried.
 _MANUAL_RETRY_BLOCKED_CLASSES = frozenset(
     {
         "po_closed", "po_consumed", "po_expired", "po_value_exceeded", "credit_rejected",
@@ -116,6 +116,16 @@ _FAILURE_REASON_BY_CLASS = {
 
 def _fingerprint(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+@contextmanager
+def _commerce_upstream() -> Iterator[None]:
+    try:
+        yield
+    except CommerceUnavailable as exc:
+        raise ApiError(
+            503, "upstream_unavailable", "Commerce data is unavailable right now."
+        ) from exc
 
 
 def _round_half_up(value: Decimal) -> int:
@@ -193,7 +203,7 @@ def _banner_for(seller: SellerRecord, order_path: schemas.OrderPath) -> str:
 def _esi_ids_for(seller: SellerRecord) -> tuple[str | None, str | None]:
     """Picks the outlet's own ESI (`buyer_esi_id`) and, on a secondary order, the seller's own ESI
     (`seller_esi_id`) from `SellerRecord`. Both are lists because a firm can hold more than one
-    registration (§9.1) — SFA has no picker for this yet, so the first is used and a warning is
+    registration — SFA has no picker for this yet, so the first is used and a warning is
     logged when there was a real choice to make, rather than silently guessing wrong."""
 
     def _first(records: tuple[EsiRecord, ...], label: str) -> str | None:
@@ -234,7 +244,7 @@ def _po_cap(po: PurchaseOrderRecord) -> tuple[int | None, str | None]:
 
 def _po_line_balance(po: PurchaseOrderRecord, product_id: str) -> int | None:
     """The remaining orderable quantity for one SKU on this PO, or `None` when the PO carries no
-    line for it (nothing to cap against — P-2 `lines[].balance_qty`)."""
+    line for it (nothing to cap against — `lines[].balance_qty`)."""
 
     line = next((line for line in po.lines if line.product_id == product_id), None)
     return line.balance_qty if line is not None else None
@@ -262,10 +272,11 @@ class CartService:
     ) -> PurchaseOrderRecord | None:
         if cart.order_path != "po_backed" or not cart.humbee_po_id:
             return None
-        pos = commerce.list_open_purchase_orders(
-            tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
-            manufacturer_id=cart.humbee_manufacturer_id, outlet_esi_id=cart.humbee_buyer_esi_id,
-        )
+        with _commerce_upstream():
+            pos = commerce.list_open_purchase_orders(
+                tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
+                manufacturer_id=cart.humbee_manufacturer_id, outlet_esi_id=cart.humbee_buyer_esi_id,
+            )
         return next((p for p in pos if p.external_id == cart.humbee_po_id), None)
 
     def _po_cap_for_cart(
@@ -327,7 +338,7 @@ class CartService:
     ) -> bool:
         """Serviceability for a district we hold only by id.
 
-        C-15 is bounded by state, so the district's state is resolved through the geography master
+        The district listing is bounded by state, so the district's state is resolved through the geography master
         first — two upstream calls where a national listing used to be one. A district we cannot
         place, or one we were never given, is unanswerable rather than unserviceable: it raises, so
         the caller reports "could not be confirmed" instead of telling a shopkeeper the
@@ -409,10 +420,10 @@ class CartService:
         return matches[0]
 
     def _resolve_active_visit_outlet(self, claims: AccessTokenClaims, visit_id: str) -> str:
-        """R-ORD-53: an active visit, resolved only through `routes.service`'s public surface.
+        """An active visit, resolved only through `routes.service`'s public surface.
 
         Uses `get_active_visit_outlet` rather than `get_day` so this works for an unplanned
-        visit too — an unplanned visit has a `RouteVisit` row but no `RoutePlan` (M08 transition #2).
+        visit too — an unplanned visit has a `RouteVisit` row but no `RoutePlan`.
         """
 
         return RouteService(
@@ -472,7 +483,7 @@ class CartService:
     def create_or_get_cart(
         self, *, claims: AccessTokenClaims, body: schemas.CreateCartBody
     ) -> tuple[int, dict[str, Any]]:
-        """S-ORD1 entry (M10 §5.1 step 1). Resumes the open cart for the tuple if one exists.
+        """Resumes the open cart for the tuple if one exists.
 
         When the selected seller changes for the same `(visit, outlet, manufacturer)` tuple, the
         old open cart cannot be reused: seller-bound ESI, PO and pricing context become invalid.
@@ -531,7 +542,7 @@ class CartService:
         return 201, self._cart_payload(claims, cart, revalidate=False)
 
     def get_cart(self, *, claims: AccessTokenClaims, cart_id: str) -> dict[str, Any]:
-        """S-ORD3 (M10 §5.4): re-prices and re-evaluates the scheme on every read (R-ORD-07)."""
+        """Re-prices and re-evaluates the scheme on every read."""
 
         cart = self._own_cart(claims, cart_id)
         with transaction(self._session):
@@ -542,7 +553,7 @@ class CartService:
         self, *, claims: AccessTokenClaims, cart_id: str, body: schemas.PatchCartBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """Sets `source_po_id` / ship-to / address override (M10 §5.1-5.2)."""
+        """Sets `source_po_id` / ship-to / address override."""
 
         cart = self._own_cart(claims, cart_id)
         endpoint = f"PATCH /carts/{cart_id}"
@@ -634,13 +645,14 @@ class CartService:
                 raise ApiError(
                     422, "po_not_applicable", "Only purchase-order-backed orders reference a PO."
                 )
-            pos = commerce.list_open_purchase_orders(
-                tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
-                manufacturer_id=cart.humbee_manufacturer_id,
-                outlet_esi_id=cart.humbee_buyer_esi_id,
-            )
+            with _commerce_upstream():
+                pos = commerce.list_open_purchase_orders(
+                    tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
+                    manufacturer_id=cart.humbee_manufacturer_id,
+                    outlet_esi_id=cart.humbee_buyer_esi_id,
+                )
             if not any(po.external_id == body.source_po_id for po in pos):
-                raise ApiError(422, "po_not_open", "This purchase order is not open.")  # R-ORD-09
+                raise ApiError(422, "po_not_open", "This purchase order is not open.")
             cart.humbee_po_id = body.source_po_id
 
         if body.ship_to_type is not None:
@@ -655,13 +667,14 @@ class CartService:
                         422, "buyer_esi_unresolved",
                         "This outlet's ESI registration could not be resolved.",
                     )
-                options = commerce.list_ship_to_options(
-                    tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
-                    buyer_esi_id=cart.humbee_buyer_esi_id,
-                )
+                with _commerce_upstream():
+                    options = commerce.list_ship_to_options(
+                        tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
+                        buyer_esi_id=cart.humbee_buyer_esi_id,
+                    )
                 # A party can hold more than one ESI-backed operational address (a separate
                 # internal shop or registration each), so both ids together — never the party
-                # alone — identify which one was picked (R-ORD-15).
+                # alone — identify which one was picked.
                 matches = [
                     o for o in options
                     if o.party_id == body.ship_to_outlet_id and o.esi_id == body.ship_to_esi_id
@@ -734,7 +747,7 @@ class CartService:
         self, *, claims: AccessTokenClaims, cart_id: str, body: schemas.UpsertLinesBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-ORD2/S-ORD3 line mutations (R-ORD-16/17/18/20). `qty = 0` removes the line."""
+        """Cart line mutations. `qty = 0` removes the line."""
 
         cart = self._own_cart(claims, cart_id)
         endpoint = f"PUT /carts/{cart_id}/lines"
@@ -786,7 +799,7 @@ class CartService:
                     422, "form_type_required",
                     "Select form type (STRAIGHT or BEND) for this product.",
                 )
-            # stock_status is advice, never a rule (§9.2) — a product marked out_of_stock stays
+            # stock_status is advice, never a rule — a product marked out_of_stock stays
             # fully orderable; what can actually be fulfilled is settled by Humbee at submission.
             line_form_type = line.form_type if product.form_type_req else None
 
@@ -870,7 +883,7 @@ class CartService:
                     manufacturer_id=cart.humbee_manufacturer_id,
                     lines=[(line.humbee_product_id, line.qty) for line in lines],
                 )
-                scheme_discount_paise = min(scheme.discount_paise, subtotal_net_paise)  # R-ORD-26
+                scheme_discount_paise = min(scheme.discount_paise, subtotal_net_paise)
                 scheme_label = scheme.label
             except SchemeUnavailable:
                 scheme_discount_paise = 0
@@ -962,7 +975,7 @@ class CartService:
         seller_id: str | None = None,
         outlet_esi_id: str | None = None,
     ) -> dict[str, Any]:
-        """S-ORD1 (M10 §5.1): one fan-out call. `no_sellers_linked`/`seller_selection_required`
+        """One fan-out call. `no_sellers_linked`/`seller_selection_required`
         are first-class recovery states here — this read never raises for
         either, so the screen can render a picker or an empty state instead of an error toast."""
 
@@ -971,9 +984,10 @@ class CartService:
             raise ApiError(422, "outlet_mismatch", "The outlet does not match the active visit.")
 
         commerce = self._commerce()
-        manufacturer = commerce.get_partner(
-            tenant_id=claims.tenant_id, outlet_id=outlet_id, partner_id=manufacturer_id
-        )
+        with _commerce_upstream():
+            manufacturer = commerce.get_partner(
+                tenant_id=claims.tenant_id, outlet_id=outlet_id, partner_id=manufacturer_id
+            )
         brand = self._brand_sellers(
             tenant_id=claims.tenant_id, outlet_id=outlet_id, manufacturer_id=manufacturer_id
         )
@@ -1016,17 +1030,20 @@ class CartService:
                     )
                 buyer_esi_id = outlet_esi_id
             if buyer_esi_id:
-                ship_to_options = commerce.list_ship_to_options(
-                    tenant_id=claims.tenant_id, outlet_id=outlet_id, buyer_esi_id=buyer_esi_id,
-                )
+                with _commerce_upstream():
+                    ship_to_options = commerce.list_ship_to_options(
+                        tenant_id=claims.tenant_id, outlet_id=outlet_id, buyer_esi_id=buyer_esi_id,
+                    )
             if order_path == "po_backed" and buyer_esi_id:
-                purchase_orders = commerce.list_open_purchase_orders(
-                    tenant_id=claims.tenant_id, outlet_id=outlet_id,
-                    manufacturer_id=manufacturer_id, outlet_esi_id=buyer_esi_id,
-                )
-            # The outlet's district comes from the local projection, which C-2 populates with a
-            # district *id*. C-3 carries only a district name, and names repeat across states, so
-            # the detail call this check used to make could not identify a district at all.
+                with _commerce_upstream():
+                    purchase_orders = commerce.list_open_purchase_orders(
+                        tenant_id=claims.tenant_id, outlet_id=outlet_id,
+                        manufacturer_id=manufacturer_id, outlet_esi_id=buyer_esi_id,
+                    )
+            # The outlet's district comes from the local projection, which the outlet list
+            # populates with a district *id*. The outlet detail call carries only a district name,
+            # and names repeat across states, so the detail call this check used to make could not
+            # identify a district at all.
             projected = self._outlets().get_projected_outlets(
                 tenant_id=claims.tenant_id, outlet_ids=[outlet_id]
             )
@@ -1095,7 +1112,7 @@ class CartService:
         manufacturer_id: str,
         outlet_esi_id: str,
     ) -> dict[str, Any]:
-        """S-ORD1b (M10 §5.2): live, never cached (R-ORD-09/10)."""
+        """Live, never cached."""
 
         pos = self._commerce().list_open_purchase_orders(
             tenant_id=claims.tenant_id, outlet_id=outlet_id, manufacturer_id=manufacturer_id,
@@ -1150,9 +1167,9 @@ class CartService:
     def get_catalog(
         self, *, claims: AccessTokenClaims, cart_id: str, query: str | None, category: str | None
     ) -> dict[str, Any]:
-        """S-ORD2 (M10 §5.3). Price and stock are fields on the same product read (§8.1) — there
+        """Price and stock are fields on the same product read — there
         is no separate stock capability to degrade independently any more; a null `stock_status`
-        renders as unknown, never `0`/"out of stock" (R-ORD-17)."""
+        renders as unknown, never `0`/"out of stock"."""
 
         cart = self._own_cart(claims, cart_id)
         commerce = self._commerce()
@@ -1201,7 +1218,7 @@ class CartService:
 
 
 # ---------------------------------------------------------------------------
-# Order submission — Story 4.2 (dealer/direct) + 4.3 (DP/po_backed), M10 §5.5, §5.9.
+# Order submission — dealer/direct and DP/po_backed.
 # `submit_to_humbee` calls Humbee synchronously (no outbox handoff); the Humbee client itself
 # retries transient failures with jittered exponential backoff (integration/humbee/commerce.py).
 # ---------------------------------------------------------------------------
@@ -1220,7 +1237,7 @@ def append_status_event(
     attempt_id: str | None = None,
     visible_to_sp: bool = True,
 ) -> None:
-    """One append-only `OrderStatusEvent` row (M10 §3.8). `seq` is derived, never client-supplied,
+    """One append-only `OrderStatusEvent` row. `seq` is derived, never client-supplied,
     so the timeline stays gap-free under concurrent writers."""
 
     seq = repository.next_status_event_seq(session, order_id=order.id)
@@ -1446,7 +1463,7 @@ def list_order_reporting_fields_for_day(
     session: Session, *, tenant_id: str, employee_id: str, business_date: date
 ) -> list[OrderReportingProjection]:
     """Every order an employee submitted on one business date, for the reporting orders
-    producer's day-recompute (M11 §3b.3 rule 2: recompute the full day, never increment)."""
+    producer's day-recompute (recompute the full day, never increment)."""
 
     orders = repository.list_orders_for_employee_day(
         session, tenant_id=tenant_id, employee_id=employee_id, business_date=business_date
@@ -1472,7 +1489,7 @@ def list_order_reporting_employee_days(
 class OrderService:
     """Cart → `Order` submission and reads. Extends `CartService`'s cart primitives rather than
     duplicating them — the cart already produces the grouped, priced, snapshotted lines this
-    freezes onto the order (M10 §3.3 "preserve submitted commercial snapshots")."""
+    freezes onto the order."""
 
     def __init__(
         self,
@@ -1551,7 +1568,7 @@ class OrderService:
             raise ApiError(404, "order_not_found", "Order was not found.")
         return order
 
-    # -- pricing (re-freezes at submission — cart prices are advisory, M10 §3.3) --------------
+    # -- pricing (re-freezes at submission — cart prices are advisory) --------------
 
     def _price_order_lines(
         self, *, tenant_id: str, cart: CartDraft, cart_lines: list[CartLine]
@@ -1657,7 +1674,7 @@ class OrderService:
         self, *, claims: AccessTokenClaims, body: schemas.SubmitOrderBody,
         idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-ORD4 submit (M10 §5.5). One transaction: re-verify the seller live, freeze the
+        """One transaction: re-verify the seller live, freeze the
         snapshot, route (auto-approve / open a generic approval request), submit to Humbee
         synchronously when no approval is needed, and close the originating visit exactly once."""
 
@@ -1674,7 +1691,7 @@ class OrderService:
             raise ApiError(409, "cart_not_open", "This cart is no longer open.")
         cart_lines = repository.list_lines(self._session, cart_draft_id=cart.id)
         if not cart_lines:
-            raise ApiError(422, "cart_empty", "Add at least one line before submitting.")  # R-ORD-19
+            raise ApiError(422, "cart_empty", "Add at least one line before submitting.")
         cart_revision = cart.updated_at
         line_revisions = tuple(sorted((line.id, line.updated_at) for line in cart_lines))
 
@@ -1691,7 +1708,7 @@ class OrderService:
             None,
         )
         if seller is None or not seller.is_active:
-            # R-ORD-04: a mid-flight change to the seller relationship must never silently change
+            # A mid-flight change to the seller relationship must never silently change
             # whether a human sees this order.
             raise ApiError(
                 409, "seller_relationship_changed", "This outlet's seller relationship changed. "
@@ -1708,11 +1725,12 @@ class OrderService:
         if order_path == "po_backed":
             if not cart.humbee_po_id:
                 raise ApiError(422, "po_required", "Select a purchase order before submitting.")
-            pos = commerce.list_open_purchase_orders(
-                tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
-                manufacturer_id=cart.humbee_manufacturer_id,
-                outlet_esi_id=cart.humbee_buyer_esi_id,
-            )
+            with _commerce_upstream():
+                pos = commerce.list_open_purchase_orders(
+                    tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
+                    manufacturer_id=cart.humbee_manufacturer_id,
+                    outlet_esi_id=cart.humbee_buyer_esi_id,
+                )
             po_record = next((po for po in pos if po.external_id == cart.humbee_po_id), None)
             if po_record is None:
                 raise ApiError(409, "po_no_longer_open", "This purchase order is no longer open.")
@@ -1738,10 +1756,11 @@ class OrderService:
             gst_amount_paise, gross_total_paise, scheme_label, as_of,
         ) = self._price_order_lines(tenant_id=claims.tenant_id, cart=cart, cart_lines=cart_lines)
 
-        manufacturer = commerce.get_partner(
-            tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
-            partner_id=cart.humbee_manufacturer_id,
-        )
+        with _commerce_upstream():
+            manufacturer = commerce.get_partner(
+                tenant_id=claims.tenant_id, outlet_id=cart.humbee_outlet_id,
+                partner_id=cart.humbee_manufacturer_id,
+            )
         outlet_record = self._outlets().refresh_outlet(
             tenant_id=claims.tenant_id,
             outlet_id=cart.humbee_outlet_id,
@@ -1798,7 +1817,7 @@ class OrderService:
                 )
                 approver_name = approver.full_name
             if request.status == ApprovalStatus.AUTO_APPROVED:
-                # Edge case (M06 §3b.2 Case A/C1): requester has no manager above them. The
+                # Edge case: requester has no manager above them. The
                 # generic engine's `on_approved` ran already, inside `create()`, before an order
                 # row existed for it to find (`DpOrderAdapter.on_approved` no-ops in that case) —
                 # finish the approval here instead.
@@ -1844,8 +1863,8 @@ class OrderService:
         )
         if requires_approval and auto_approved_at_create and approved_at is not None:
             order.dp_sla_deadline_at = approved_at + DP_SLA
-        # Otherwise unset: the DP path's SLA clock starts at approval (T06/T07), not before, and
-        # a no-approval path has no SLA clock at all (M10 §3a).
+        # Otherwise unset: the DP path's SLA clock starts at approval, not before, and
+        # a no-approval path has no SLA clock at all.
         self._session.add(order)
         self._session.flush()
 
@@ -1944,7 +1963,7 @@ class OrderService:
     def retry_submission(
         self, *, claims: AccessTokenClaims, order_id: str, idempotency_key: str, raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-ORD7 "Retry submission" (M10 §3b.6 T14). Approval is never re-requested — the manager
+        """Retry submission. Approval is never re-requested — the manager
         already decided; this re-attempts registration with Humbee synchronously."""
 
         endpoint = f"POST /orders/{order_id}/retry-submission"
@@ -1998,7 +2017,7 @@ class OrderService:
         self._session.commit()
         return 202, payload
 
-    # -- reads (S-ORD6/S-ORD7/S-ORD7-M) -----------------------------------------------------
+    # -- reads -----------------------------------------------------
 
     def list_orders(
         self, *, claims: AccessTokenClaims, status: str | None, cursor: str | None, limit: int
@@ -2044,16 +2063,16 @@ class OrderService:
             stopped = previous_outlets - current_by_manufacturer.get(manufacturer_id, set())
             if not stopped:
                 continue
-            candidate = {
+            candidate: dict[str, Any] = {
                 "manufacturer_id": manufacturer_id,
                 "manufacturer_name": manufacturer_name,
                 "outlet_count": len(stopped),
                 "previous_month_label": previous_start.strftime("%B"),
                 "current_month_label": current_start.strftime("%B"),
             }
-            if dropoff is None or candidate["outlet_count"] > dropoff["outlet_count"]:
-                dropoff = candidate
-            elif candidate["outlet_count"] == dropoff["outlet_count"] and manufacturer_name < dropoff["manufacturer_name"]:
+            if dropoff is None or (-candidate["outlet_count"], manufacturer_name) < (
+                -dropoff["outlet_count"], dropoff["manufacturer_name"]
+            ):
                 dropoff = candidate
         return {
             "failed_count": repository.count_orders(

@@ -1,4 +1,4 @@
-"""`attendance_days` — one row per employee per business date. database-design.md §9.
+"""`attendance_days` — one row per employee per business date.
 
 `first_punch_in_id`/`last_punch_out_id` are logical pointers into `attendance_punch_events`
 (reverse reference would create a cycle); `leave_request_id` is a logical pointer into

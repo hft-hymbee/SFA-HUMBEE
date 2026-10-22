@@ -1,4 +1,4 @@
-"""`attendance_export_jobs` — async org-wide attendance export requests. database-design.md §9."""
+"""`attendance_export_jobs` — async org-wide attendance export requests."""
 
 from __future__ import annotations
 

@@ -1,10 +1,10 @@
 """Geography persistence: per-employee territory assignments.
 
 The four master cache tables (`org_zone_clusters`, `org_state_clusters`, `org_district_clusters`,
-`org_shop_categories`) were retired in epic 07 Story 7.2 — the geography master is read live from
+`org_shop_categories`) were retired — the geography master is read live from
 Humbee (`integration/humbee/geography.py`) and never persisted locally. Only
 `org_geography_scope_assignments` remains here; it carries `employee_id` and goes through
-`apply_scope` exactly like every other employee-keyed table (R-ORG-22).
+`apply_scope` exactly like every other employee-keyed table.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def get_assignment(
 def list_assignments_in_scope(
     session: Session, *, scope: ScopeContext
 ) -> list[GeographyScopeAssignment]:
-    """Every assignment the caller may see — the input to their assigned pool (R-ORG-34)."""
+    """Every assignment the caller may see — the input to their assigned pool."""
 
     return list(session.execute(_scoped_assignments(scope)).scalars().all())
 
@@ -61,7 +61,7 @@ def upsert_assignment(
 ) -> GeographyScopeAssignment:
     """Full replacement of one employee's scope. One row per employee (`uq_org_geo_scope_employee`).
 
-    Assignment is Admin-only (R-ORG-38); an unscoped insert cannot be scope-tested after the fact,
+    Assignment is Admin-only; an unscoped insert cannot be scope-tested after the fact,
     so ORG write is demanded up front, exactly as `repository._require_org_write` does.
     """
 

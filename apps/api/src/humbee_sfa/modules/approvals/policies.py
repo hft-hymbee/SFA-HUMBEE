@@ -1,9 +1,9 @@
-"""Who may *act* on an approval request — M06 §3b.5, R-AP-07/R-AP-08.
+"""Who may *act* on an approval request.
 
 This is not scope. `org.scope.ScopeResolver` decides the actor's organisational boundary. The checks
 below decide what they can **do** inside it: assigned approvers may decide their requests, and Admin
-may decide beat requests even when they are not assigned. Admin is explicitly excluded from leave
-and outlet approvals.
+may decide beat and outlet-verification requests even when they are not assigned. Admin is
+explicitly excluded from leave approvals.
 """
 
 from __future__ import annotations
@@ -23,14 +23,10 @@ _ADMIN_OVERRIDE_SUBJECT_TYPES = frozenset(
     {
         SubjectType.BEAT_CREATE.value,
         SubjectType.BEAT_EDIT.value,
-    }
-)
-_ADMIN_EXCLUDED_SUBJECT_TYPES = frozenset(
-    {
-        SubjectType.LEAVE.value,
         SubjectType.OUTLET_VERIFICATION.value,
     }
 )
+_ADMIN_EXCLUDED_SUBJECT_TYPES = frozenset({SubjectType.LEAVE.value})
 
 
 def _is_admin(actor: Actor) -> bool:
@@ -62,13 +58,13 @@ def is_terminal(request: Request) -> bool:
 
 
 def can_decide(actor: Actor, request: Request) -> bool:
-    """Assigned approver, plus Admin only for beat requests, while pending."""
+    """Assigned approver, plus Admin for beat and outlet-verification requests, while pending."""
 
     return request.status == ApprovalStatus.PENDING and _has_decision_rights(actor, request)
 
 
 def can_withdraw(actor: Actor, request: Request) -> bool:
-    """R-AP-15: only the requester, and only while pending."""
+    """Only the requester, and only while pending."""
 
     return request.status == ApprovalStatus.PENDING and request.requester_id == actor.employee_id
 
@@ -77,15 +73,14 @@ def require_decision_rights(actor: Actor, request: Request) -> None:
     """Decision-rights check first, then already-decided.
 
     Order matters: a non-approver must not learn a request's decision state by probing an endpoint,
-    so they get `403` whatever the status. A permitted actor gets the actionable `409` (M06 §11.2,
-    R-AP-06).
+    so they get `403` whatever the status. A permitted actor gets the actionable `409`.
     """
 
     if not _has_decision_rights(actor, request):
         raise ApiError(
             403,
             "not_the_assigned_approver",
-            "Only the assigned approver can decide this request, except Admin may decide beat approvals.",
+            "Only the assigned approver can decide this request, except Admin may decide beat and outlet approvals.",
         )
     if is_terminal(request):
         raise ApiError(
@@ -113,7 +108,7 @@ def require_withdraw_rights(actor: Actor, request: Request) -> None:
 
 
 def require_editable(fields: list[EditableField]) -> None:
-    """R-AP-13: a subject type that declares no editable fields cannot be edit-and-approved."""
+    """A subject type that declares no editable fields cannot be edit-and-approved."""
 
     if not fields:
         raise ApiError(
@@ -122,7 +117,7 @@ def require_editable(fields: list[EditableField]) -> None:
 
 
 def require_reason(reason: str | None) -> str:
-    """R-AP-14: rejection requires a non-empty reason after trimming, whatever the UI does."""
+    """Rejection requires a non-empty reason after trimming, whatever the UI does."""
 
     trimmed = (reason or "").strip()
     if not trimmed:
@@ -131,7 +126,7 @@ def require_reason(reason: str | None) -> str:
 
 
 def require_subject_version(request: Request, if_match: int | None, *, required: bool) -> None:
-    """R-AP-29: `If-Match: <subject_version>` guards edit-and-approve; a mismatch means a
+    """`If-Match: <subject_version>` guards edit-and-approve; a mismatch means a
     concurrent edit moved the subject under the client."""
 
     if if_match is None:

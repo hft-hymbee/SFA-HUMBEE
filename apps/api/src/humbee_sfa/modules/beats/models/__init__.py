@@ -1,4 +1,4 @@
-"""`beats` models — database-design.md §7. Read this file for the index; open a specific module
+"""`beats` models. Read this file for the index; open a specific module
 for column detail.
 
 - `beat.py`                    `Beat` — `beats`, the beat master (lifecycle + activation state).

@@ -130,7 +130,7 @@ export type AdminDashboardMetricsOut = {
 /**
  * AdminUpdateBeatBody
  *
- * Admin-only immediate edit (R-BEAT-17) — applies without approval.
+ * Admin-only immediate edit — applies without approval.
  */
 export type AdminUpdateBeatBody = {
     /**
@@ -347,7 +347,7 @@ export type ApprovalListResponse = {
 /**
  * ApprovalSummaryResponse
  *
- * Single source for every pending count on every surface (R-AP-30).
+ * Single source for every pending count on every surface.
  */
 export type ApprovalSummaryResponse = {
     /**
@@ -375,7 +375,7 @@ export type ApproveBody = {
 /**
  * AssignGeoScopeBody
  *
- * `districts` must be non-empty (R-ORG-30).
+ * `districts` must be non-empty.
  */
 export type AssignGeoScopeBody = {
     /**
@@ -458,8 +458,8 @@ export type AttendanceHistorySummary = {
 /**
  * AttendanceTodayResponse
  *
- * The single canonical duty-state payload — S-ATT1 mount, the punch-in gate, and the body of
- * every successful `POST /attendance/punches` (M09 §5.1, §5.2).
+ * The single canonical duty-state payload — the punch screen mount, the punch-in gate, and the body of
+ * every successful `POST /attendance/punches`.
  */
 export type AttendanceTodayResponse = {
     /**
@@ -1123,7 +1123,7 @@ export type CandidateRoleOut = {
 /**
  * CaptureLeadBody
  *
- * S-LEAD1 — a salesperson captures a prospective business as a lead for follow-up. Leads are
+ * A salesperson captures a prospective business as a lead for follow-up. Leads are
  * for manufacturers not on Humbee, so they are named as free text — at least one — rather than
  * picked from the Humbee roster.
  */
@@ -1420,7 +1420,7 @@ export type CatalogResponse = {
 /**
  * CheckInBody
  *
- * S-ROUTE4 entry / "Add unplanned visit" (transitions #2/#3).
+ * Visit entry or "Add unplanned visit".
  */
 export type CheckInBody = {
     gps?: GpsFix | null;
@@ -1445,7 +1445,7 @@ export type CheckInBody = {
 /**
  * CombinedVisitFeedbackBody
  *
- * S-CVIS2. `responses` absorbs the still-pending business schema as JSONB (R-RTE-33).
+ * `responses` absorbs the still-pending business schema as JSONB.
  */
 export type CombinedVisitFeedbackBody = {
     /**
@@ -1547,7 +1547,7 @@ export type CompanyAddressBody = {
 /**
  * CoordinateCorrectionBody
  *
- * O-4 — a field pin correction captured during a visit, possibly offline.
+ * A field pin correction captured during a visit, possibly offline.
  * The outlet is the visit's own outlet (from the path), never a client-supplied id.
  */
 export type CoordinateCorrectionBody = {
@@ -1787,7 +1787,7 @@ export type CreateAdminBody = {
 /**
  * CreateBeatBody
  *
- * S-BEAT2 entry (transition #1). `id` is the client-generated ULID (idempotent create).
+ * Wizard entry. `id` is the client-generated ULID (idempotent create).
  * `owner_employee_id` lets an Admin/Manager create the beat for a salesperson; omitted, the
  * caller becomes the owner.
  */
@@ -1830,8 +1830,6 @@ export type CreateCartBody = {
 
 /**
  * CreateCombinedVisitBody
- *
- * S-CVIS1 (R-RTE-28/29/30).
  */
 export type CreateCombinedVisitBody = {
     /**
@@ -1909,7 +1907,7 @@ export type CreateEmployeeBody = {
 /**
  * CreateTargetBody
  *
- * S-TGT1 save, for an employee and month that has no active target of this type yet.
+ * Save for an employee and month that has no active target of this type yet.
  */
 export type CreateTargetBody = {
     /**
@@ -2091,7 +2089,7 @@ export type DistrictsResponse = {
 /**
  * DocumentLookupResponse
  *
- * ON-1 — the registered address behind a GSTIN or PAN, for pre-filling the firm form.
+ * The registered address behind a GSTIN or PAN, for pre-filling the firm form.
  * Only `document_type` is guaranteed; other fields are optional.
  */
 export type DocumentLookupResponse = {
@@ -2376,7 +2374,7 @@ export type FirmAddressDistrictOut = {
 /**
  * FirmAddressDistrictsResponse
  *
- * C-15 — the district step, always bounded by one state.
+ * The district step, always bounded by one state.
  */
 export type FirmAddressDistrictsResponse = {
     /**
@@ -2402,7 +2400,7 @@ export type FirmAddressLocationOut = {
 /**
  * FirmAddressOptionsResponse
  *
- * C-16 — the locality and pincode steps. `location_id` and `pincode` are exactly the values
+ * The locality and pincode steps. `location_id` and `pincode` are exactly the values
  * `OperationalAddressBody` takes, so a picked option is copied straight into the firm body.
  * Either list may legitimately be empty.
  */
@@ -2442,7 +2440,7 @@ export type FirmAddressStateOut = {
 /**
  * FirmAddressStatesResponse
  *
- * C-14 — the state step of the firm address form.
+ * The state step of the firm address form.
  */
 export type FirmAddressStatesResponse = {
     /**
@@ -2472,7 +2470,7 @@ export type Frequency = {
 /**
  * GeoLabel
  *
- * `{id, name}` snapshot for a zone/state, taken at assignment time (epic 07 Story 7.2) — the
+ * `{id, name}` snapshot for a zone/state, taken at assignment time — the
  * master cache that used to let a stored id resolve back to a name is gone.
  */
 export type GeoLabel = {
@@ -2967,8 +2965,8 @@ export type LeaveBalancesResponse = {
 /**
  * LeavePreviewResponse
  *
- * The S-LV1 info card, server-authoritative (M12 §10). `exceeds_balance` drives the advisory
- * banner only — submission is never blocked on it (R-LV-11).
+ * The apply-leave info card, server-authoritative. `exceeds_balance` drives the advisory
+ * banner only — submission is never blocked on it.
  */
 export type LeavePreviewResponse = {
     /**
@@ -3005,8 +3003,8 @@ export type LeavePreviewResponse = {
 /**
  * LeaveRequestItem
  *
- * One S-LV2 row. `approval_request_id` is what the Withdraw action posts to —
- * `POST /api/v1/approvals/{id}/withdraw` (M12 §4 S-LV2, §10 "Decisions — not here").
+ * One own-history row. `approval_request_id` is what the Withdraw action posts to —
+ * `POST /api/v1/approvals/{id}/withdraw`.
  */
 export type LeaveRequestItem = {
     /**
@@ -3325,7 +3323,7 @@ export type ManufacturerRolesResponse = {
  * ManufacturerRosterResponse
  *
  * The roster behind a sales target's lines. Humbee owns it; SFA may
- * never create, rename or delete a manufacturer (R-TGT-04). `basis`/`uom_label` say whether that
+ * never create, rename or delete a manufacturer. `basis`/`uom_label` say whether that
  * manufacturer's line is entered in ₹ or units — the form has no separate basis choice.
  */
 export type ManufacturerRosterResponse = {
@@ -3353,7 +3351,7 @@ export type MarkAllReadResponse = {
  * MarkReadResponse
  *
  * `changed` is false when the row was already read — re-marking is a no-op `200`, never a
- * `409` (M06 §10).
+ * `409`.
  */
 export type MarkReadResponse = {
     /**
@@ -3754,7 +3752,7 @@ export type OperationalAddressBody = {
 /**
  * OrderContextResponse
  *
- * S-ORD1 fan-out. `no_sellers_linked` and `seller_selection_required`
+ * `no_sellers_linked` and `seller_selection_required`
  * are first-class recovery states, not errors — when either is true the routing/PO/ship-to/
  * banner fields are empty and the client renders the recovery screen instead.
  */
@@ -4117,8 +4115,6 @@ export type OtpVerifyBody = {
 
 /**
  * OutcomeBody
- *
- * S-VISIT1 (transition #6).
  */
 export type OutcomeBody = {
     /**
@@ -4503,7 +4499,7 @@ export type PatchCartBody = {
 /**
  * PatchDraftBody
  *
- * Autosave for S-BEAT2 (`geo_scope`) and S-BEAT4 (`display_name`, `frequency`).
+ * Autosave for the wizard's geography step (`geo_scope`) and naming step (`display_name`, `frequency`).
  */
 export type PatchDraftBody = {
     /**
@@ -4567,7 +4563,7 @@ export type PrimaryIndustryOut = {
 /**
  * PunchBody
  *
- * `id` is the client-generated ULID for the `PunchEvent` (M09 §3.2, R-ATT-18).
+ * `id` is the client-generated ULID for the `PunchEvent`.
  */
 export type PunchBody = {
     /**
@@ -5462,8 +5458,8 @@ export type SubmitCandidateBody = {
 /**
  * SubmitLeaveBody
  *
- * S-LV1 submit. `id` is the client-generated ULID that makes a retried submit provably the
- * same request (M12 §3.1); `is_half_day` has no S-LV1 control in v1 (§12 Q4) and is not accepted.
+ * Leave submit. `id` is the client-generated ULID that makes a retried submit provably the
+ * same request; `is_half_day` has no client control in v1 and is not accepted.
  */
 export type SubmitLeaveBody = {
     /**
@@ -5519,8 +5515,6 @@ export type SweepRunResponse = {
 
 /**
  * SwitchBeatBody
- *
- * S-ROUTE2b (transition #12).
  */
 export type SwitchBeatBody = {
     /**
@@ -5691,8 +5685,8 @@ export type TargetsSummaryOut = {
 /**
  * TeamAttendanceResponse
  *
- * S-ATT3/S-ATT4 — one endpoint, scope resolved from the actor (R-ATT-17). Summary counts are
- * computed over the full scope, never the visible page (R-ATT-12).
+ * Team and org attendance — one endpoint, scope resolved from the actor. Summary counts are
+ * computed over the full scope, never the visible page.
  */
 export type TeamAttendanceResponse = {
     /**
@@ -5770,7 +5764,7 @@ export type TeamAttendanceRow = {
 /**
  * TeamLeaveItem
  *
- * One S-LV3 row. The avatar initials are derived client-side from `employee_name` (M12 §8).
+ * One team-leave row. The avatar initials are derived client-side from `employee_name`.
  */
 export type TeamLeaveItem = {
     /**
@@ -5831,7 +5825,7 @@ export type TimelineResponse = {
 /**
  * TimelineStep
  *
- * §3a.5. `state` is one of `done` / `edited` / `current` / `rejected` — the four values the
+ * `state` is one of `done` / `edited` / `current` / `rejected` — the four values the
  * design-system component accepts, and not the same enum as `status`.
  */
 export type TimelineStep = {
@@ -6002,7 +5996,7 @@ export type UnplannedOutletItem = {
 /**
  * UnreadCountResponse
  *
- * `bellCount`. `0` means the client renders no badge at all, not "0" (M06 §8).
+ * `bellCount`. `0` means the client renders no badge at all, not "0".
  */
 export type UnreadCountResponse = {
     /**
@@ -6046,8 +6040,8 @@ export type UpdateEmployeeBody = {
 /**
  * UpdateTargetBody
  *
- * S-TGT1 save over an existing target. Employee, type and month are the target's identity
- * (R-TGT-08) and are not editable — changing one is a different target.
+ * Save over an existing target. Employee, type and month are the target's identity
+ * and are not editable — changing one is a different target.
  */
 export type UpdateTargetBody = {
     /**
@@ -6125,7 +6119,7 @@ export type ValidationError = {
 /**
  * VisitOutcomeDetail
  *
- * Read-back for a visit's close-out (S-VISIT1) — reopening a completed visit shows what was
+ * Read-back for a visit's close-out — reopening a completed visit shows what was
  * recorded, including the orders placed, without growing `RouteStopItem` (read by every stop on
  * every route-plan fetch) with per-visit detail only the opened stop needs.
  */
@@ -10543,6 +10537,20 @@ export type HealthHealthGetData = {
 };
 
 export type HealthHealthGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type LivezLivezGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/livez';
+};
+
+export type LivezLivezGetResponses = {
     /**
      * Successful Response
      */

@@ -1,16 +1,15 @@
-"""`platform` models — database-design.md §12 + epic Story 0.2 baseline infra. Read this file
-for the index; open a specific module for column detail.
+"""`platform` models — baseline infra. Read this file for the index; open a specific module for
+column detail.
 
 - `domain_event.py`        `platform_domain_events` — event-log spine for the reporting projector.
-- `audit_log.py`           `platform_audit_logs` — the INV-13 landing zone.
+- `audit_log.py`           `platform_audit_logs` — the audit landing zone.
 - `idempotency_record.py`  `platform_idempotency_records` — per-endpoint API replay dedupe.
 - `sweep_run.py`           `platform_sweep_runs` — scheduled-job run tracking.
 - `attachment.py`          `platform_attachments` — uploaded files, one checksum convention.
 - `event_quarantine.py`    `platform_event_quarantine` — late/unprocessable events, parked not dropped.
 - `form_definition.py` / `form_response.py`  versioned JSON-schema forms for fields still pending
   from the business.
-- `rate_limit_counter.py`, `runtime_config.py`, `feature_flag.py`  cross-cutting infra, not tied
-  to a specific database-design.md section.
+- `rate_limit_counter.py`, `runtime_config.py`, `feature_flag.py`  cross-cutting infra.
 """
 
 from __future__ import annotations

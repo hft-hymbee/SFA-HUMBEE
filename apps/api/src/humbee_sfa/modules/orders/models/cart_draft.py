@@ -1,9 +1,9 @@
-"""`orders_cart_drafts` — the provisional basket before submit. database-design.md §10.
+"""`orders_cart_drafts` — the provisional basket before submit.
 
 `order_path`/`seller_type_snapshot` here are provisional and re-resolved at submit time against a
 fresh seller-linkage read, so they carry no CHECK tying them to the frozen
 `orders` row. One open cart per (employee, visit, outlet, manufacturer) is enforced by
-`uq_orders_cart_open` so re-entering S-ORD1 resumes the same draft instead of forking a duplicate.
+`uq_orders_cart_open` so re-entering the cart resumes the same draft instead of forking a duplicate.
 """
 
 from __future__ import annotations
@@ -54,10 +54,10 @@ class CartDraft(Base, ConventionsMixin):
     seller_type_snapshot: Mapped[str] = mapped_column(String(32), nullable=False)
     humbee_manufacturer_id: Mapped[str] = mapped_column(String(64), nullable=False)
     humbee_seller_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    # The outlet's own ESI against this seller (buyer_esi_id on C-10). Resolved once at cart
+    # The outlet's own ESI against this seller (buyer_esi_id on order creation). Resolved once at cart
     # creation from `SellerRecord.outlet_esi_records`, same lifecycle as humbee_seller_id.
     humbee_buyer_esi_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # The seller's own ESI (seller_esi_id on C-10) — always null when the seller is a manufacturer.
+    # The seller's own ESI (seller_esi_id on order creation) — always null when the seller is a manufacturer.
     humbee_seller_esi_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     humbee_po_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ship_to_type: Mapped[str | None] = mapped_column(String(16), nullable=True)

@@ -1657,7 +1657,7 @@ class ReportingService:
         claims: AccessTokenClaims,
         period: schemas.DashboardPeriod = "mtd",
     ) -> dict[str, Any]:
-        """Calculate S-DASH-SP visit/call KPIs from fact tables and live routes.
+        """Calculate Sales Person visit/call KPIs from fact tables and live routes.
 
         Manufacturer-scoped target progress lives on `get_sp_targets_kpis` —
         keeping it off this method means switching the targets screen's
@@ -1834,7 +1834,7 @@ class ReportingService:
         manufacturer_id: str | None = None,
         designation_code: str | None = None,
     ) -> dict[str, Any]:
-        """Calculate S-DASH-MGR KPIs from team's fact tables.
+        """Calculate Manager KPIs from team's fact tables.
 
         `targets` is scoped to one hierarchy level below the caller by default (or to
         `designation_code` when given), never the whole tree — see `_resolve_target_designations`.
@@ -1983,7 +1983,7 @@ class ReportingService:
         manufacturer_id: str | None = None,
         designation_code: str | None = None,
     ) -> dict[str, Any]:
-        """Calculate S-DASH-ADM org-wide KPIs.
+        """Calculate Admin org-wide KPIs.
 
         `employee_progress` is one row per active holder of `designation_code`, or of
         every ladder level when it is `all` (the default), ordered by level then name.

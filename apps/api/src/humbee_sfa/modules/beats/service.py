@@ -1,9 +1,9 @@
-"""Beats business logic — M07 §3a (lifecycle), §5 (data assembly), §7 (invariants).
+"""Beats business logic.
 
-Transaction ownership lives here, not in the router (architecture: a service owns one transaction
+Transaction ownership lives here, not in the router (a service owns one transaction
 per state transition together with its audit and domain-event writes). Submission and edit-submission
 route through the generic approval engine (`approvals.service.create`) exactly like
-`leave.service.submit` — beats never implements its own approve/reject path (M06 §3a, M07 §10).
+`leave.service.submit` — beats never implements its own approve/reject path.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date
-from typing import Any, NoReturn
+from typing import Any, Literal, NoReturn
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -45,9 +45,9 @@ from humbee_sfa.platform.idempotency import IdempotencyService
 AUDIT_ENTITY = "beats_beat"
 
 
-# A beat row exists from S-BEAT2 (transition #1), two screens before the sales person names it,
+# A beat row exists from the wizard's first step, two screens before the sales person names it,
 # so creation fills the not-null `display_name` and the tenant-unique `code` with placeholders.
-# S-BEAT4 replaces both; submit refuses a version still carrying them.
+# The naming step replaces both; submit refuses a version still carrying them.
 PLACEHOLDER_DISPLAY_NAME = "Untitled beat"
 
 
@@ -97,7 +97,7 @@ def _validate_version_for_submit(version: BeatVersion) -> None:
 
 
 def _is_abandoned_draft(beat: Beat, version: BeatVersion | None) -> bool:
-    """A wizard draft opened and never named. The `Beat` row exists from S-BEAT2 (transition #1),
+    """A wizard draft opened and never named. The `Beat` row exists from the wizard's first step,
     so an abandoned session leaves a placeholder-named, outlet-less row that carries no
     information — it is the owner's to resume, never an org-wide report line."""
 
@@ -109,7 +109,7 @@ def _is_abandoned_draft(beat: Beat, version: BeatVersion | None) -> bool:
 
 
 def display_status(beat: Beat, *, edit_pending: bool) -> str:
-    """M07 §3.1 — derived, never stored. `edit_pending` means a submitted edit request awaits
+    """Derived, never stored. `edit_pending` means a submitted edit request awaits
     approval; an unsubmitted edit branch leaves the beat plainly active."""
 
     if beat.lifecycle_state == "approved":
@@ -129,7 +129,7 @@ def _assigned_on_business_date(frequency: dict[str, Any], business_date: date) -
 
 def _run_origin_for_business_date(
     beat: Beat, *, frequency: dict[str, Any], business_date: date
-) -> str | None:
+) -> Literal["assigned_beat", "unplanned_beat"] | None:
     if beat.lifecycle_state != "approved" or beat.activation_state != "active":
         return None
     return "assigned_beat" if _assigned_on_business_date(frequency, business_date) else "unplanned_beat"
@@ -156,7 +156,7 @@ class BeatService:
 
     def _scope(self, claims: AccessTokenClaims) -> ScopeContext:
         # Beats are activity data: SELF for a Sales Person, OWN_TREE (read-only) for their
-        # manager, ORG for Admin (M07 §9).
+        # manager, ORG for Admin.
         return ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
 
     def _load(self, scope: ScopeContext, beat_id: str) -> Beat:
@@ -188,7 +188,7 @@ class BeatService:
             raise ApiError(403, "forbidden", "Only the beat's owner may do this.")
 
     def _is_privileged(self, scope: ScopeContext) -> bool:
-        """Admin or Manager — they write without approval (R-BEAT-17). Which beats they can reach
+        """Admin or Manager — they write without approval. Which beats they can reach
         is already settled by `_load`'s ORG/OWN_TREE scoping, so role alone decides here."""
 
         return scope.actor_role in {Role.ADMIN, Role.MANAGER}
@@ -234,7 +234,7 @@ class BeatService:
         outlet_refs: list[str],
         actor_employee_id: str | None,
     ) -> None:
-        """C-2 is the authority on which outlets a beat's geography contains, so membership is
+        """Humbee's outlet search is the authority on which outlets a beat's geography contains, so membership is
         checked against a live search rather than against what the client claims.
 
         The refreshed projection is staged, not committed — it lands with the beat write that
@@ -401,21 +401,21 @@ class BeatService:
         pending_edit_beat_ids = repository.list_pending_edit_beat_ids(
             self._session, tenant_id=scope.tenant_id, beat_ids=[beat.id for beat in rows]
         )
+        row_version_ids = [
+            version_id
+            for beat in rows
+            if (version_id := beat.current_version_id or beat.draft_version_id)
+        ]
         versions_by_id = {
             version.id: version
             for version in repository.list_versions(
-                self._session,
-                tenant_id=scope.tenant_id,
-                version_ids=[
-                    beat.current_version_id or beat.draft_version_id
-                    for beat in rows
-                    if beat.current_version_id or beat.draft_version_id
-                ],
+                self._session, tenant_id=scope.tenant_id, version_ids=row_version_ids
             )
         }
         items = []
         for beat in rows:
-            version = versions_by_id.get(beat.current_version_id or beat.draft_version_id)
+            version_id = beat.current_version_id or beat.draft_version_id
+            version = versions_by_id.get(version_id) if version_id else None
             frequency = version.frequency if version else {}
             run_origin = _run_origin_for_business_date(
                 beat, frequency=frequency, business_date=effective_business_date
@@ -502,7 +502,9 @@ class BeatService:
                 else [],
                 # `list_memberships_for_versions` orders by `sequence_hint asc nulls last`, so
                 # position in this list is already the outlet's run order.
-                "outlets": outlets_by_version.get(beat.current_version_id, []),
+                "outlets": outlets_by_version.get(beat.current_version_id, [])
+                if beat.current_version_id
+                else [],
             }
             for beat in beats
         ]
@@ -519,8 +521,11 @@ class BeatService:
             self._session, scope=scope, status_filter=None, limit=None, offset=0
         )
         version_ids = list(
-            {beat.current_version_id or beat.draft_version_id for beat in beats}
-            - {None}
+            {
+                version_id
+                for beat in beats
+                if (version_id := beat.current_version_id or beat.draft_version_id)
+            }
         )
         versions_by_id = {
             version.id: version
@@ -576,7 +581,7 @@ class BeatService:
 
     def get_beat_detail_for_planning(
         self, *, claims: AccessTokenClaims, beat_id: str
-    ) -> tuple[dict[str, Any], str | None]:
+    ) -> tuple[dict[str, Any], str]:
         """Beat detail plus the live approved version id for route snapshotting."""
 
         scope = self._scope(claims)
@@ -615,16 +620,10 @@ class BeatService:
         return self._detail_payload(scope.tenant_id, beat, version_id=version.id)
 
     def _detail_payload(self, tenant_id: str, beat: Beat, *, version_id: str | None) -> dict[str, Any]:
-        version = (
-            repository.get_version(self._session, tenant_id=tenant_id, version_id=version_id)
-            if version_id
-            else None
-        )
-        outlets = (
-            self._version_outlets(tenant_id=tenant_id, version_id=version.id)
-            if version
-            else []
-        )
+        version = repository.get_version(self._session, tenant_id=tenant_id, version_id=version_id)
+        if version is None:
+            raise ApiError(404, "beat_not_found", "Beat was not found.")
+        outlets = self._version_outlets(tenant_id=tenant_id, version_id=version.id)
         pending_edit = None
         if beat.current_version_id:
             edit_request = repository.get_pending_edit_request(
@@ -641,15 +640,15 @@ class BeatService:
             id=beat.id,
             version_id=version.id,
             version_state=version.state,
-            code=version.code if version else beat.code,
-            display_name=version.display_name if version else beat.display_name,
+            code=version.code,
+            display_name=version.display_name,
             owner_employee_id=beat.owner_employee_id,
             lifecycle_state=beat.lifecycle_state,
             activation_state=beat.activation_state,
             display_status=display_status(beat, edit_pending=pending_edit is not None),
-            geo_scope=version.geo_scope if version else {},
-            frequency=version.frequency if version else {},
-            outlet_count=version.outlet_count if version else 0,
+            geo_scope=version.geo_scope,
+            frequency=version.frequency,
+            outlet_count=version.outlet_count,
             outlets=[
                 schemas.BeatOutletItem(
                     outlet_ref=outlet.record.external_id,
@@ -660,7 +659,7 @@ class BeatService:
                 )
                 for sequence_hint, outlet in outlets
             ],
-            approval_request_id=version.approval_request_id if version else None,
+            approval_request_id=version.approval_request_id,
             created_at=beat.created_at,
             deactivation_reason=beat.deactivation_reason,
             deactivated_at=beat.deactivated_at,
@@ -670,8 +669,8 @@ class BeatService:
     # -- create / draft --------------------------------------------------------
 
     def create_beat(self, *, claims: AccessTokenClaims, body: schemas.CreateBeatBody) -> tuple[int, dict[str, Any]]:
-        """Transition #1. Idempotent on the client ULID — a retried create with the same `id`
-        converges on the existing draft rather than erroring (M07 §5.2)."""
+        """Idempotent on the client ULID — a retried create with the same `id`
+        converges on the existing draft rather than erroring."""
 
         scope = self._scope(claims)
         owner_employee_id = body.owner_employee_id or claims.employee_id
@@ -763,7 +762,7 @@ class BeatService:
         *,
         previous_labels: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Epic 07 Story 7.2: the owner's assigned territory guides the picker but never blocks a
+        """The owner's assigned territory guides the picker but never blocks a
         save, so a beat outlives a territory change. Labels come from the owner's assignment
         snapshot, falling back to the beat's own prior snapshot (`previous_labels`) — never a
         fresh Humbee read, so a draft autosave makes zero upstream calls."""
@@ -787,7 +786,7 @@ class BeatService:
     def update_draft(
         self, *, claims: AccessTokenClaims, beat_id: str, body: schemas.PatchDraftBody
     ) -> dict[str, Any]:
-        """Autosave for S-BEAT2 (`geo_scope`) and S-BEAT4 (`display_name`, `frequency`)."""
+        """Autosave for the wizard's geography step (`geo_scope`) and naming step (`display_name`, `frequency`)."""
 
         scope = self._scope(claims)
         beat = self._load(scope, beat_id)
@@ -858,7 +857,7 @@ class BeatService:
         district_ids: list[str] | None = None,
         shop_categories: list[schemas.ShopCategory] | None = None,
     ) -> dict[str, Any]:
-        """S-BEAT3 outlet pool: exactly one C-2 page per call. Outlets another beat holds are
+        """Outlet-picker pool: exactly one Humbee outlet-search page per call. Outlets another beat holds are
         returned with `taken_by_beat` set so the picker can show who holds them.
 
         `district_ids` / `shop_categories` browse the scope being edited on screen before it is
@@ -874,7 +873,7 @@ class BeatService:
             if version_id
             else None
         )
-        if version is None:
+        if version is None or version_id is None:
             raise ApiError(409, "no_version_in_progress", "This beat has no version to search from.")
         if district_ids is None:
             if shop_categories is not None:
@@ -970,7 +969,7 @@ class BeatService:
                     "stale_draft",
                     "This beat's draft changed while outlets were being validated.",
                 )
-            # Every ref was just returned by C-2 and upserted in this transaction, so the
+            # Every ref was just returned by the outlet search and upserted in this transaction, so the
             # projection row exists; this also resolves the local ids the membership FK needs.
             projected_by_ref = self._reject_taken_outlets(beat, refs)
             count = repository.replace_outlets(
@@ -1002,8 +1001,6 @@ class BeatService:
         self, *, claims: AccessTokenClaims, beat_id: str, idempotency_key: str, raw_body: bytes,
         request_id: str | None,
     ) -> tuple[int, dict[str, Any]]:
-        """Transition #3."""
-
         scope = self._scope(claims)
         endpoint = f"/api/v1/beats/{beat_id}/submit"
         replay = self._check_idempotency(
@@ -1123,13 +1120,17 @@ class BeatService:
     # -- edit -------------------------------------------------------------
 
     def create_edit_branch(self, *, claims: AccessTokenClaims, beat_id: str) -> dict[str, Any]:
-        """S-BEAT7 entry — branches a proposed version from the approved current one."""
+        """Edit-screen entry — branches a proposed version from the approved current one."""
 
         scope = self._scope(claims)
         with transaction(self._session):
             beat = self._load_for_update(scope, beat_id)
             self._require_owner(scope, beat)
-            if beat.lifecycle_state != "approved" or beat.activation_state != "active":
+            if (
+                beat.lifecycle_state != "approved"
+                or beat.activation_state != "active"
+                or beat.current_version_id is None
+            ):
                 raise ApiError(409, "beat_inactive", "This beat cannot be edited right now.")
             if beat.draft_version_id is not None:
                 existing = repository.get_version(
@@ -1171,7 +1172,7 @@ class BeatService:
         return payload
 
     def discard_draft(self, *, claims: AccessTokenClaims, beat_id: str) -> dict[str, Any]:
-        """S-BEAT7 "Discard" — abandons an in-progress edit of an already-approved beat, falling
+        """Edit-screen "Discard" — abandons an in-progress edit of an already-approved beat, falling
         back to the current version. A first-time draft has nothing to fall back to, so discarding
         it retires the beat and releases its outlets."""
 
@@ -1311,8 +1312,6 @@ class BeatService:
         self, *, claims: AccessTokenClaims, beat_id: str, idempotency_key: str, raw_body: bytes,
         request_id: str | None,
     ) -> tuple[int, dict[str, Any]]:
-        """Transition #9."""
-
         scope = self._scope(claims)
         endpoint = f"/api/v1/beats/{beat_id}/edit-requests/submit"
         replay = self._check_idempotency(
@@ -1465,7 +1464,7 @@ class BeatService:
         self, *, claims: AccessTokenClaims, beat_id: str, body: schemas.AdminUpdateBeatBody,
         idempotency_key: str, raw_body: bytes,
     ) -> dict[str, Any]:
-        """R-BEAT-17 — applies immediately, no approval. Admin may edit any beat; a Manager may
+        """Applies immediately, no approval. Admin may edit any beat; a Manager may
         do the same for beats owned by Sales Persons in their own reporting tree (`_load`'s
         OWN_TREE scoping already restricts which beat this resolves to). Reassigning the beat's
         owner stays Admin-only regardless of who calls this."""
@@ -1498,7 +1497,7 @@ class BeatService:
         current = repository.get_version(
             self._session, tenant_id=scope.tenant_id, version_id=source_version_id
         )
-        if current is None:
+        if current is None or source_version_id is None:
             raise ApiError(409, "not_editable", "This beat has no editable version.")
         expected_source_updated_at = current.updated_at
 
@@ -1620,7 +1619,7 @@ class BeatService:
                             now=now,
                         )
                     # First-time submission routes through `beat_create`; an edit-in-progress
-                    # against an already-approved beat routes through `beat_edit` (M07 §3a).
+                    # against an already-approved beat routes through `beat_edit`.
                     subject_type = "beat_create" if old_current_id is None else "beat_edit"
                     request = approvals_repository.pending_for_subject(
                         self._session,
@@ -1759,7 +1758,7 @@ class BeatService:
         self, *, claims: AccessTokenClaims, beat_id: str, body: schemas.DeactivateBody,
         idempotency_key: str, raw_body: bytes,
     ) -> dict[str, Any]:
-        """Transition #13 (R-BEAT-21 Admin-only, R-BEAT-28 auto-withdraws a pending edit)."""
+        """Admin-only; auto-withdraws a pending edit."""
 
         scope = self._scope(claims)
         self._require_admin(scope)
@@ -1814,7 +1813,7 @@ class BeatService:
     def reactivate(
         self, *, claims: AccessTokenClaims, beat_id: str, idempotency_key: str, raw_body: bytes,
     ) -> dict[str, Any]:
-        """Transition #14 (R-BEAT-21 Admin-only)."""
+        """Admin-only."""
 
         scope = self._scope(claims)
         self._require_admin(scope)
@@ -1828,7 +1827,11 @@ class BeatService:
                 payload = replay[1]
             else:
                 beat = self._load_for_update(scope, beat_id)
-                if beat.lifecycle_state != "approved" or beat.activation_state != "inactive":
+                if (
+                    beat.lifecycle_state != "approved"
+                    or beat.activation_state != "inactive"
+                    or beat.current_version_id is None
+                ):
                     raise ApiError(409, "already_active", "This beat is already active.")
                 self._reject_taken_outlets(
                     beat,

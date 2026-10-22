@@ -78,6 +78,8 @@ class FakeHumbee:
     districts: dict[str, District] = field(default_factory=dict)
     outlets: dict[str, Outlet] = field(default_factory=dict)
     calls: list[HumbeeCall] = field(default_factory=list)
+    unrouted: list[str] = field(default_factory=list)
+    outlet_page_size: int = 2
     _routes: list[tuple[str, re.Pattern[str], str, Handler]] = field(default_factory=list)
     _failures: dict[tuple[str, str], list[str]] = field(default_factory=dict)
 
@@ -148,7 +150,8 @@ class FakeHumbee:
                 return _envelope("000", handler(call))
             except HumbeeFailure as failure:
                 return _envelope(failure.error_code, None)
-        raise AssertionError(f"FakeHumbee has no route for {request.method} {path}")
+        self.unrouted.append(f"{request.method} {path}")
+        return httpx.Response(404, json={"detail": "FakeHumbee has no route"})
 
     def _zones(self, call: HumbeeCall) -> Any:
         return [{"zone_id": int(z.zone_id), "zone_name": z.name} for z in self.zones.values()]
@@ -194,9 +197,12 @@ class FakeHumbee:
             and (not categories or o.shop_category_id in categories)
             and query in o.name.lower()
         ]
+        start = int(call.params.get("cursor") or 0)
+        end = start + min(int(call.params["limit"]), self.outlet_page_size)
+        page = matches[start:end]
         return {
             "as_of": AS_OF,
-            "next_cursor": None,
+            "next_cursor": str(end) if end < len(matches) else None,
             "outlets": [
                 {
                     "district_id": district_id,
@@ -209,11 +215,11 @@ class FakeHumbee:
                             "gstin": o.gstin,
                             "pan": o.pan,
                         }
-                        for o in matches
+                        for o in page
                         if o.district_id == district_id
                     ],
                 }
-                for district_id in dict.fromkeys(o.district_id for o in matches)
+                for district_id in dict.fromkeys(o.district_id for o in page)
             ],
         }
 

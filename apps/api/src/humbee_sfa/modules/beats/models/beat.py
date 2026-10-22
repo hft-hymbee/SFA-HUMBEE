@@ -1,4 +1,4 @@
-"""`beats` — the beat master. database-design.md §7. `current_version_id`/`draft_version_id` are
+"""`beats` — the beat master. `current_version_id`/`draft_version_id` are
 logical, not declared FKs: `beats` and `beats_versions` reference each other, and declaring both
 would create a circular dependency that buys no correctness.
 """
@@ -17,7 +17,7 @@ class Beat(Base, ConventionsMixin):
     __table_args__ = (
         UniqueConstraint("tenant_id", "code", name="uq_beats_tenant_code"),
         Index("ix_beats_owner", "tenant_id", "owner_employee_id", "lifecycle_state"),
-        # S-ROUTE2's beat picker: approved + active only.
+        # The route planner's beat picker: approved + active only.
         Index(
             "ix_beats_plannable",
             "tenant_id",
@@ -28,7 +28,7 @@ class Beat(Base, ConventionsMixin):
             "lifecycle_state IN ('draft','pending_approval','approved','rejected')", name="lifecycle_chk"
         ),
         CheckConstraint("activation_state IN ('active','inactive')", name="activation_chk"),
-        # R-BEAT-15 / M07 §3a.3: a live version exists iff the beat is approved.
+        # A live version exists iff the beat is approved.
         CheckConstraint(
             "(lifecycle_state = 'approved') = (current_version_id IS NOT NULL)",
             name="current_version_chk",

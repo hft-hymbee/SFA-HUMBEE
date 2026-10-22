@@ -1,6 +1,5 @@
 """`platform_domain_events` — the event-log spine the reporting projector replays.
-database-design.md §12.1, §3 reconciliation item 4 (adds `stream`/`partition`/`event_seq`
-ordering) and item 3 (JSON → JSONB).
+`stream`/`partition`/`event_seq` give it ordering.
 """
 
 from __future__ import annotations
@@ -66,5 +65,5 @@ class DomainEvent(Base, ConventionsMixin):
     stream: Mapped[str] = mapped_column(String(32), nullable=False)
     partition: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     event_seq: Mapped[int] = mapped_column(BigInteger, Identity(always=True), nullable=False)
-    # clock-skew clamp from M11 §3b.4 — a device with a bad clock is visible, not silently applied
+    # clock-skew clamp — a device with a bad clock is visible, not silently applied
     occurred_at_adjusted: Mapped[bool] = mapped_column(nullable=False, default=False)

@@ -1,6 +1,6 @@
-"""`orders_po_references` — the purchase order an order draws down. database-design.md §10, §10.1.
+"""`orders_po_references` — the purchase order an order draws down.
 
-A PO is a line-level document (§10.1): this row snapshots its value totals as of the moment the
+A PO is a line-level document: this row snapshots its value totals as of the moment the
 order was raised, with `orders_po_reference_lines` carrying the per-SKU detail. `uq_orders_po_order`
 enforces at most one PO per order.
 """

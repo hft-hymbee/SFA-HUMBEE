@@ -1,5 +1,3 @@
-"""`identity_devices`. database-design.md §5."""
-
 from __future__ import annotations
 
 from datetime import datetime

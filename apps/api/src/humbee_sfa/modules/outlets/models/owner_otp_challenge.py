@@ -1,5 +1,5 @@
 """`outlets_owner_otp_challenges` — phone verification for a prospective firm owner ahead of
-ON-3 `onboard-firm`. Deliberately separate from `identity_otp_challenges`: the phone here belongs
+`onboard-firm`. Deliberately separate from `identity_otp_challenges`: the phone here belongs
 to an external firm owner, never an `org_employees` row, and no session is ever issued from it.
 """
 

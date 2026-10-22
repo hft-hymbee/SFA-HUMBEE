@@ -219,7 +219,7 @@ Humbee order registration is currently synchronous. Application events are durab
 - `apps/api/src/humbee_sfa/modules/` — business-domain modules.
 - `apps/api/src/humbee_sfa/integration/humbee/` — Humbee transport boundary.
 - `apps/api/src/humbee_sfa/platform/` — cross-cutting runtime capabilities.
-- `apps/api/db/bootstrap/` — database extensions and baseline schema.
+- `apps/api/migrations/` — Alembic migrations, starting from the baseline schema.
 - `apps/web/src/features/` — feature-specific client modules.
 - `apps/web/src/shared/` — API, authentication, state, and device-capability infrastructure.
 - `apps/mobile/` — native packaging and platform configuration.

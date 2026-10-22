@@ -1,4 +1,4 @@
-"""`attendance` models — database-design.md §9. Read this file for the index; open a specific
+"""`attendance` models. Read this file for the index; open a specific
 module for column detail.
 
 - `gps_fix.py`                 `attendance_gps_fixes` — append-only, raw GPS evidence.

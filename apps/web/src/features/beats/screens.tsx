@@ -571,6 +571,11 @@ function BeatDetailContent({ beatId, detail }: { beatId: string; detail: BeatDet
   const mutations = useBeatMutations();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [outletSearchQuery, setOutletSearchQuery] = useState("");
+  const [outletSearchBeatId, setOutletSearchBeatId] = useState(beatId);
+  if (outletSearchBeatId !== beatId) {
+    setOutletSearchBeatId(beatId);
+    setOutletSearchQuery("");
+  }
   const current = useRouteDay(undefined, { refetchOnWindowFocus: false });
   const routeMutations = useRoutePlanMutations();
   const beat = mapBeat(detail);
@@ -586,8 +591,8 @@ function BeatDetailContent({ beatId, detail }: { beatId: string; detail: BeatDet
   }));
   const inactive = beat.status === "inactive";
   const beatOutlets = outlets.filter((outlet) => beat.outletIds.includes(outlet.id));
-  const sortedBeatOutlets = useMemo(() => sortOutletsTakenLast(beatOutlets, "location_then_name"), [beatOutlets]);
-  const visibleBeatOutlets = useMemo(() => filterOutletsByQuery(sortedBeatOutlets, outletSearchQuery), [outletSearchQuery, sortedBeatOutlets]);
+  const sortedBeatOutlets = sortOutletsTakenLast(beatOutlets, "location_then_name");
+  const visibleBeatOutlets = filterOutletsByQuery(sortedBeatOutlets, outletSearchQuery);
   const zones = beatStringArray(detail.geo_scope, "zones");
   const states = beatStringArray(detail.geo_scope, "states");
   const districts = beatStringArray(detail.geo_scope, "districts");
@@ -599,9 +604,6 @@ function BeatDetailContent({ beatId, detail }: { beatId: string; detail: BeatDet
   const chip = beatListChip(detail.display_status);
   const approvalRequestId = pendingApprovalId(detail);
   const isPendingApproval = beat.status === "pending";
-  useEffect(() => {
-    setOutletSearchQuery("");
-  }, [beatId]);
   const withdrawRequest = async () => {
     if (!approvalRequestId || mutations.withdraw.isPending) return;
     setWithdrawError(null);

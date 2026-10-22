@@ -1,4 +1,4 @@
-"""`routes_missed_visit_audits` — written only by the EOD sweep. database-design.md §8.
+"""`routes_missed_visit_audits` — written only by the EOD sweep.
 
 `sweep_run_id` is a logical pointer into `platform_sweep_runs`.
 """
@@ -17,7 +17,7 @@ from humbee_sfa.core.db import Base
 class RouteMissedVisitAudit(Base, ConventionsMixin):
     __tablename__ = "routes_missed_visit_audits"
     __table_args__ = (
-        Index("uq_routes_missed_visit", "visit_id", unique=True),  # R-RTE-25 idempotency
+        Index("uq_routes_missed_visit", "visit_id", unique=True),  # idempotency
         Index("ix_routes_missed_day", "tenant_id", "employee_id", "business_date"),
     )
 

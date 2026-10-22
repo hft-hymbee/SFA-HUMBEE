@@ -1,8 +1,8 @@
-"""Attendance / Official-Work HTTP DTOs — M09 §10.
+"""Attendance / Official-Work HTTP DTOs.
 
-Only the S-ATT1–4 and S-OFF1–2 surface is modelled. Client-composed display strings (the
+Only the attendance and official-work screen surface is modelled. Client-composed display strings (the
 `"In 9:12 AM · MG Road"` row subtitle, the `"1.2 km"` distance copy, the `HH:MM:SS` timer) are not
-sent — M09 §8 lists every one of them as a client formatter over these raw fields.
+sent — every one of them is a client formatter over these raw fields.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class GpsFixBody(BaseModel):
 
 
 class PunchBody(BaseModel):
-    """`id` is the client-generated ULID for the `PunchEvent` (M09 §3.2, R-ATT-18)."""
+    """`id` is the client-generated ULID for the `PunchEvent`."""
 
     id: str | None = Field(default=None, min_length=26, max_length=26)
     direction: PunchDirection
@@ -39,8 +39,8 @@ class PunchBody(BaseModel):
 
 
 class AttendanceTodayResponse(BaseModel):
-    """The single canonical duty-state payload — S-ATT1 mount, the punch-in gate, and the body of
-    every successful `POST /attendance/punches` (M09 §5.1, §5.2)."""
+    """The single canonical duty-state payload — the punch screen mount, the punch-in gate, and the body of
+    every successful `POST /attendance/punches`."""
 
     business_date: date
     on_duty: bool
@@ -81,8 +81,8 @@ class TeamAttendanceRow(BaseModel):
 
 
 class TeamAttendanceResponse(BaseModel):
-    """S-ATT3/S-ATT4 — one endpoint, scope resolved from the actor (R-ATT-17). Summary counts are
-    computed over the full scope, never the visible page (R-ATT-12)."""
+    """Team and org attendance — one endpoint, scope resolved from the actor. Summary counts are
+    computed over the full scope, never the visible page."""
 
     business_date: date
     on_duty_count: int

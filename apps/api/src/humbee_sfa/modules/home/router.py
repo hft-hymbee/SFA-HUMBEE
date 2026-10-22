@@ -1,4 +1,4 @@
-"""Today composition HTTP route — M08 §4.1/§5.1 (S-HOME), epic 03 Story 3.4."""
+"""Today composition HTTP route."""
 
 from __future__ import annotations
 

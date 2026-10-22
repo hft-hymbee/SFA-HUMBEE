@@ -236,8 +236,8 @@ def list_subtree_ids_by_manager(
 
 
 def parent_of(session: Session, *, tenant_id: str, employee_id: str) -> str | None:
-    """The direct manager, or `None` at the org root — for system routing only (M06 §3b.1: the
-    approval engine climbs the hierarchy one manager at a time to find an escalation target).
+    """The direct manager, or `None` at the org root — for system routing only (the approval
+    engine climbs the hierarchy one manager at a time to find an escalation target).
     There is no actor to scope against here; `internal_routing_scope` makes that explicit.
     """
 
@@ -300,7 +300,7 @@ def _first_name(full_name: str) -> str:
 
 
 def _display_initials(full_name: str) -> str:
-    # R-ORG-05 derives initials from `full_name`; the column is NOT NULL so the derived value is
+    # Initials derive from `full_name`; the column is NOT NULL so the derived value is
     # persisted rather than recomputed per read, and is re-derived on every name change.
     tokens = [token for token in full_name.split() if token]
     return "".join(token[0].upper() for token in tokens[:2])[:3] or full_name[:1].upper()
@@ -359,7 +359,7 @@ class OrgService:
         return scope
 
     def _mutation_scope(self, claims: AccessTokenClaims) -> ScopeContext:
-        # Raises 403 for non-Admin before any row is touched (M03 §3b.2: "denied").
+        # Raises 403 for non-Admin before any row is touched.
         return ScopeResolver.resolve_from_claims(claims, OrgResource.HIERARCHY_MUTATION)
 
     def _load_in_scope(self, scope: ScopeContext, employee_id: str) -> Employee:
@@ -566,7 +566,7 @@ class OrgService:
         ).model_dump(mode="json")
 
     def get_tree(self, *, claims: AccessTokenClaims) -> dict[str, Any]:
-        """S-ORG4. An Admin sees every tree in the tenant; a Manager roots at themself (R-ORG-15).
+        """An Admin sees every tree in the tenant; a Manager roots at themself.
 
         An Admin holds no position in the tree, so it has no self-row to root at — it reads the
         forest instead. A tenant may legitimately hold more than one top-level manager, and the
@@ -621,7 +621,7 @@ class OrgService:
         raw_body: bytes,
         request_id: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        """S-ORG3 / M03 §5.3 — one transaction: validate, insert, closure rows, audit, event."""
+        """One transaction: validate, insert, closure rows, audit, event."""
 
         return self._create_employee(
             scope=self._employee_write_scope(claims),
@@ -710,7 +710,7 @@ class OrgService:
 
                 # Closure rows: the self-row plus every ancestor of the new parent, depth summed.
                 # `depth` is stored for ancestor/subtree queries and is never compared against a
-                # ceiling — the 5-level cap was withdrawn 2026-08-21 (R-ORG-10, M03 §3b.3).
+                # ceiling — the 5-level cap was withdrawn 2026-08-21.
                 edges: list[tuple[str, str, int]] = [(employee.id, employee.id, 0)]
                 if manager is not None:
                     edges.extend(
@@ -821,10 +821,8 @@ class OrgService:
                     changes["designation_code"] = body.designation_code
                 if "role_code" in changes or "designation_code" in changes:
                     self._reject_designation_mismatch(
-                        role_code=changes.get("role_code", employee.role_code),
-                        designation_code=changes.get(
-                            "designation_code", employee.designation_code
-                        ),
+                        role_code=body.role_code or employee.role_code,
+                        designation_code=body.designation_code or employee.designation_code,
                     )
                 if body.login_enabled is not None and body.login_enabled != employee.login_enabled:
                     changes["login_enabled"] = body.login_enabled
@@ -876,7 +874,7 @@ class OrgService:
         raw_body: bytes,
         request_id: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        """S-ORG5 / M03 §3b.1 — the closure rewrite, in one transaction (R-ORG-14)."""
+        """The closure rewrite, in one transaction."""
 
         scope = self._mutation_scope(claims)
         policies.require_hierarchy_mutation(scope)
@@ -903,7 +901,7 @@ class OrgService:
                 subtree_ids.append(employee_id)
                 subtree.append((employee_id, 0))
 
-            # 2. Reject a new parent that sits inside that subtree (R-ORG-12).
+            # 2. Reject a new parent that sits inside that subtree.
             if new_manager_employee_id is not None and new_manager_employee_id in subtree_ids:
                 raise ApiError(
                     409,
@@ -1168,7 +1166,7 @@ class OrgService:
         self, scope: ScopeContext, *, employee_code: str, phone_e164: str
     ) -> None:
         # A friendly pre-check; the unique constraints in `org_employees` are what actually make
-        # this race-safe (R-ORG-02, R-ORG-03) — see `_identity_conflict`.
+        # this race-safe — see `_identity_conflict`.
         if repository.employee_code_exists(
             self._session, scope=scope, employee_code=employee_code
         ):

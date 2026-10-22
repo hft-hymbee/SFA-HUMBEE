@@ -1,4 +1,4 @@
-"""Targets authorisation — M13 §9, R-TGT-05/15/17.
+"""Targets authorisation.
 
 Authorisation only. Shape validation belongs to `schemas.py`, and row scoping to `apply_scope`.
 """
@@ -13,11 +13,11 @@ from humbee_sfa.modules.org.service import EmployeeProjection
 
 
 def authorize_target_write(scope: ScopeContext) -> None:
-    """R-TGT-05 — only a Manager or an Admin sets a target. There is no self-service target UI, so
+    """Only a Manager or an Admin sets a target. There is no self-service target UI, so
     a Sales Person is refused here rather than being silently scoped to themselves.
 
     This does not use `ScopeContext.can_write`, which is Admin-only: that flag governs employee
-    records (R-ORG-20, "Managers read their tree and write nothing"), and setting a target for
+    records ("Managers read their tree and write nothing"), and setting a target for
     someone in your team is exactly the write a Manager is meant to make.
     """
 
@@ -32,8 +32,7 @@ def authorize_subject(employee: EmployeeProjection) -> None:
     The employee has already been loaded under the actor's scope, so a manager reaching outside
     their tree never gets here.
 
-    Deviation from R-TGT-17, deliberately: M13 §7 and §11.2 both say that case returns 403, and it
-    returns 404. A 403 confirms the employee exists, which is exactly the probe the scoped read
+    Deliberately, that case returns 404 rather than 403. A 403 confirms the employee exists, which is exactly the probe the scoped read
     refuses to answer, and 404-for-out-of-scope is already the convention across `org` and
     `geography_service`. The refusal a Sales Person gets for *writing at all* is still a 403.
     """
@@ -49,7 +48,7 @@ def authorize_subject(employee: EmployeeProjection) -> None:
 
 
 def authorize_period(period_month: date, *, today: date) -> None:
-    """R-TGT-15 — the current or a future month. A past period is read-only: editing a target after
+    """The current or a future month. A past period is read-only: editing a target after
     the month it measured would rewrite what the achievement was compared against."""
 
     if period_month.day != 1:

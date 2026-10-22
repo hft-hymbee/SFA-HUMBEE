@@ -1,5 +1,5 @@
-"""`notifications` — the in-app notification feed. database-design.md §6. `uq_notifications_dedupe`
-is what makes the notification-producing outbox safely at-least-once (R-AP-24): a redelivery hits
+"""`notifications` — the in-app notification feed. `uq_notifications_dedupe` is what makes the
+notification-producing outbox safely at-least-once: a redelivery hits
 the unique index and is discarded rather than duplicating the row.
 """
 
@@ -25,16 +25,16 @@ class Notification(Base, ConventionsMixin):
             unique=True,
         ),
         Index("ix_notifications_feed", "tenant_id", "recipient_id", text("created_at DESC")),
-        # Backs the bell badge, which every screen polls (D-004, in-app only).
+        # Backs the bell badge, which every screen polls (in-app only).
         Index(
             "ix_notifications_unread",
             "tenant_id",
             "recipient_id",
             postgresql_where=text("read_at IS NULL"),
         ),
-        # M06 §3.5 lists seven kinds; `withdrawn` is the eighth, added because Flow 6 requires the
-        # waiting approver to be notified when a requester withdraws and none of the seven names
-        # that outcome. Keep this list and `notifications.service.KINDS` identical.
+        # Seven kinds are the original set; `withdrawn` is the eighth, added because the withdrawal
+        # flow requires the waiting approver to be notified when a requester withdraws and none of
+        # the seven names that outcome. Keep this list and `notifications.service.KINDS` identical.
         CheckConstraint(
             "kind IN ('submitted','approved','edited','rejected','auto_approved','escalated',"
             "'beat','withdrawn')",

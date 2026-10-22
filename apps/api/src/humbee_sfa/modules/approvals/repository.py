@@ -1,17 +1,17 @@
-"""Approvals persistence. Thin, no business decisions (M06 §9).
+"""Approvals persistence. Thin, no business decisions.
 
 Two kinds of function live here, and the difference is deliberate:
 
-* **Actor-facing reads** take a resolved `ScopeContext` from `org.scope` (S-AP1 inbox, S-AP3, the
-  detail read). Scope is applied here and nowhere else, so a new endpoint cannot forget it.
+* **Actor-facing reads** take a resolved `ScopeContext` from `org.scope` (the inbox, my requests,
+  the detail read). Scope is applied here and nowhere else, so a new endpoint cannot forget it.
   Approval requests are activity data, so callers resolve `OrgResource.ACTIVITY_DATA`.
 * **Engine operations** — insert, row lock, status write, decision append — take `tenant_id`
   only. These have no human actor to scope against: the engine owns
   `approvals_requests`, and *who may act* is decided by `policies.can_decide` before they are
-  reached (M06 §3b.5: scope decides what you can see, the policy decides what you can act on).
+  reached (scope decides what you can see, the policy decides what you can act on).
   Naming them `tenant_id` rather than passing a fake scope keeps each call site greppable.
 
-Visibility predicate for the actor-facing reads (M06 §5.1.4): the scope predicate applies to
+Visibility predicate for the actor-facing reads: the scope predicate applies to
 `requester_id` — "requests raised inside my tree" — OR'd with `assigned_approver_id == actor`. The
 second arm matters after a hierarchy move: a request may still be assigned to an approver whose
 tree the requester has since left, and it must not vanish from that approver's inbox.
@@ -109,8 +109,8 @@ def get_visible(
     request_id: str,
     excluded_subject_types: frozenset[str] = frozenset(),
 ) -> Request | None:
-    """S-AP2. Out-of-scope and non-existent are indistinguishable by design — the caller turns
-    `None` into `404 APPROVAL_NOT_FOUND` rather than leaking existence (M06 §11.2)."""
+    """Out-of-scope and non-existent are indistinguishable by design — the caller turns
+    `None` into `404 APPROVAL_NOT_FOUND` rather than leaking existence."""
 
     stmt = _visible(scope).where(Request.id == request_id)
     if excluded_subject_types:
@@ -136,8 +136,7 @@ def list_visible(
 ) -> list[Request]:
     """Keyset page, newest first, served by `ix_approvals_inbox` / `ix_approvals_mine`.
 
-    Filtering is a server-side parameter, never a client-side array filter over a paginated list
-    (R-AP-21).
+    Filtering is a server-side parameter, never a client-side array filter over a paginated list.
     """
 
     stmt = _apply_filters(
@@ -171,8 +170,8 @@ def count_visible(
     decided_from: datetime | None = None,
     decided_before: datetime | None = None,
 ) -> int:
-    """The count comes from the *same* scoped predicate as the rows (R-AP-30: the dashboard, the
-    S-AP1 summary bar and the bell badge must never disagree)."""
+    """The count comes from the *same* scoped predicate as the rows (the dashboard, the
+    inbox summary bar and the bell badge must never disagree)."""
 
     stmt = _apply_filters(
         _visible_condition_count(scope),
@@ -197,7 +196,7 @@ def count_pending_by_subject_type(
     additional_decision_subject_types: frozenset[str] = frozenset(),
     excluded_subject_types: frozenset[str] = frozenset(),
 ) -> dict[str, int]:
-    """Chip counts for S-AP1 and the dashboard exception row, in one query (R-AP-30)."""
+    """Chip counts for the inbox and the dashboard exception row, in one query."""
 
     stmt = _apply_filters(
         select(Request.subject_type, func.count()).where(*_visible_conditions(scope)),
@@ -257,7 +256,7 @@ def latency_summary(
 
 
 def list_decisions(session: Session, *, tenant_id: str, request_id: str) -> list[Decision]:
-    """The append-only trail, ordered — the input to the timeline projection (M06 §3a.5).
+    """The append-only trail, ordered — the input to the timeline projection.
 
     `Decision` carries no `tenant_id` of its own, so this joins `Request` to scope by tenant —
     defense-in-depth alongside the caller's own `_load_visible` scope check, matching this
@@ -285,7 +284,7 @@ def list_decisions(session: Session, *, tenant_id: str, request_id: str) -> list
 def pending_for_subject(
     session: Session, *, tenant_id: str, subject_type: str, subject_id: str
 ) -> Request | None:
-    """R-AP-04's friendly pre-check. The partial unique index
+    """The one-pending-per-subject friendly pre-check. The partial unique index
     `uq_approvals_one_pending_per_subject` is what actually makes a double submit race-safe."""
 
     stmt = select(Request).where(
@@ -299,7 +298,7 @@ def pending_for_subject(
 
 def lock_request(session: Session, *, tenant_id: str, request_id: str) -> Request | None:
     """`SELECT ... FOR UPDATE` on the request row — the same approver on two devices must not both
-    decide (M06 §3c.3)."""
+    decide."""
 
     stmt = (
         select(Request)
@@ -374,7 +373,7 @@ def append_decision(
     note: str | None = None,
     edit_patch: dict[str, Any] | None = None,
 ) -> Decision:
-    """R-AP-27: every state transition appends exactly one row here. Never updated, never deleted.
+    """Every state transition appends exactly one row here. Never updated, never deleted.
 
     `sequence` is derived under the caller's `FOR UPDATE` lock on the request (or, at creation,
     while the request row is still uncommitted), so `uq_approvals_decisions_seq` cannot be raced.
@@ -434,7 +433,7 @@ def apply_edit_result(
     subtitle: str,
     amount_paise: int | None,
 ) -> None:
-    """Refresh the denormalised summary after `adapter.apply_edit` (M06 §8: the request's
+    """Refresh the denormalised summary after `adapter.apply_edit` (the request's
     `amount_paise` must be updated in the same transaction as the subject's)."""
 
     request.subject_version = subject_version

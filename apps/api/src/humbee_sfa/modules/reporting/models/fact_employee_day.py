@@ -1,7 +1,6 @@
 """`fact_employee_day` — daily employee grain fact, one row per (tenant, employee, business_date).
-database-design.md §13.
 
-Exempt from `ConventionsMixin` (§2.4 rule 2, §13 header): derived and droppable, the durable truth
+Exempt from `ConventionsMixin`: derived and droppable, the durable truth
 is `platform_domain_events`. The primary key is the natural composite key
 `(tenant_id, employee_id, business_date)` — no ULID `id`, no actor/soft-delete columns.
 

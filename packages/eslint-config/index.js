@@ -3,7 +3,6 @@
  *
  * Status: scaffold. Plugin dependencies (typescript-eslint, eslint-plugin-react-hooks,
  * eslint-config-next) are added in Phase 1/2 when `apps/web` adopts TypeScript.
- * See docs/architecture/target-architecture.md §4.
  */
 
 import adherence from './adherence.js';

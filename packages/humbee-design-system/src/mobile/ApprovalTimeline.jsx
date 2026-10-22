@@ -1,7 +1,7 @@
 import React from "react";
 import { Icon } from "../core/Icon.jsx";
 
-/* Humbee ApprovalTimeline — vertical status thread for the M6 approval engine
+/* Humbee ApprovalTimeline — vertical status thread for the approval engine
    (requested → approved / edited / rejected). Used on My requests, Order detail, Beat detail. */
 const TONE = {
   done:     { color: "var(--color-success)", surface: "var(--color-success-surface)", icon: "Check" },

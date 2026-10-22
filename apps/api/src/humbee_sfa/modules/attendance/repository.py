@@ -1,8 +1,8 @@
-"""Attendance/Official-Work persistence — M09 §3. Thin, scoped, no business decisions.
+"""Attendance/Official-Work persistence. Thin, scoped, no business decisions.
 
 Every read that can return more than one employee's row takes a resolved `ScopeContext` from
 `org.scope` (attendance is `OrgResource.ACTIVITY_DATA`: SELF for a Sales Person, OWN_TREE for a
-Manager, ORG for an Admin — M09 §9/R-ATT-17). Punch/official-work *writes* are always for the
+Manager, ORG for an Admin). Punch/official-work *writes* are always for the
 acting employee (the id never comes from the request body), so writers take a plain
 `tenant_id`/`employee_id` pair instead of a scope object.
 """
@@ -44,7 +44,7 @@ def get_attendance_day_for_update(
     session: Session, *, tenant_id: str, employee_id: str, business_date: date
 ) -> AttendanceDay | None:
     """Row-locked read used by `punch()` so two concurrent punches for the same employee/day
-    cannot both observe "not on duty" and both insert an `IN` (R-ATT-18)."""
+    cannot both observe "not on duty" and both insert an `IN`."""
 
     stmt = (
         select(AttendanceDay)
@@ -61,7 +61,7 @@ def get_attendance_day_for_update(
 def create_attendance_day(
     session: Session, *, tenant_id: str, employee_id: str, business_date: date
 ) -> AttendanceDay:
-    """First punch of the business date creates the row on demand (M09 §3.2 notes)."""
+    """First punch of the business date creates the row on demand."""
 
     row = AttendanceDay(
         tenant_id=tenant_id,
@@ -85,7 +85,7 @@ def list_attendance_days_in_range(
     from_date: date,
     to_date: date,
 ) -> list[AttendanceDay]:
-    """S-ATT2 monthly calendar — `SELF` only in practice, scoped anyway for defence in depth."""
+    """Monthly attendance calendar — `SELF` only in practice, scoped anyway for defence in depth."""
 
     stmt = (
         apply_scope(
@@ -107,7 +107,7 @@ def list_attendance_days_in_range(
 def list_attendance_days_for_employees(
     session: Session, *, tenant_id: str, employee_ids: list[str], business_date: date
 ) -> dict[str, AttendanceDay]:
-    """S-ATT3/S-ATT4 row list — keyed by employee id so the caller can left-join against the org
+    """Team and org attendance row list — keyed by employee id so the caller can left-join against the org
     roster (employees with no row that day render "no punch-in", not an error)."""
 
     if not employee_ids:
@@ -204,8 +204,8 @@ def latest_gps_fixes_for_employees(
     start_utc: datetime,
     end_utc: datetime,
 ) -> dict[str, GpsFix]:
-    """The single most recent `GpsFix` per employee within `[start_utc, end_utc)` — S-ROUTE5's
-    "latest fix" map preview (M08 §5.8), owned here since GPS fixes are attendance's append-only
+    """The single most recent `GpsFix` per employee within `[start_utc, end_utc)` — the coverage drill-down's
+    "latest fix" map preview, owned here since GPS fixes are attendance's append-only
     raw evidence table."""
 
     if not employee_ids:
@@ -307,7 +307,7 @@ def insert_official_work_session(
         form_definition_id=form_definition_id,
         form_response=form_response,
         started_at=started_at,
-        # `FieldEventTimingMixin` columns: the "event" this row records is the start (R-ATT-19).
+        # `FieldEventTimingMixin` columns: the "event" this row records is the start.
         occurred_at=started_at,
         received_at=received_at,
         status="running",
@@ -334,7 +334,7 @@ def complete_official_work_session(
 def list_official_work_sessions_in_range(
     session: Session, *, tenant_id: str, employee_id: str, from_date: date, to_date: date
 ) -> list[OfficialWorkSession]:
-    """S-OFF2 — `SELF`-scoped, completed sessions only (running sessions have no end to show)."""
+    """Official-work history — `SELF`-scoped, completed sessions only (running sessions have no end to show)."""
 
     stmt = (
         select(OfficialWorkSession)
@@ -354,7 +354,7 @@ def get_or_create_form_definition(
     session: Session, *, tenant_id: str, form_key: str, schema_payload: dict[str, Any]
 ) -> FormDefinition:
     """Lazily provisions the one `platform_form_definitions` row `OfficialWorkSession` needs to
-    satisfy its `NOT NULL` FK. M09 Q-ATT-05: the field taxonomy is still pending business input,
+    satisfy its `NOT NULL` FK. The field taxonomy is still pending business input,
     so no admin surface manages this yet — a fixed v1 definition is created on first use."""
 
     stmt = (
@@ -379,7 +379,7 @@ def get_or_create_form_definition(
 
 
 # ---------------------------------------------------------------------------
-# Attendance export jobs (Admin-only, R-ATT-15)
+# Attendance export jobs (Admin-only)
 # ---------------------------------------------------------------------------
 
 
@@ -412,7 +412,7 @@ def insert_export_job(
 def get_export_job(
     session: Session, *, tenant_id: str, requested_by: str, job_id: str
 ) -> ExportJob | None:
-    """R-ATT-15: an export is retrievable only by the Admin who requested it."""
+    """An export is retrievable only by the Admin who requested it."""
 
     stmt = select(ExportJob).where(
         ExportJob.tenant_id == tenant_id,

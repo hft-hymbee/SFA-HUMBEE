@@ -15,11 +15,9 @@ export function useDebouncedValue<T>(value: T, delayMs = SEARCH_API_DEBOUNCE_MS)
 
 export function useDebouncedSearchQuery(query: string, delayMs = SEARCH_API_DEBOUNCE_MS) {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
+  if (!query.trim() && debouncedQuery !== query) setDebouncedQuery(query);
   useEffect(() => {
-    if (!query.trim()) {
-      setDebouncedQuery(query);
-      return;
-    }
+    if (!query.trim()) return;
     const timeout = window.setTimeout(() => setDebouncedQuery(query), delayMs);
     return () => window.clearTimeout(timeout);
   }, [delayMs, query]);

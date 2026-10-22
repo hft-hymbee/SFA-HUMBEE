@@ -1,10 +1,10 @@
-"""Orders producer rollup — stream `orders` (M11 §3b.2, epic 05 Story 5.1 checkbox 5).
+"""Orders producer rollup — stream `orders`.
 
 Recomputes `fact_employee_day` / `fact_employee_outlet_day` / `fact_employee_manufacturer_day`
 order columns from the order's own *current* state, read through `orders.service`'s reporting projections
 (`get_order_reporting_fields` / `list_order_reporting_fields_for_day`) — never `orders.models` or
 `orders.repository` directly (forbidden by `pyproject.toml`'s "Modules must not import each other's
-internals" contract) — and never a `+= 1` counter (M11 §3b.3 rule 2): every fold re-derives the
+internals" contract) — and never a `+= 1` counter: every fold re-derives the
 full day's totals from every order the employee has on that business date, whatever their current
 status is.
 

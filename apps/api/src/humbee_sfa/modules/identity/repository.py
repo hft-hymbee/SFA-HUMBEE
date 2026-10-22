@@ -181,7 +181,7 @@ def get_live_session_by_device(
 
 
 def get_session_by_id(session: OrmSession, *, tenant_id: str, session_id: str) -> Session | None:
-    """Primary-key lookup used by the per-request live-session guard (R-IDN-21)."""
+    """Primary-key lookup used by the per-request live-session guard."""
 
     stmt = select(Session).where(
         Session.tenant_id == tenant_id,

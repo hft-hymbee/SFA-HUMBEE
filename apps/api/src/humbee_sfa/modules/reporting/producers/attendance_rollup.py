@@ -1,10 +1,10 @@
-"""Attendance producer rollup — stream `attendance` (M11 §3b.2, epic 05 Story 5.1 checkbox 3).
+"""Attendance producer rollup — stream `attendance`.
 
 Recomputes `fact_employee_day`'s attendance columns from the `attendance` stream's own event log
 (`platform_domain_events`) on every punch/official-work event — never by importing
 `attendance.models` (forbidden by `pyproject.toml`'s "Modules must not import each other's
 internals" contract; cross-module reads go through the owning module's event stream, not its
-tables) and never a `+= 1` counter (M11 §3b.3 rule 2): every fold re-derives the full day's value
+tables) and never a `+= 1` counter: every fold re-derives the full day's value
 from that day's events, so replay and out-of-order arrival converge on the same row.
 
 Confirmed payload shapes (verified against `attendance/service.py`, not guessed):

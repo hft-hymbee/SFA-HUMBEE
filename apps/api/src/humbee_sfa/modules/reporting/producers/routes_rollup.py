@@ -1,9 +1,9 @@
-"""Routes producer rollup — stream `routes` (M11 §3b.2, epic 05 Story 5.1 checkbox 4).
+"""Routes producer rollup — stream `routes`.
 
 Recomputes `fact_employee_day` / `fact_employee_outlet_day`'s visit and plan columns from the
 `routes` stream's own event log on every `visit_completed` / `route_plan_saved` event — never by
 importing `routes.models` (forbidden by `pyproject.toml`'s "Modules must not import each other's
-internals" contract) and never a `+= 1` counter (M11 §3b.3 rule 2).
+internals" contract) and never a `+= 1` counter.
 
 `visit_completed` carries `{employee_id, business_date, outlet_ref, productive, planned,
 visit_type, outlet_seconds, no_order_reason | order_ids}`, so planned-vs-unplanned,
@@ -199,7 +199,7 @@ def _planned_outlets(
 ) -> int:
     """The day's planned-stop count: sum of `stop_count` over the latest `route_plan_saved` event
     per distinct plan. A re-saved plan publishes again with the same `aggregate_id`, so the most
-    recent event per plan is the authoritative cumulative total (M11 §3b.3 rule 2 recompute)."""
+    recent event per plan is the authoritative cumulative total."""
 
     return sum(
         int(event.payload.get("stop_count") or 0)

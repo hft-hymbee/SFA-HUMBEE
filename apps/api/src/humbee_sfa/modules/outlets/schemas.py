@@ -1,4 +1,4 @@
-"""Outlets HTTP request and response DTOs — firm onboarding (SFA - onboarding, ON-1..ON-4)."""
+"""Outlets HTTP request and response DTOs — firm onboarding."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ class OwnerOtpVerifyResponse(BaseModel):
 
 
 class DocumentLookupResponse(BaseModel):
-    """ON-1 — the registered address behind a GSTIN or PAN, for pre-filling the firm form.
+    """The registered address behind a GSTIN or PAN, for pre-filling the firm form.
     Only `document_type` is guaranteed; other fields are optional."""
 
     document_type: str
@@ -198,7 +198,7 @@ class FirmAddressStateOut(BaseModel):
 
 
 class FirmAddressStatesResponse(BaseModel):
-    """C-14 — the state step of the firm address form."""
+    """The state step of the firm address form."""
 
     states: list[FirmAddressStateOut]
 
@@ -211,7 +211,7 @@ class FirmAddressDistrictOut(BaseModel):
 
 
 class FirmAddressDistrictsResponse(BaseModel):
-    """C-15 — the district step, always bounded by one state."""
+    """The district step, always bounded by one state."""
 
     districts: list[FirmAddressDistrictOut]
 
@@ -222,7 +222,7 @@ class FirmAddressLocationOut(BaseModel):
 
 
 class FirmAddressOptionsResponse(BaseModel):
-    """C-16 — the locality and pincode steps. `location_id` and `pincode` are exactly the values
+    """The locality and pincode steps. `location_id` and `pincode` are exactly the values
     `OperationalAddressBody` takes, so a picked option is copied straight into the firm body.
     Either list may legitimately be empty."""
 
@@ -316,7 +316,7 @@ class SubmitCandidateBody(BaseModel):
 
     @model_validator(mode="after")
     def _firm_is_named(self) -> SubmitCandidateBody:
-        # ON-3 falls back to `fullname` when `company_name` is absent — that is how an
+        # `onboard-firm` falls back to `fullname` when `company_name` is absent — that is how an
         # influencer, a person rather than a firm, is onboarded. Neither is a refusal upstream.
         if not self.company_name and not self.fullname:
             raise ValueError("provide company_name, or fullname for an individual")

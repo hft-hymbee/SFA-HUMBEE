@@ -95,13 +95,13 @@ class OutletOnboardingCandidate(Base, ConventionsMixin):
             "'rejected','withdrawn')",
             name="outlets_candidates_status_chk",
         ),
-        # ON-1/ON-3: a firm is identified by a GSTIN or a PAN, same rule the outlet projection
+        # A firm is identified by a GSTIN or a PAN, same rule the outlet projection
         # holds. An influencer (no company_name) onboards as themself with no document.
         CheckConstraint(
             "company_name IS NULL OR company_gstin IS NOT NULL OR pancard_no IS NOT NULL",
             name="outlets_candidates_document_chk",
         ),
-        # ON-3 falls back to `fullname` when `company_name` is absent — that is how an influencer,
+        # `onboard-firm` falls back to `fullname` when `company_name` is absent — that is how an influencer,
         # a person rather than a firm, is onboarded.
         CheckConstraint(
             "company_name IS NOT NULL OR fullname IS NOT NULL",
@@ -109,7 +109,7 @@ class OutletOnboardingCandidate(Base, ConventionsMixin):
         ),
         # `submit_candidate_to_humbee` sets `humbee_company_id` before it sets `status =
         # 'submitted'`, in the same transaction — the implication only runs one way. Mirrors
-        # `orders`' INV-09.
+        # `orders`' no-DP-order-without-proof check.
         CheckConstraint(
             "status <> 'submitted' OR humbee_company_id IS NOT NULL",
             name="outlets_candidates_submitted_chk",

@@ -41,6 +41,7 @@ from humbee_sfa.modules.reporting.router import router as reporting_router
 from humbee_sfa.modules.routes.router import router as routes_router
 from humbee_sfa.modules.routes.sweep_worker import EndOfDaySweepWorker
 from humbee_sfa.modules.targets.router import router as targets_router
+from humbee_sfa.platform.sms import get_sms_gateway
 from humbee_sfa.platform.telemetry.logging import configure_logging
 from humbee_sfa.platform.telemetry.middleware import RequestContextMiddleware
 
@@ -54,6 +55,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     reporting_projector_worker: ReportingProjectorWorker | None = None
     
     if cfg.environment != "test":
+        get_sms_gateway(cfg)
         route_sweep_worker = EndOfDaySweepWorker(
             get_engine(),
             get_sessionmaker(),
@@ -79,11 +81,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app(settings: Settings | None = None) -> FastAPI:
     cfg = settings or get_settings()
     configure_logging(cfg)
-    app = FastAPI(title=cfg.app_name, debug=cfg.debug, lifespan=_lifespan)
+    docs = cfg.api_docs_enabled
+    app = FastAPI(
+        title=cfg.app_name,
+        debug=cfg.debug,
+        lifespan=_lifespan,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+    )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[*cfg.cors_web_origins, *cfg.cors_app_origins],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -113,14 +123,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     logger.info("app_startup", environment=cfg.environment)
 
+    @app.get("/livez")
+    def livez() -> JSONResponse:
+        return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "ok"})
+
     @app.get("/health")
     def health(session: Annotated[Session, Depends(get_db_session)]) -> JSONResponse:
         try:
             session.execute(text("SELECT 1"))
         except SQLAlchemyError as exc:
+            logger.warning("health_database_unavailable", error=type(exc).__name__)
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"status": "degraded", "database": "unavailable", "detail": str(exc)},
+                content={"status": "degraded", "database": "unavailable"},
             )
         return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "ok", "database": "ok"})
 

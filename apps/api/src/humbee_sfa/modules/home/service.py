@@ -1,8 +1,8 @@
-"""Today composition — M08 §5.1 (S-HOME data assembly), epic 03 Story 3.4.
+"""Today composition.
 
 One composite read fans out, in-process, to each owning module's own public service function
 (attendance, routes, approvals, notifications, identity) — never their repositories or models
-directly (CLAUDE.md layer rules). Each section degrades independently: a section that raises is
+directly. Each section degrades independently: a section that raises is
 caught here and turned into a typed `unavailable` discriminator, so one broken or not-yet-punched-
 in section never fails the whole response. Targets is always the explicit `unavailable` shape —
 see the note at its key in `get_today`.
@@ -57,11 +57,11 @@ class TodayService:
             "route": self._route_section(claims, business_date=business_date),
             "requests": self._requests_section(claims),
             "notifications": self._notifications_section(claims),
-            # S-HOME's Targets section is target *progress*, so it needs an achievement figure
+            # The Today screen's Targets section is target *progress*, so it needs an achievement figure
             # as well as a target. Setting targets has landed (`modules/targets`), reading
             # achievement has not — Humbee's capability has no agreed request shape — so there is
             # still nothing truthful to render here. Showing a target with no progress would read
-            # as zero progress, which R-TGT-03 forbids.
+            # as zero progress, which must never happen.
             "targets": _unavailable("capability_not_released", retryable=False),
         }
 

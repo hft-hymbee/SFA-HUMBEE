@@ -17,12 +17,16 @@ os.environ["HUMBEE_SFA_DATABASE_URL"] = "postgresql+psycopg://unset@localhost/un
 os.environ["HUMBEE_SFA_OTP_SMS_USERNAME"] = ""
 os.environ["HUMBEE_SFA_OTP_SMS_API_KEY"] = ""
 os.environ["HUMBEE_API_KEY"] = "test-api-key"
+os.environ["HUMBEE_SFA_JWT_SECRET"] = "test-jwt-secret-with-at-least-32-bytes"
+os.environ["HUMBEE_SFA_PHONE_HMAC_SECRET"] = "test-phone-hmac-secret"
+os.environ["HUMBEE_SFA_PHONE_ENC_KEY"] = "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+
+from tests.fakes.humbee import FakeHumbee
 
 from humbee_sfa.core.db import Base, get_db_session
 from humbee_sfa.core.settings import get_settings, reset_settings_cache
 from humbee_sfa.integration.humbee import client as humbee_client
 from humbee_sfa.main import app
-from tests.fakes.humbee import FakeHumbee
 
 NOW = datetime(2026, 10, 19, 4, 30, tzinfo=UTC)
 
@@ -91,3 +95,4 @@ def humbee(monkeypatch: pytest.MonkeyPatch) -> Generator[FakeHumbee, None, None]
     monkeypatch.setattr(humbee_client, "_sleep_with_jitter", lambda attempt: None)
     yield fake
     humbee_client.reset_humbee_client()
+    assert fake.unrouted == [], f"FakeHumbee received unrouted calls: {fake.unrouted}"

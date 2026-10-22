@@ -1,4 +1,4 @@
-"""`routes_combined_visits` — manager/sales-person joint visit tracking. database-design.md §8.
+"""`routes_combined_visits` — manager/sales-person joint visit tracking.
 
 `beat_id` is a logical pointer into `beats`.
 """

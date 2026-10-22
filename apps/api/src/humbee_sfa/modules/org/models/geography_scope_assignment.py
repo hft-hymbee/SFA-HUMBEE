@@ -1,4 +1,4 @@
-"""`org_geography_scope_assignments`. database-design.md §4, §3 reconciliation item 5.
+"""`org_geography_scope_assignments`.
 
 Cluster-id columns are `text[]` + GIN (not JSON) so "which employees cover district X" is a
 reverse lookup, not a table scan.
@@ -8,7 +8,7 @@ moment it was picked — district entries also carry `state_id`/`state_name`, si
 are not unique across states. The four master cache tables that used to let a stored id resolve
 back to a label are retired, so this is the only place a label can still come from later.
 
-No shop-category or outlet-count columns: G-2/G-3/G-4 (SFA-API-Contract v2.2) carry neither a
+No shop-category or outlet-count columns: the geography endpoints carry neither a
 category taxonomy nor a district outlet count.
 """
 
@@ -30,7 +30,7 @@ class GeographyScopeAssignment(Base, ConventionsMixin):
     __table_args__ = (
         UniqueConstraint("tenant_id", "employee_id", name="uq_org_geo_scope_employee"),
         Index("ix_org_geo_scope_districts_gin", "district_cluster_ids", postgresql_using="gin"),
-        CheckConstraint("cardinality(district_cluster_ids) >= 1", name="districts_chk"),  # R-ORG-30
+        CheckConstraint("cardinality(district_cluster_ids) >= 1", name="districts_chk"),
     )
 
     employee_id: Mapped[str] = mapped_column(

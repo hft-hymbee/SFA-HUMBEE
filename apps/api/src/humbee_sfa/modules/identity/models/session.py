@@ -1,5 +1,5 @@
-"""`identity_sessions`. database-design.md §5, §3 reconciliation item 7: access tokens are
-stateless (no `access_token_hash` stored); only refresh rotation and revocation need a row.
+"""`identity_sessions`. Access tokens are stateless (no `access_token_hash` stored); only refresh
+rotation and revocation need a row.
 """
 
 from __future__ import annotations

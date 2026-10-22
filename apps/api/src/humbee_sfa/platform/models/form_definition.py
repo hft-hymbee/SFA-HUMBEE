@@ -1,7 +1,5 @@
 """`platform_form_definitions` — versioned JSON-schema forms for fields still pending from the
-business (e.g. official-work/combined-visit feedback, OQ-002). §3 reconciliation item 3
-(JSON → JSONB). Not detailed in database-design.md's numbered sections; scope is set by
-architecture §3.10 and epic Story 0.2.
+business (e.g. official-work/combined-visit feedback).
 """
 
 from __future__ import annotations

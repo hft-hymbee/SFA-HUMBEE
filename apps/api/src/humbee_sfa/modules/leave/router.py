@@ -1,19 +1,19 @@
-"""Leave HTTP routes — M12 §10.
+"""Leave HTTP routes.
 
 Handlers translate HTTP only; scope resolution and transaction ownership are the service's.
 
 **There is no decision endpoint here, by design.** Approve, reject and withdraw all go through
 `POST /api/v1/approvals/{approval_request_id}/{approve|reject|withdraw}` — adding a leave-specific
-one would violate R-LV-01 and R-AP-01. S-LV2's Withdraw action posts to the approvals withdraw
-route using the `approval_request_id` each row carries.
+one would bypass the approval engine, which owns every decision. The leave history Withdraw action
+posts to the approvals withdraw route using the `approval_request_id` each row carries.
 
-Deliberately not built, because no screen in this epic consumes them (M12 §10 marks every path
-"inferred"): `GET /leave/requests/{id}` and `PATCH /leave/requests/{id}` (there is no leave-detail
-screen at all — §12 Q3 — and v1 is withdraw-and-reapply, §12 Q16), `GET /leave/types` (a closed
-v1 enum the client already ships — §12 Q8), `GET /leave/routing-preview` (M06-owned, and the
-routing banner is not part of this story), `GET /leave/balances/{employee_id}` ("no screen consumes
-this yet"), and `GET /leave/days` / `GET /leave/on-leave` (their consumers, M08/M09, do not exist —
-`leave.service.is_on_leave` / `granted_leave_dates` already serve them in-process).
+Deliberately not built, because no screen consumes them: `GET /leave/requests/{id}` and
+`PATCH /leave/requests/{id}` (there is no leave-detail screen at all, and v1 is
+withdraw-and-reapply), `GET /leave/types` (a closed v1 enum the client already ships),
+`GET /leave/routing-preview` (approvals-owned, and no routing banner consumes it),
+`GET /leave/balances/{employee_id}` ("no screen consumes this yet"), and `GET /leave/days` /
+`GET /leave/on-leave` (no HTTP consumer exists — `leave.service.is_on_leave` /
+`granted_leave_dates` already serve them in-process).
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def preview(
 def list_my_requests(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
-    # The S-LV2 tabs, server-side (R-LV-17).
+    # The own-history tabs, server-side.
     request_status: Annotated[
         str, Query(alias="status", pattern=r"^(all|pending|history)$")
     ] = "all",
@@ -78,7 +78,7 @@ def list_my_requests(
 def list_team(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
-    # The S-LV3 filter chips, server-side (R-LV-17). `approved` and `auto_approved` are distinct.
+    # The team filter chips, server-side. `approved` and `auto_approved` are distinct.
     request_status: Annotated[
         str, Query(alias="status", pattern=r"^(all|pending|approved|auto_approved|rejected)$")
     ] = "all",
@@ -102,7 +102,7 @@ async def submit_leave(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    # R-LV-10: the returned status may be `auto_approved`, not only `pending`.
+    # The returned status may be `auto_approved`, not only `pending`.
     status_code, payload = LeaveService(session).submit(
         claims=claims,
         body=body,

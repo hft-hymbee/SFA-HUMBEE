@@ -1,5 +1,5 @@
-"""`DpOrderAdapter` — orders' implementation of the M06 `ApprovalSubjectAdapter` contract for
-`dp_order` (M10 §3a, §3.7, §5.5, §5.9; M06 §3a.4).
+"""`DpOrderAdapter` — orders' implementation of the approvals `ApprovalSubjectAdapter` contract
+for `dp_order`.
 
 The approval **subject_id is the cart id, not the order id**. `orders_approval_handle_chk`
 requires `approval_request_id` to already be set the moment a `po_backed` order row is inserted —
@@ -8,18 +8,17 @@ submit_order` therefore calls `approvals.service.create()` *before* the order ex
 already-committed cart as the subject; `summary()` below renders from the cart, and every other
 callback resolves the real order via `Order.cart_draft_id` (a real column, kept exactly for this).
 
-One edge case: if the requester has no manager at all (M06 §3b.2 Case A/C1), `approvals.service.
+One edge case: if the requester has no manager at all, `approvals.service.
 create()` calls `on_approved` *inside itself*, before `OrderService.submit_order` has had a chance
 to insert the order row. `on_approved` below no-ops when it cannot find an order yet;
 `OrderService.submit_order` detects `request.status == AUTO_APPROVED` and finishes that case
 itself.
 
-Two Protocol methods here (`apply_edit`, `on_approved`/`on_rejected`/`on_withdrawn` via their
-`request.decided_at` fallback) need a wall-clock instant the `ApprovalSubjectAdapter` Protocol does
-not thread an injected `Clock` through for — `SystemClock()` is used narrowly, only where no
-clock-bearing value is available on `request`, and never for domain business-date derivation.
+`apply_edit` and the Humbee submission in `on_approved` need a wall-clock instant the
+`ApprovalSubjectAdapter` Protocol does not thread an injected `Clock` through for — `SystemClock()`
+is used narrowly there, and never for domain business-date derivation.
 
-These callbacks run **inside** the engine's decision transaction on its own session (R-AP-16):
+These callbacks run **inside** the engine's decision transaction on its own session:
 they must never commit, roll back, or open a session of their own — the `LeaveAdapter`/
 `BeatCreateAdapter` contract.
 """
@@ -180,14 +179,14 @@ class DpOrderAdapter:
             )
         )
 
-    # -- editing: qty-only (M10 §3.7, `orders_approval_edits.field = 'qty'`) ----
+    # -- editing: qty-only (`orders_approval_edits.field = 'qty'`) ----
 
     def editable_fields(self, session: Session, *, subject_id: str) -> list[EditableField]:
         # No tenant/viewer on this Protocol method; `cart_draft_id` is a globally-unique ULID, so
         # the tenant-agnostic lookup is safe (same reasoning as every other ULID PK in this system).
         order = repository.get_order_by_cart_global(session, cart_draft_id=subject_id)
         if order is None or order.status != "pending_approval":
-            return []  # R-AP-13: no fields hides the Edit button
+            return []  # no fields hides the Edit button
         lines = repository.list_order_lines(session, order_id=order.id)
         return [
             EditableField(
@@ -263,8 +262,8 @@ class DpOrderAdapter:
         ]
         approved_subtotal_net_paise = sum(approved_nets)
         # Re-apportion the ORIGINAL scheme and product discounts over the (possibly reduced)
-        # approved amounts — same largest-remainder formula Story 4.1 built for the cart (M10
-        # §3c.2). Prices are never re-fetched at approval time (R-ORD-08).
+        # approved amounts — same largest-remainder formula built for the cart. Prices are never
+        # re-fetched at approval time.
         discount_paise = min(order.scheme_discount_paise, approved_subtotal_net_paise)
         product_discount_paise = min(
             order.product_discount_paise, approved_subtotal_net_paise - discount_paise
@@ -296,17 +295,18 @@ class DpOrderAdapter:
                 requester_id=order.employee_id,
                 amount_paise=order.approved_gross_total_paise,
             ),
-            subject_version=2,  # orders support exactly one edit-and-approve shot (§3.7)
+            subject_version=2,  # orders support exactly one edit-and-approve shot
             patch_applied=patch_applied,
         )
 
-    # -- outcome callbacks (run inside M06's decision transaction) --------------
+    # -- outcome callbacks (run inside the approvals engine's decision transaction) --------------
 
-    def on_approved(self, session: Session, *, request: Request) -> list[SubjectEvent]:
+    def on_approved(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         order = _order_for_cart(session, tenant_id=request.tenant_id, cart_id=request.subject_id)
         if order is None:
             return []  # auto-approved-at-creation edge case; `submit_order` finishes it itself
-        decided_at = request.decided_at or SystemClock().now_utc()
         order.status = "approved_with_edits" if request.edit_applied else "approved"
         order.approved_at = decided_at
         order.dp_sla_deadline_at = decided_at + DP_SLA
@@ -340,11 +340,12 @@ class DpOrderAdapter:
             )
         ]
 
-    def on_rejected(self, session: Session, *, request: Request, reason: str) -> list[SubjectEvent]:
+    def on_rejected(
+        self, session: Session, *, request: Request, reason: str, decided_at: datetime
+    ) -> list[SubjectEvent]:
         order = _order_for_cart(session, tenant_id=request.tenant_id, cart_id=request.subject_id)
         if order is None:
             return []
-        decided_at = request.decided_at or SystemClock().now_utc()
         order.status = "rejected"
         order.sub_status_reason = reason or None
         append_status_event(
@@ -357,7 +358,7 @@ class DpOrderAdapter:
             timeline_state="rejected",
             actor_employee_id=request.decided_by_id,
         )
-        # No outbox row, ever (M10 §3b.6 T08) — rejection triggers no downstream registration.
+        # No outbox row, ever — rejection triggers no downstream registration.
         return [
             SubjectEvent(
                 stream=STREAM,
@@ -368,11 +369,12 @@ class DpOrderAdapter:
             )
         ]
 
-    def on_withdrawn(self, session: Session, *, request: Request) -> list[SubjectEvent]:
+    def on_withdrawn(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]:
         order = _order_for_cart(session, tenant_id=request.tenant_id, cart_id=request.subject_id)
         if order is None:
             return []
-        decided_at = request.decided_at or SystemClock().now_utc()
         order.status = "cancelled"
         order.cancelled_at = decided_at
         append_status_event(

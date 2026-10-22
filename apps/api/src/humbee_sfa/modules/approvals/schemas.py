@@ -1,7 +1,7 @@
-"""Approvals HTTP DTOs — M06 §10.
+"""Approvals HTTP DTOs.
 
 The canonical `ApprovalStatus` crosses this boundary, never the prototype's overloaded `StatusChip`
-keys (§3a.3, §12 Q1); the display mapping is the frontend's single source. Money is integer paise.
+keys; the display mapping is the frontend's single source. Money is integer paise.
 The derived booleans (`is_pending`, `is_granted`, `is_terminal`, `can_decide`) are computed
 server-side so the client never re-derives them.
 """
@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# The S-AP1 filter chips (§3a.2): `beat_create` and `beat_edit` both live under "beat".
+# The inbox filter chips: `beat_create` and `beat_edit` both live under "beat".
 FILTER_TO_SUBJECT_TYPES: dict[str, tuple[str, ...]] = {
     "all": (),
     "order": ("dp_order",),
@@ -55,14 +55,14 @@ class ApprovalListResponse(BaseModel):
 
 
 class ApprovalSummaryResponse(BaseModel):
-    """Single source for every pending count on every surface (R-AP-30)."""
+    """Single source for every pending count on every surface."""
 
     pending_total: int
     pending_by_filter: dict[str, int]
 
 
 class TimelineStep(BaseModel):
-    """§3a.5. `state` is one of `done` / `edited` / `current` / `rejected` — the four values the
+    """`state` is one of `done` / `edited` / `current` / `rejected` — the four values the
     design-system component accepts, and not the same enum as `status`."""
 
     state: str
@@ -115,7 +115,7 @@ class ApprovalDetailResponse(BaseModel):
 
 
 class RejectBody(BaseModel):
-    # Non-empty after trimming is enforced in policies (R-AP-14) so the API rule holds whatever
+    # Non-empty after trimming is enforced in policies so the API rule holds whatever
     # the UI does; `min_length` here only rejects the obviously empty case earlier.
     reason: str = Field(min_length=1, max_length=2000)
 

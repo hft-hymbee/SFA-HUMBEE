@@ -6,3 +6,6 @@ allowBuilds:
   unrs-resolver: false
 patchedDependencies:
   '@capacitor/app@8.1.1': patches/@capacitor__app@8.1.1.patch
+overrides:
+  'nanoid@<3.3.18': ^3.3.18
+  'source-map-js@<1.2.2': ^1.2.2

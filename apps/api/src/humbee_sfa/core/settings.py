@@ -14,6 +14,7 @@ from pydantic import Field, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
+
 def _api_root() -> Path:
     installed = Path(__file__).resolve().parents[3]
     if (installed / "config" / "application.yml").exists():
@@ -73,6 +74,9 @@ class Settings(BaseSettings):
     profile: str = "local"
     environment: str = "local"
     debug: bool = False
+    api_docs_enabled: bool = False
+    cors_app_origins: list[str] = Field(default_factory=list)
+    cors_web_origins: list[str] = Field(default_factory=list)
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = False
@@ -120,23 +124,23 @@ class Settings(BaseSettings):
     jwt_algorithm: str
     phone_hmac_secret: str
     phone_enc_key: str
-    # R-ATT-13/R-ATT-20: informational late-punch-in threshold, runtime config not a constant.
+    # Informational late-punch-in threshold, runtime config not a constant.
     attendance_late_threshold_hour_ist: int = Field(default=9, ge=0, le=23)
     route_sweep_grace_minutes: int = Field(default=5, ge=0)
-    # Reporting projector drain cadence (epic 05 Story 5.1/5.2) — deliberately per-environment:
+    # Reporting projector drain cadence — deliberately per-environment:
     # sbx wants fast feedback while verifying producers against live traffic, prod wants a low
     # steady drumbeat. See `ReportingProjectorWorker`.
     reporting_projector_interval_seconds: float = Field(default=21600.0, gt=0)
-    # M11 §3b.4 / OQ-13: events older than this many IST business days are quarantined
+    # Events older than this many IST business days are quarantined
     # (`beyond_lateness_window`) instead of rewriting an old month. Per-environment so sbx
     # can catch a longer backlog than prod. See `reporting.projector.process_stream`.
     reporting_projector_lateness_window_days: int = Field(default=30, ge=1)
-    # epic 07 Story 7.6: the outbox-drain worker polling cadence and batch size.
+    # The outbox-drain worker polling cadence and batch size.
     outbox_drain_interval_seconds: float = Field(default=5.0, gt=0)
     outbox_drain_batch_size: int = Field(default=20, ge=1)
     humbee_base_url: str = ""
-    # Never sourced from YAML or a committed file — bare env var, no HUMBEE_SFA_ prefix (epic 07
-    # Story 7.1). validation_alias makes pydantic-settings read it verbatim, bypassing env_prefix.
+    # Never sourced from YAML or a committed file — bare env var, no HUMBEE_SFA_ prefix.
+    # validation_alias makes pydantic-settings read it verbatim, bypassing env_prefix.
     humbee_api_key: str | None = Field(default=None, validation_alias="HUMBEE_API_KEY")
 
     @classmethod
@@ -207,6 +211,12 @@ class Settings(BaseSettings):
     def validate_otp_skip_verification(self) -> Self:
         if self.otp_skip_verification and self.environment not in {"sbx", "test"}:
             raise ValueError("otp_skip_verification is allowed only in sbx or test environments")
+        return self
+
+    @model_validator(mode="after")
+    def validate_cors_web_origins(self) -> Self:
+        if self.environment in {"sbx", "prd"} and not self.cors_web_origins:
+            raise ValueError("cors_web_origins must list the web app origin in sbx and prd")
         return self
 
     @model_validator(mode="after")

@@ -1,14 +1,14 @@
-"""Leave availability and derivations — M12 §5.4, §8.
+"""Leave availability and derivations.
 
 This module is the public face of `leave` for other modules. `is_on_leave()` and
 `granted_leave_dates()` expose granted-leave availability to attendance and route planning.
-Submission hands decision lifecycle ownership to the approval engine; M12 owns no separate state
-machine (R-LV-01).
+Submission hands decision lifecycle ownership to the approval engine; leave owns no separate state
+machine.
 
-`LeaveService` at the bottom is the HTTP-facing half: the S-LV1/2/3 reads plus submission, which
+`LeaveService` at the bottom is the HTTP-facing half: the leave screen reads plus submission, which
 creates the leave row and then hands routing and the whole decision lifecycle to
-`approvals.service.create` (R-LV-01). Nothing in this file writes `LeaveRequest.status` — that is
-`leave/adapter.py`'s exclusive job (R-LV-09).
+`approvals.service.create`. Nothing in this file writes `LeaveRequest.status` — that is
+`leave/adapter.py`'s exclusive job.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ UNKNOWN_EMPLOYEE_NAME = "Former employee"
 
 
 # ---------------------------------------------------------------------------
-# Business-date derivation (R-LV-06)
+# Business-date derivation
 # ---------------------------------------------------------------------------
 
 
@@ -140,7 +140,7 @@ def provision_employee_join_year_balances(
 
 
 def _require_business_date(value: date, *, field: str) -> date:
-    """Reject a `datetime` masquerading as a business date (R-LV-06).
+    """Reject a `datetime` masquerading as a business date.
 
     `datetime` is a subclass of `date`, so an accidental `utc_now()` would otherwise sail through
     and be compared against IST `DATE` columns as its UTC calendar day — wrong for every instant
@@ -157,7 +157,7 @@ def _require_business_date(value: date, *, field: str) -> date:
 
 
 # ---------------------------------------------------------------------------
-# Day count (R-LV-05, M12 §8)
+# Day count
 # ---------------------------------------------------------------------------
 
 
@@ -167,9 +167,9 @@ def compute_day_count(
     """Inclusive IST calendar day count — the value that gets **stored** on the request.
 
     `(to_date - from_date).days + 1`; `0.5` for a half day. v1 counts calendar days: weekends and
-    public holidays are included because no holiday master exists (M12 §12 Q1). The result is
+    public holidays are included because no holiday master exists. The result is
     persisted at submission precisely so a later holiday policy cannot rewrite historical leave
-    (R-LV-05) — nothing may recompute it on a read path.
+    — nothing may recompute it on a read path.
     """
 
     _require_business_date(from_date, field="from_date")
@@ -193,7 +193,7 @@ def compute_day_count(
 
 
 # ---------------------------------------------------------------------------
-# The availability oracle (M12 §5.4)
+# The availability oracle
 # ---------------------------------------------------------------------------
 
 
@@ -245,7 +245,7 @@ def granted_leave_dates(
     """Every IST business date in `[from_date, to_date]` on which the employee has granted leave.
 
     The set form of `is_on_leave` for callers that need a whole window at once (attendance
-    distinguishing "on leave" from "no punch-in" — R-LV-24; route planning suppressing missed-visit
+    distinguishing "on leave" from "no punch-in"; route planning suppressing missed-visit
     audit). Same status filter, same business-date semantics, same fail-closed behaviour: a
     partially computed set is never returned.
     """
@@ -285,8 +285,8 @@ def granted_leave_dates(
 def employees_on_leave(session: Session, *, tenant_id: str, on_date: date) -> set[str]:
     """Every employee in the tenant on granted leave for IST business date `on_date`.
 
-    The roster form of `is_on_leave` for team views that split "on leave" from "no punch-in"
-    (R-LV-24). Same status filter and the same fail-closed behaviour.
+    The roster form of `is_on_leave` for team views that split "on leave" from "no punch-in".
+    Same status filter and the same fail-closed behaviour.
     """
 
     _require_business_date(on_date, field="on_date")
@@ -306,12 +306,12 @@ def employees_on_leave(session: Session, *, tenant_id: str, on_date: date) -> se
 
 
 # ---------------------------------------------------------------------------
-# The HTTP-facing service (M12 §10)
+# The HTTP-facing service
 # ---------------------------------------------------------------------------
 
 
 def _available(balance: LeaveBalance) -> Decimal:
-    """R-LV-21. Never clamped at 0 — a negative available balance is legitimate and visible."""
+    """Never clamped at 0 — a negative available balance is legitimate and visible."""
 
     return balance.entitled_days - balance.consumed_days - balance.pending_days
 
@@ -319,7 +319,7 @@ def _available(balance: LeaveBalance) -> Decimal:
 def _request_payload(row: LeaveRequest) -> dict[str, Any]:
     return schemas.LeaveRequestItem(
         id=row.id,
-        leave_type=row.leave_type,
+        leave_type=LeaveType(row.leave_type),
         from_date=row.from_date,
         to_date=row.to_date,
         day_count=float(row.day_count),
@@ -350,13 +350,13 @@ class LeaveService:
 
     def _scope(self, claims: AccessTokenClaims) -> ScopeContext:
         # Leave rows are activity data: SELF for a Sales Person, OWN_TREE for a Manager, ORG for an
-        # Admin (M12 §9). No leave-specific scope logic exists (architecture principle #7).
+        # Admin. No leave-specific scope logic exists.
         return ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
 
     # -- reads -------------------------------------------------------------
 
     def get_my_balances(self, *, claims: AccessTokenClaims) -> dict[str, Any]:
-        """S-LV1 balance cards, one per leave type. A type with no ledger row yet for this year
+        """Apply-leave balance cards, one per leave type. A type with no ledger row yet for this year
         is reported at the full yearly default — exactly what `_ensure_balance` will open it at on
         first use — so this read never writes."""
 
@@ -400,15 +400,15 @@ class LeaveService:
         from_date: date,
         to_date: date,
     ) -> dict[str, Any]:
-        """Server-authoritative day count and balance-after for S-LV1 (M12 §10).
+        """Server-authoritative day count and balance-after for the apply-leave screen.
 
         Read-only. `exceeds_balance` is an advisory flag, never a gate — the request stays
-        submittable and the approver decides (R-LV-11).
+        submittable and the approver decides.
         """
 
         scope = self._scope(claims)
         day_count = compute_day_count(from_date=from_date, to_date=to_date)
-        # §12 Q14: submission attributes a range to the leave year of its `from_date`, so the
+        # Submission attributes a range to the leave year of its `from_date`, so the
         # preview must read the same ledger the reservation will land on. That is not always the
         # year the balance cards show, so `period_year` is returned and the client says which
         # leave year the projection belongs to.
@@ -440,8 +440,8 @@ class LeaveService:
     def list_mine(
         self, *, claims: AccessTokenClaims, status_filter: str, limit: int, offset: int
     ) -> dict[str, Any]:
-        """S-LV2. One table, `status` read from the mirrored column — no join into `approvals` on
-        this path, which is exactly why the mirror exists (R-LV-09)."""
+        """Own leave history. One table, `status` read from the mirrored column — no join into `approvals` on
+        this path, which is exactly why the mirror exists."""
 
         rows = repository.list_requests_for_employee(
             self._session,
@@ -458,12 +458,11 @@ class LeaveService:
     def list_team(
         self, *, claims: AccessTokenClaims, status_filter: str, limit: int, offset: int
     ) -> dict[str, Any]:
-        """S-LV3. Manager → own tree, Admin → org-wide, entirely via the shared resolver
-        (R-LV-16)."""
+        """Team leave. Manager → own tree, Admin → org-wide, entirely via the shared resolver."""
 
         scope = self._scope(claims)
         if scope.scope is Scope.SELF:
-            # M12 §9: a Sales Person has no team-leave capability at all. Refusing here rather than
+            # A Sales Person has no team-leave capability at all. Refusing here rather than
             # silently serving their own row keeps the screen's contract honest.
             raise ApiError(403, "forbidden", "Team leave is available to managers and admins.")
 
@@ -481,7 +480,7 @@ class LeaveService:
                     id=row.id,
                     employee_id=row.employee_id,
                     employee_name=names[row.employee_id],
-                    leave_type=row.leave_type,
+                    leave_type=LeaveType(row.leave_type),
                     from_date=row.from_date,
                     to_date=row.to_date,
                     day_count=float(row.day_count),
@@ -493,7 +492,7 @@ class LeaveService:
         ).model_dump(mode="json")
 
     def _employee_names(self, employee_ids: set[str], tenant_id: str) -> dict[str, str]:
-        """Names come from `org`'s public service (M12 §10), never from its tables — one batched
+        """Names come from `org`'s public service, never from its tables — one batched
         query for the whole page. An id `org` can no longer resolve keeps its row visible under a
         placeholder rather than rendering a blank name and a blank avatar."""
 
@@ -516,12 +515,12 @@ class LeaveService:
         raw_body: bytes,
         request_id: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        """S-LV1 submit — one transaction covering the leave row, the balance reservation and the
-        M06 request (M12 §11.3: a `LeaveRequest` with no `approval_request_id` is not reachable).
+        """Leave submit — one transaction covering the leave row, the balance reservation and the
+        approval request (a `LeaveRequest` with no `approval_request_id` is not reachable).
 
         The response status may legitimately be `auto_approved`: when the requester is at the top of
         the hierarchy, `approvals.create` decides re-entrantly inside this same transaction and
-        `LeaveAdapter.on_approved` has already converted the reservation before we reply (R-LV-10).
+        `LeaveAdapter.on_approved` has already converted the reservation before we reply.
         """
 
         scope = self._scope(claims)
@@ -542,7 +541,7 @@ class LeaveService:
                     self._clock, settings=self._settings
                 )
                 day_count = compute_day_count(from_date=body.from_date, to_date=body.to_date)
-                # §12 Q14: v1 attributes a range to the leave year of its `from_date`.
+                # v1 attributes a range to the leave year of its `from_date`.
                 balance = self._ensure_balance(
                     scope,
                     employee_id=claims.employee_id,
@@ -572,7 +571,7 @@ class LeaveService:
                     applied_business_date=applied_business_date,
                     leave_request_id=leave_request_id,
                 )
-                # R-LV-12: submission reserves; it never debits. Reserved *before* handing over to
+                # Submission reserves; it never debits. Reserved *before* handing over to
                 # the engine so the auto-approval path has a reservation to convert.
                 repository.apply_balance_delta(
                     self._session, scope=scope, balance=balance, pending_delta=day_count
@@ -604,7 +603,7 @@ class LeaveService:
             # `leave_no_overlap_excl` is the exclusion constraint that makes the no-overlap rule
             # real — the pre-check narrows the window, the constraint closes it. `pk_leave_requests`
             # means the client replayed its ULID under a fresh `Idempotency-Key`; that is still the
-            # same request (M12 §3.1), so it gets a resolvable 409 rather than a 500.
+            # same request, so it gets a resolvable 409 rather than a 500.
             detail = str(getattr(exc, "orig", exc))
             if "leave_no_overlap_excl" in detail:
                 raise ApiError(
@@ -640,7 +639,7 @@ class LeaveService:
         """The ledger row a reservation lands on, created on first use.
 
         The join year is provisioned pro-rated at employee creation; every other year opens here at
-        the full yearly default (M12 §12 Q2). The insert is conflict-tolerant so two concurrent
+        the full yearly default. The insert is conflict-tolerant so two concurrent
         first submissions cannot both try to create the row.
         """
 

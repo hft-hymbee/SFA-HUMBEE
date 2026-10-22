@@ -4,10 +4,10 @@ from typing import Any
 
 import httpx
 from fastapi.testclient import TestClient
+from tests.fixtures.seed import phone_of
 
 from humbee_sfa.core.conventions import generate_ulid
 from humbee_sfa.modules.org.models import Employee
-from tests.fixtures.seed import phone_of
 
 OTP = "123456"
 

@@ -1,4 +1,4 @@
-"""Monthly RANGE-partition maintenance. database-design.md §17.1.
+"""Monthly RANGE-partition maintenance.
 
 A missing partition is an insert failure, so this job keeps a rolling horizon of monthly
 partitions provisioned ahead of first use. Partitioned tables are discovered from the Postgres
@@ -21,9 +21,8 @@ from sqlalchemy.engine import Connection
 
 logger = structlog.get_logger("humbee_sfa.platform.partition_maintenance")
 
-# "Creates the next three months' partitions" (target-architecture.md §3): kept as a rolling
-# horizon of the current month plus the next three, so the current month is always covered even
-# if a run is missed.
+# Creates the next three months' partitions, kept as a rolling horizon of the current month
+# plus the next three, so the current month is always covered even if a run is missed.
 PARTITION_HORIZON_MONTHS = 3
 
 _PARTITION_SUFFIX_RE = re.compile(r"_p(\d{6})$")

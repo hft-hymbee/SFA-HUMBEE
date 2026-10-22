@@ -1,4 +1,4 @@
-"""`leave_balances` — per-employee, per-type, per-year entitlement ledger. database-design.md §11.1."""
+"""`leave_balances` — per-employee, per-type, per-year entitlement ledger."""
 
 from __future__ import annotations
 

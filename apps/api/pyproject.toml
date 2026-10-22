@@ -40,6 +40,7 @@ dev = [
     "time-machine",
     "ruff",
     "mypy",
+    "types-openpyxl",
     "import-linter",
 ]
 
@@ -55,9 +56,14 @@ src = ["src"]
 target-version = "py312"
 line-length = 100
 
+[tool.ruff.lint.per-file-ignores]
+"src/humbee_sfa/modules/home/service.py" = ["BLE001"]
+
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "src"
+files = ["src"]
+explicit_package_bases = true
 # Strict inside the domain; the ACL deals with untyped external payloads.
 strict = true
 
@@ -70,7 +76,6 @@ pythonpath = ["src", "."]
 asyncio_mode = "auto"
 
 # Module boundaries are enforced, not merely documented.
-# See docs/architecture/target-architecture.md §3.3.
 [tool.importlinter]
 root_package = "humbee_sfa"
 

@@ -1,7 +1,7 @@
-"""Targets HTTP routes — M13 §10 (S-TGT1, S-LEAD1).
+"""Targets HTTP routes.
 
 Setting only. `GET /targets/me`, `GET /targets/team` and `/achievement` are deliberately absent:
-they exist to show achievement against a target, and Humbee's achievement capability (X-2/H9) has
+they exist to show achievement against a target, and Humbee's achievement capability has
 no agreed request shape yet, so there is nothing truthful for them to return.
 
 Handlers translate HTTP only; transactions and rules are the service's.
@@ -61,7 +61,7 @@ def list_targets(
     period_month: Annotated[date, Query()],
     target_type: Annotated[schemas.TargetType | None, Query(alias="type")] = None,
 ) -> dict[str, Any]:
-    """S-TGT1 edit-mode load — the active targets an employee holds for one month."""
+    """Edit-mode load — the active targets an employee holds for one month."""
 
     return TargetService(session).list_targets(
         claims=claims,
@@ -97,7 +97,7 @@ async def create_target(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-TGT1 save. 409 when a target of that type already exists for the month — the client
+    """Save. 409 when a target of that type already exists for the month — the client
     reloads and PUTs, rather than a second active target being created."""
 
     status_code, payload = TargetService(session).create_target(
@@ -155,7 +155,7 @@ async def capture_lead(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-LEAD1 save — a salesperson captures a prospective business as a lead for follow-up."""
+    """Save — a salesperson captures a prospective business as a lead for follow-up."""
 
     status_code, payload = TargetService(session).capture_lead(
         claims=claims,

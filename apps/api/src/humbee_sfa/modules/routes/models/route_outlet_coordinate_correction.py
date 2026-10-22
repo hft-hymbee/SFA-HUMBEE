@@ -1,8 +1,7 @@
-"""`routes_outlet_coordinate_corrections` — durable queue for O-4 field pin corrections (epic 07
-Story 7.3). database-design.md conventions.
+"""`routes_outlet_coordinate_corrections` — durable queue for field pin corrections.
 
-Committed before the Humbee `PATCH /outlets/{id}/coordinates` call is attempted, mirroring the H7
-write-path rule (`docs/features/03-humbee-integration-contract.md` §5): a crash mid-call must not
+Committed before the Humbee `PATCH /outlets/{id}/coordinates` call is attempted, mirroring the
+order write-path rule: a crash mid-call must not
 lose a correction the sales person already captured. `captured_at` (device clock, possibly offline)
 orders the queue; `submitted_at` (server clock) is `NULL` until the Humbee call resolves.
 """

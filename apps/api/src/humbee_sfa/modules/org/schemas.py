@@ -11,7 +11,7 @@ ROLE_CODES = ("sales_person", "manager", "admin")
 STATUS_CODES = ("active", "inactive")
 
 # Job-title axis, separate from ROLE_CODES (permission/hierarchy) — used for employee-report
-# filtering. Each role only carries its own designations (§org_employees.designation_role_chk).
+# filtering. Each role only carries its own designations (`org_employees.designation_role_chk`).
 DESIGNATIONS_BY_ROLE: dict[str, tuple[str, ...]] = {
     "admin": ("admin",),
     "manager": (

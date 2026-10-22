@@ -1,13 +1,13 @@
-"""Reporting projector scheduled job. Epic 05 Story 5.1 checkbox 1.
+"""Reporting projector scheduled job.
 
 Wires the producer rollups onto the generic engine (`projector.py`) and exposes a body function
 shaped for `platform/scheduler.py`'s `SupervisedJobRunner` (`Callable[[Connection], int]`) — the
-existing idempotent, leader-elected job primitive from epic 00, reused here rather than building a
+existing idempotent, leader-elected job primitive, reused here rather than building a
 second scheduling mechanism. This file owns no fold logic of its own, only the stream/handler
-registration; wiring the job into a running scheduler loop is out of scope for Story 5.1 (no such
+registration; wiring the job into a running scheduler loop is out of scope here (no such
 loop exists yet — `partition_maintenance.py`'s job is in the same unwired state).
 
-Story 5.1 ships a single partition (0) per stream, matching the default `partition` argument on
+This ships a single partition (0) per stream, matching the default `partition` argument on
 `DomainEventPublisher.publish`; multi-partition fan-out is future scaling work, not a correctness
 requirement here.
 """

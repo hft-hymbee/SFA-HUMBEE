@@ -87,8 +87,8 @@ Components resolve from `window.HumbeeDesignSystem_<hash>`. Data is faked; GPS/o
 - Official Work form fields, combined-visit feedback form fields, and final KPI/target definitions — shells are built and labelled as pending.
 
 ## Not yet built (next batches)
-All **Sales Person**, **Manager**, and **Admin** screens in the flow plan are now covered
-(role-aware, reusing one design contract). Remaining: **future M14** customer onboarding, and
+All **Sales Person**, **Manager**, and **Admin** screens are now covered
+(role-aware, reusing one design contract). Remaining: **future** customer onboarding, and
 production porting of these prototypes into `apps/web` (Next.js + MUI), tracked separately.
 
 ### Role scoping

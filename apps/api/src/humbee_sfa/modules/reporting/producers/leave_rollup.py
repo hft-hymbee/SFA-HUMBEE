@@ -1,4 +1,4 @@
-"""Leave producer rollup — stream `leave` (M11 §3b.2, epic 05 Story 5.1 checkbox 2).
+"""Leave producer rollup — stream `leave`.
 
 Folds `leave_granted` / `leave_rejected` / `leave_withdrawn` (published by
 `modules/leave/adapter.py` through the approvals decision transaction) into
@@ -6,8 +6,8 @@ Folds `leave_granted` / `leave_rejected` / `leave_withdrawn` (published by
 
 Each event is a terminal outcome for its own request and carries the full date range and type in
 its payload (see `LeaveAdapter._event`), so folding it is a plain set, not an increment: replaying
-the same event any number of times, in any order relative to itself, converges on the same value
-(M11 §3b.3 rule 2). A later decision on a different, overlapping request for the same employee/day
+the same event any number of times, in any order relative to itself, converges on the same value.
+A later decision on a different, overlapping request for the same employee/day
 simply overwrites — `fact_employee_day` models at most one leave per employee/day, matching the
 leave module's own no-overlap invariant.
 """

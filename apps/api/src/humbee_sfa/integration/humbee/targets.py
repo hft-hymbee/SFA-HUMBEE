@@ -1,4 +1,4 @@
-"""Provider-neutral port for Humbee's target-manufacturer roster (M13 §3.2/§3a).
+"""Provider-neutral port for Humbee's target-manufacturer roster.
 
 `GET /sfa/v1/targets/manufacturers` is purpose-built for target setting: unlike
 `/sfa/v1/manufacturer-roles` (onboarding role assignment, `onboarding.py`), it carries each

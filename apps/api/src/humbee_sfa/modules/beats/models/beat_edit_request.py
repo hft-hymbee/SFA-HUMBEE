@@ -1,10 +1,11 @@
 """`beats_edit_requests` — a proposed edit to an approved beat, pending approval against a base and
-proposed version. database-design.md §7. `diff` is server-computed (`BeatDiff[]`), never client-set.
+proposed version. `diff` is server-computed (`BeatDiff[]`), never client-set.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -17,7 +18,7 @@ from humbee_sfa.core.db import Base
 class BeatEditRequest(Base, ConventionsMixin):
     __tablename__ = "beats_edit_requests"
     __table_args__ = (
-        # R-BEAT-16: at most one pending edit per beat.
+        # At most one pending edit per beat.
         Index(
             "uq_beats_edit_one_pending",
             "beat_id",
@@ -41,7 +42,7 @@ class BeatEditRequest(Base, ConventionsMixin):
     )
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     approval_request_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
-    diff: Mapped[list] = mapped_column(JSONB, nullable=False)
+    diff: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     submitted_by_employee_id: Mapped[str] = mapped_column(
         String(26), ForeignKey("org_employees.id"), nullable=False

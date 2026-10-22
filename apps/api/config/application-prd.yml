@@ -28,5 +28,5 @@ refresh_idempotency_ttl_seconds: 3600
 # Keep provider credentials in environment variables:
 # HUMBEE_SFA_OTP_SMS_USERNAME and HUMBEE_SFA_OTP_SMS_API_KEY.
 
-# humbee_base_url: blocked on B6 (epics/humbee-sfa-build/07-humbee-real-integration.md) —
-# Humbee has not published a production base URL yet.
+# humbee_base_url comes from HUMBEE_SFA_HUMBEE_BASE_URL; Humbee has not published a production
+# base URL yet.

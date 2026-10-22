@@ -19,7 +19,8 @@ from humbee_sfa.integration.humbee.client import (
 
 @dataclass(frozen=True)
 class DocumentLookupResult:
-    """ON-1's answer: the firm's registered address, for pre-filling the onboarding form.
+    """The GSTIN/PAN lookup's answer: the firm's registered address, for pre-filling the
+    onboarding form.
 
     Verified against a live `api-dev.humbee.in` response 2026-09-04. Humbee republishes its own
     `GSTDetailsResponseDTO`/`PANDetailsResponseDTO` unchanged, so the payload is flat and every
@@ -104,7 +105,7 @@ class FirmAddressLocation:
 class FirmAddressOptions:
     """The locality and pincode choices inside one district.
 
-    Both lists feed `OperationalAddress`, and the field names match what ON-3 consumes, so a
+    Both lists feed `OperationalAddress`, and the field names match what onboarding consumes, so a
     picked value is copied straight through. Humbee returns each pincode as a `{pincode_id,
     pincode_name}` pair holding the same six-digit string twice; only the one value is carried.
     """
@@ -192,8 +193,9 @@ def _operational_address_body(address: OperationalAddress) -> dict[str, Any]:
 
 
 def _opt_str(value: Any) -> str | None:
-    """ON-1 is the one SFA response whose geography ids arrive as JSON numbers rather than
-    strings. Normalise them back to opaque strings so the rest of the codebase sees one type."""
+    """The GSTIN/PAN lookup is the one SFA response whose geography ids arrive as JSON numbers
+    rather than strings. Normalise them back to opaque strings so the rest of the codebase sees one
+    type."""
 
     return None if value is None else str(value)
 
@@ -310,7 +312,7 @@ class HumbeeOnboardingProvider:
             raise OnboardingUnavailable(f"unexpected industries response shape: {exc}") from exc
 
     def list_firm_address_states(self) -> tuple[FirmAddressState, ...]:
-        """C-14 — every active state, flat. `manufacturer_id` is deliberately not sent: an address
+        """Every active state, flat. `manufacturer_id` is deliberately not sent: an address
         exists before any manufacturer is chosen, and sending one would narrow the form to that
         brand's territory."""
 
@@ -328,7 +330,7 @@ class HumbeeOnboardingProvider:
             raise OnboardingUnavailable(f"unexpected address states response shape: {exc}") from exc
 
     def list_firm_address_districts(self, *, state_id: str) -> tuple[FirmAddressDistrict, ...]:
-        """C-15 — the districts of one state. `state_id` bounds the answer and is required upstream;
+        """The districts of one state. `state_id` bounds the answer and is required upstream;
         there is no national district listing."""
 
         data = self._client.call(
@@ -356,7 +358,7 @@ class HumbeeOnboardingProvider:
     def list_firm_address_options(
         self, *, district_id: str, pincode: str | None = None, location_id: str | None = None
     ) -> FirmAddressOptions:
-        """C-16 — the localities and pincodes inside one district, for ON-3's mandatory
+        """The localities and pincodes inside one district, for onboarding's mandatory
         `operational_address.location_id` and `pincode`.
 
         The two optional arguments cross-filter the *opposite* list, which is what keeps a locality
@@ -447,8 +449,8 @@ __all__ = [
     "FirmAddressLocation",
     "FirmAddressOptions",
     "FirmAddressState",
-    "HumbeeError",
     "HumbeeAlreadyRegisteredError",
+    "HumbeeError",
     "HumbeeInvalidDocumentFormatError",
     "HumbeeNotFoundError",
     "HumbeeOnboardingProvider",

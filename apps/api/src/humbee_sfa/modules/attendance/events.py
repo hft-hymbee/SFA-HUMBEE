@@ -1,8 +1,8 @@
-"""Attendance domain event names and publish helper — M09 §3.7, §5.2, §5.6.
+"""Attendance domain event names and publish helper.
 
 `fact_employee_day` (reporting) already carries the columns these events feed
-(`punched_in`, `official_work_seconds`, ...) — epic 05 Story 5.1 has not built the attendance
-producer rollup yet, but the event log is durable and at-least-once, so these events preserve the
+(`punched_in`, `official_work_seconds`, ...) — the attendance
+producer rollup is not built yet, but the event log is durable and at-least-once, so these events preserve the
 inputs that producer will consume. Names follow the shared domain-event convention (snake_case,
 module-prefixed).
 """

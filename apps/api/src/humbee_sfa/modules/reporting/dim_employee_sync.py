@@ -6,7 +6,7 @@ Two entry points share the same fold logic:
   `event.aggregate_id`. Versions the dimension going forward as org changes arrive.
 - `backfill_missing` — called once per projector tick (cheap, idempotent: only inserts for
   employees with no current row) to seed employees that already existed before this projector
-  shipped. Their `employee_created` events predate the projector's lateness window (M11 §3b.4) and
+  shipped. Their `employee_created` events predate the projector's lateness window and
   will never be replayed, so nothing but a direct seed will ever give them a dimension row.
 
 Both read `org` only through its service module (`org.service`) — never `org.models` or

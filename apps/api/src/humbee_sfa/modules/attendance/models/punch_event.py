@@ -1,6 +1,6 @@
-"""`attendance_punch_events` — append-only punch log. database-design.md §9.
+"""`attendance_punch_events` — append-only punch log.
 
-`gps_fix_id` is `NOT NULL` (R-ATT-04): a punch without a fix cannot exist, made a database fact
+`gps_fix_id` is `NOT NULL`: a punch without a fix cannot exist, made a database fact
 rather than a nullable column that quietly fills with nulls.
 """
 

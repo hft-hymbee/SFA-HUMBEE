@@ -1,5 +1,5 @@
 """`targets_leads` — a captured prospect for manufacturers not on Humbee, named as free text in
-`associated_manufacturer_names`. database-design.md §11.2.
+`associated_manufacturer_names`.
 
 `occurred_at` is capture time; `business_date` decides which month the lead counts toward for
 a `leads` target.
@@ -61,7 +61,7 @@ class Lead(Base, ConventionsMixin, FieldEventTimingMixin):
     associated_manufacturer_names: Mapped[list[str]] = mapped_column(
         ARRAY(String(120)), nullable=False, server_default=text("'{}'")
     )
-    contact_mobile_hmac: Mapped[str] = mapped_column(CHAR(64), nullable=False)  # PII, see §17.3
+    contact_mobile_hmac: Mapped[str] = mapped_column(CHAR(64), nullable=False)  # PII
     contact_mobile_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     contact_mobile_last4: Mapped[str] = mapped_column(CHAR(4), nullable=False)
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False)

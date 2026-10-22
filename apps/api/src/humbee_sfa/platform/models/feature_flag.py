@@ -1,7 +1,3 @@
-"""`platform_feature_flags`. §3 reconciliation item 3 (JSON → JSONB). Not detailed in
-database-design.md's numbered sections; scope is set by epic Story 0.2.
-"""
-
 from __future__ import annotations
 
 from typing import Any

@@ -1,12 +1,11 @@
-"""Leave persistence — M12 §3.1/§3.3. Thin, scoped, no business decisions.
+"""Leave persistence. Thin, scoped, no business decisions.
 
-Every function takes a resolved `ScopeContext` from `org.scope` (M12 §9: "scope is applied in
-`leave/repository.py` via the shared `ScopeResolver`"), so a caller cannot forget the tenant
-predicate. Leave rows are activity data, so callers resolve `OrgResource.ACTIVITY_DATA`; the
+Every function takes a resolved `ScopeContext` from `org.scope` (resolved via the shared
+`ScopeResolver`), so a caller cannot forget the tenant predicate. Leave rows are activity data, so callers resolve `OrgResource.ACTIVITY_DATA`; the
 system-routing oracle path uses `internal_routing_scope` (tenant-only, no actor).
 
 Nothing here computes `day_count`, reserves balance or moves status: those are decisions and live
-in `service.py` (day count) or in the M06 approval engine (status).
+in `service.py` (day count) or in the approval engine (status).
 """
 
 from __future__ import annotations
@@ -24,10 +23,10 @@ from humbee_sfa.modules.leave.leave_type import LeaveType
 from humbee_sfa.modules.leave.models import LeaveBalance, LeaveRequest
 from humbee_sfa.modules.org.scope import ScopeContext, apply_scope
 
-# M12 §3.4 / R-LV-19. `GRANTED_STATUSES` is exactly the predicate of the partial index
+# `GRANTED_STATUSES` is exactly the predicate of the partial index
 # `ix_leave_on_leave_oracle`; changing one without the other silently deoptimises the hot path.
 GRANTED_STATUSES: tuple[str, ...] = ("approved", "auto_approved")
-# R-LV-08: the statuses the exclusion constraint treats as occupying a date range.
+# The statuses the exclusion constraint treats as occupying a date range.
 LIVE_OR_GRANTED_STATUSES: tuple[str, ...] = ("pending", *GRANTED_STATUSES)
 
 
@@ -37,11 +36,11 @@ LIVE_OR_GRANTED_STATUSES: tuple[str, ...] = ("pending", *GRANTED_STATUSES)
 
 
 def _require_own_leave_write(scope: ScopeContext, employee_id: str) -> None:
-    """M12 §9: nobody applies for leave on behalf of anybody else — not even an Admin.
+    """Nobody applies for leave on behalf of anybody else — not even an Admin.
 
     A row that does not exist yet cannot be scope-tested, so the target employee is compared
     against the actor directly. The no-actor system scope is allowed because that path only ever
-    mirrors an M06 decision back onto an existing subject.
+    mirrors an approval decision back onto an existing subject.
     """
 
     if scope.is_authentication:
@@ -88,7 +87,7 @@ def get_leave_types(
 def get_request_by_approval_request(
     session: Session, *, scope: ScopeContext, approval_request_id: str
 ) -> LeaveRequest | None:
-    """The M06 → M12 mirror lookup (R-LV-09). Unique per `uq_leave_approval_request`."""
+    """The approval → leave mirror lookup. Unique per `uq_leave_approval_request`."""
 
     stmt = _scoped_requests(scope).where(
         LeaveRequest.approval_request_id == approval_request_id
@@ -105,7 +104,7 @@ def list_requests_for_employee(
     limit: int,
     offset: int = 0,
 ) -> list[LeaveRequest]:
-    """S-LV2 history — newest `from_date` first, served by `ix_leave_mine`."""
+    """Own leave history — newest `from_date` first, served by `ix_leave_mine`."""
 
     stmt = (
         _scoped_requests(scope)
@@ -127,9 +126,9 @@ def list_requests_in_scope(
     limit: int,
     offset: int = 0,
 ) -> list[LeaveRequest]:
-    """S-LV3 team leave — every leave row the actor's resolved scope allows, newest `from_date`
+    """Team leave — every leave row the actor's resolved scope allows, newest `from_date`
     first. The scope (Manager → own tree, Admin → org) is entirely `apply_scope`'s decision;
-    nothing here widens or narrows it (R-LV-16).
+    nothing here widens or narrows it.
     """
 
     stmt = (
@@ -154,7 +153,7 @@ def list_requests_overlapping(
 ) -> list[LeaveRequest]:
     """Requests whose inclusive IST date range intersects `[from_date, to_date]`.
 
-    Both bounds are IST business dates (R-LV-06). Overlap, not containment: a leave from 30 Jul
+    Both bounds are IST business dates. Overlap, not containment: a leave from 30 Jul
     to 02 Aug is returned for a July window and for an August one.
     """
 
@@ -175,13 +174,13 @@ def list_requests_overlapping(
 def granted_leave_exists_on(
     session: Session, *, scope: ScopeContext, employee_id: str, on_date: date
 ) -> bool:
-    """The `is_on_leave()` oracle query — M12 §5.4 step 2.
+    """The `is_on_leave()` oracle query.
 
     Shaped deliberately to be answered by `ix_leave_on_leave_oracle`
     `(tenant_id, employee_id, from_date, to_date) WHERE status IN ('approved','auto_approved')`:
     an `EXISTS` over the four indexed columns and nothing else. No `LeaveDay` expansion, no ORM
     object graph, and no extra predicate (an `is_active` filter would fall outside the index and
-    leave rows are append-only anyway — R-LV-25).
+    leave rows are append-only anyway).
 
     Called on every approval submission system-wide, so keep it boring.
     """
@@ -224,9 +223,9 @@ def insert_request(
     applied_business_date: date,
     leave_request_id: str | None = None,
 ) -> LeaveRequest:
-    """Insert one leave application. `day_count` is supplied, never derived here (R-LV-05).
+    """Insert one leave application. `day_count` is supplied, never derived here.
 
-    `leave_request_id` accepts the client-generated ULID (M12 §3.1) so a retried submit is
+    `leave_request_id` accepts the client-generated ULID so a retried submit is
     provably the same request.
     """
 
@@ -258,12 +257,12 @@ def insert_request(
 def link_approval_request(
     session: Session, *, request: LeaveRequest, approval_request_id: str
 ) -> None:
-    """Point the leave row at its M06 request once the engine has minted it.
+    """Point the leave row at its approval request once the engine has minted it.
 
     Submission is a chicken-and-egg: the engine needs the leave row to exist before it can render
     the request's denormalised summary, and the leave row's `approval_request_id` is NOT NULL. So
     the insert self-references and this closes the link, in the same transaction — a leave row whose
-    `approval_request_id` is not a real M06 request is never visible outside it (M12 §11.3).
+    `approval_request_id` is not a real approval request is never visible outside it.
     """
 
     request.approval_request_id = approval_request_id
@@ -279,10 +278,10 @@ def set_request_status(
     decided_at: datetime | None = None,
     decision_note: str | None = None,
 ) -> None:
-    """Mirror an M06 outcome onto the leave row (R-LV-09).
+    """Mirror an approval outcome onto the leave row.
 
     This is a projection write, not a decision: the caller must already be inside the approval
-    engine's decision transaction. M12 owns no status transitions of its own (R-LV-01).
+    engine's decision transaction. Leave owns no status transitions of its own.
     """
 
     request.status = status
@@ -414,7 +413,7 @@ def apply_balance_delta(
     consumed_delta: Decimal = Decimal(0),
     pending_delta: Decimal = Decimal(0),
 ) -> None:
-    """Conditional UPDATE of the ledger columns (R-LV-12: reserve → consume → release).
+    """Conditional UPDATE of the ledger columns (reserve → consume → release).
 
     Written as a database-side arithmetic update rather than read-modify-write so two concurrent
     reservations cannot lose one another. `leave_balances_nonneg_chk` is the backstop; a delta that

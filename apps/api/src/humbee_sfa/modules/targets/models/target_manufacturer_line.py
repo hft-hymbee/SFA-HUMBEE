@@ -1,6 +1,5 @@
-"""`targets_manufacturer_lines` — per-manufacturer breakdown of a `sales` target. database-design.md
-§11.2. `target_id` is a declared FK (§2.6 exception list) since this child has no life outside its
-parent target.
+"""`targets_manufacturer_lines` — per-manufacturer breakdown of a `sales` target. `target_id`
+is a declared FK since this child has no life outside its parent target.
 """
 
 from __future__ import annotations

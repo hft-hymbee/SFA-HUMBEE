@@ -1,6 +1,6 @@
-"""`orders_cart_lines` — child rows of a cart draft. database-design.md §10.
+"""`orders_cart_lines` — child rows of a cart draft.
 
-A child table rather than JSONB (M10 §3.3 permits either) so `qty`/price CHECKs are the *same*
+A child table rather than JSONB so `qty`/price CHECKs are the *same*
 constraints `orders_lines` carries — a cart that cannot be a valid order is rejected at cart time,
 not deferred to submit.
 """

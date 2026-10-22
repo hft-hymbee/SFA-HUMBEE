@@ -1,20 +1,18 @@
-"""Generic supervised scheduled-job execution. Story 0.2 backend-foundation infra.
+"""Generic supervised scheduled-job execution. Backend-foundation infra.
 
-Leader election is a session-scoped Postgres advisory lock (`pg_try_advisory_lock`) keyed by
-job name, so at most one process in the cluster runs a given job at a time
-(target-architecture.md §3, "Multi-instance coordination"). The run itself is claimed
-idempotently in `platform_sweep_runs` (unique on `tenant_id, sweep_type, business_date`): a
-run that already succeeded for that business date is skipped, a run left `running` by a crashed
-process is retried, and a failed run records `failure_reason` and is retried on the next tick.
+Leader election is a session-scoped Postgres advisory lock (`pg_try_advisory_lock`) keyed by job
+name, so at most one process in the cluster runs a given job at a time. The run itself is claimed
+idempotently in `platform_sweep_runs` (unique on `tenant_id, sweep_type, business_date`): a run that
+already succeeded for that business date is skipped, a run left `running` by a crashed process is
+retried, and a failed run records `failure_reason` and is retried on the next tick.
 
 Feature-specific jobs (outbox drain, DP SLA timers, end-of-day sweep, rollup projection) register
-onto this runner from their own module/epic; this file owns none of that business logic.
+onto this runner from their own module; this file owns none of that business logic.
 """
 
 from __future__ import annotations
 
 import hashlib
-import struct
 from collections.abc import Callable
 from datetime import date
 
@@ -37,7 +35,7 @@ def advisory_lock_key(job_name: str) -> int:
     """Deterministic signed 64-bit lock key for `pg_advisory_lock`, stable across processes."""
 
     digest = hashlib.sha256(job_name.encode("utf-8")).digest()[:8]
-    return struct.unpack(">q", digest)[0]
+    return int.from_bytes(digest, "big", signed=True)
 
 
 class SupervisedJobRunner:

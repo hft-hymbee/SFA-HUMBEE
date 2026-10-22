@@ -1,6 +1,6 @@
 """`platform_attachments` — the one place every uploaded file is checksummed and retained.
-database-design.md §12.2. Deliberate deviation from M08/M14's inline-key/undefined-FK
-approaches — `routes_visit_outcomes.photo_attachment_id` etc. point here.
+Deliberate deviation from inline-key/undefined-FK approaches —
+`routes_visit_outcomes.photo_attachment_id` etc. point here.
 """
 
 from __future__ import annotations

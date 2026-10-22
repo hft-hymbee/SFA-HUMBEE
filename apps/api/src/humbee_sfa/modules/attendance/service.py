@@ -1,11 +1,11 @@
-"""Attendance / Official-Work business logic — M09 §5 (data assembly), §7 (invariants).
+"""Attendance / Official-Work business logic.
 
-Transaction ownership lives here, not in the router (architecture: a service owns one transaction
+Transaction ownership lives here, not in the router (a service owns one transaction
 per state transition together with its audit and domain-event writes), mirroring
 `leave.service` / `beats.service`. Punch and official-work writes are always for the acting
-employee — the employee id comes from `claims`, never from the request body (M09 §3.2).
+employee — the employee id comes from `claims`, never from the request body.
 
-`get_duty_state()` is a plain module function, not a method: Story 3.4's Today composition calls
+`get_duty_state()` is a plain module function, not a method: the Today composition calls
 it directly, in-process, alongside `AttendanceService`'s own HTTP-facing use of it for
 `GET /attendance/today`.
 """
@@ -44,7 +44,7 @@ AUDIT_ENTITY_OFFICIAL_WORK = "official_work_session"
 AUDIT_ENTITY_EXPORT_JOB = "attendance_export_job"
 
 OFFICIAL_WORK_FORM_KEY = "official_work"
-# Q-ATT-05: the field taxonomy is still pending business input; this is the fixed v1 shape.
+# The field taxonomy is still pending business input; this is the fixed v1 shape.
 _OFFICIAL_WORK_FORM_SCHEMA: dict[str, Any] = {"fields": ["purpose", "notes"]}
 
 
@@ -108,7 +108,7 @@ def _store_idempotency(
 
 
 # ---------------------------------------------------------------------------
-# Duty state — the punch-in gate (M09 §5.1, §5.8, §8)
+# Duty state — the punch-in gate
 # ---------------------------------------------------------------------------
 
 
@@ -130,7 +130,7 @@ def get_duty_state(
     clock: Clock | None = None,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
-    """The canonical duty-state read (M09 §5.1, §5.8) — one query key app-wide. Story 3.4's Today
+    """The canonical duty-state read — one query key app-wide. The Today
     composition and `GET /attendance/today` both call this, so the punch-in gate can never drift
     between the two surfaces."""
 
@@ -151,8 +151,8 @@ def latest_positions(
     business_date: date,
     settings: Settings,
 ) -> dict[str, dict[str, Any]]:
-    """`{employee_id: {"lat", "lng", "captured_at"}}` for the given business date — S-ROUTE5's
-    map preview (M08 §5.8). Cross-module callers (routes.service) pass their own already-scoped
+    """`{employee_id: {"lat", "lng", "captured_at"}}` for the given business date — the coverage drill-down's
+    map preview. Cross-module callers (routes.service) pass their own already-scoped
     `employee_ids`, so this takes no claims/scope of its own, matching `get_duty_state`."""
 
     start_utc, end_utc = business_date_bounds_utc(business_date, settings.day_boundary_hour_ist)
@@ -169,7 +169,7 @@ def day_summary(
     session: Session, *, tenant_id: str, employee_id: str, business_date: date,
 ) -> dict[str, Any]:
     """Punch in/out + completed official-work blocks for one employee/day — the attendance half of
-    a manager's day-drill-down timeline (S-ROUTE5, M08 §12.14). Plain params like `get_duty_state`,
+    a manager's day-drill-down timeline. Plain params like `get_duty_state`,
     since `routes.service` calls this for a report it has already scope-authorized itself."""
 
     day = repository.get_attendance_day(
@@ -211,7 +211,7 @@ def _official_work_payload(row: OfficialWorkSession) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Attendance — punches, history, oversight, export (S-ATT1–4)
+# Attendance — punches, history, oversight, export
 # ---------------------------------------------------------------------------
 
 
@@ -241,8 +241,8 @@ class AttendanceService:
         )
 
     def history(self, *, claims: AccessTokenClaims, month: str) -> dict[str, Any]:
-        """S-ATT2 — `SELF` only (R-ATT-17); blank days (no row) are simply absent from `days`,
-        never fabricated as `ABSENT` (R-ATT-11)."""
+        """`SELF` only; blank days (no row) are simply absent from `days`,
+        never fabricated as `ABSENT`."""
 
         year_str, month_str = month.split("-", 1)
         year, month_num = int(year_str), int(month_str)
@@ -282,8 +282,8 @@ class AttendanceService:
     def team(
         self, *, claims: AccessTokenClaims, business_date: date, page: int, page_size: int | None
     ) -> dict[str, Any]:
-        """S-ATT3/S-ATT4 — one endpoint, scope resolved from the actor (R-ATT-17). Summary counts
-        cover the full scope, not the visible page (R-ATT-12)."""
+        """One endpoint, scope resolved from the actor. Summary counts
+        cover the full scope, not the visible page."""
 
         scope = self._scope(claims)
         if scope.scope is Scope.SELF:
@@ -431,7 +431,7 @@ class AttendanceService:
         idempotency_key: str,
         raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-ATT1 confirm (M09 §5.2, R-ATT-04/07/13/18). One transaction: GPS fix, the
+        """Punch confirm. One transaction: GPS fix, the
         append-only punch event, the `AttendanceDay` upsert, audit and the domain event."""
 
         tenant_id, employee_id = claims.tenant_id, claims.employee_id
@@ -451,7 +451,7 @@ class AttendanceService:
                 business_date = to_business_date(occurred_at, self._settings.day_boundary_hour_ist)
 
                 # Row lock: two concurrent punches for the same employee/day must not both observe
-                # "not on duty" (R-ATT-18).
+                # "not on duty".
                 day = repository.get_attendance_day_for_update(
                     self._session, tenant_id=tenant_id, employee_id=employee_id, business_date=business_date
                 )
@@ -460,7 +460,7 @@ class AttendanceService:
                     if day is not None and day.on_duty:
                         raise ApiError(409, "already_punched_in", "You are already punched in.")
                     if day is not None and day.last_punch_out_id is not None:
-                        # Q-ATT-04: exactly one IN -> OUT cycle is allowed per employee/business date.
+                        # Exactly one IN -> OUT cycle is allowed per employee/business date.
                         raise ApiError(
                             409, "punch_sequence_conflict", "Only one punch-in/out cycle is allowed per day."
                         )
@@ -470,7 +470,7 @@ class AttendanceService:
                     if repository.get_running_official_work(
                         self._session, tenant_id=tenant_id, employee_id=employee_id
                     ) is not None:
-                        # R-ATT-14: official work must end before punch-out is accepted.
+                        # Official work must end before punch-out is accepted.
                         raise ApiError(409, "official_work_running", "End official work before punching out.")
                     from humbee_sfa.modules.routes.service import RouteService
 
@@ -572,7 +572,7 @@ class AttendanceService:
         )
         return 201, payload
 
-    # -- export (Admin-only, R-ATT-15) ------------------------------------
+    # -- export (Admin-only) ------------------------------------
 
     def request_export(
         self,
@@ -582,10 +582,9 @@ class AttendanceService:
         idempotency_key: str,
         raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """Enqueues the `attendance_export_jobs` bookkeeping row (R-ATT-15: never a synchronous
-        file response). **No worker exists to process the queue** — epic 06 Story 6.1's object
-        storage has not landed — so a job stays `queued` until that lands; see the Story 3.2 gap
-        note in the epic file."""
+        """Enqueues the `attendance_export_jobs` bookkeeping row (never a synchronous
+        file response). **No worker exists to process the queue** — object
+        storage has not landed — so a job stays `queued` until that lands."""
 
         scope = self._scope(claims)
         if scope.scope is not Scope.ORG:
@@ -651,7 +650,7 @@ class AttendanceService:
 
 
 # ---------------------------------------------------------------------------
-# Official work — timer, lifecycle, history (S-OFF1–2)
+# Official work — timer, lifecycle, history
 # ---------------------------------------------------------------------------
 
 
@@ -680,8 +679,8 @@ class OfficialWorkService:
         idempotency_key: str,
         raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-OFF1 start (M09 §5.6, R-ATT-14). Requires an active punch-in for the business date
-        the session starts in (Q-ATT-10: resolved yes)."""
+        """Official-work start. Requires an active punch-in for the business date
+        the session starts in."""
 
         tenant_id, employee_id = claims.tenant_id, claims.employee_id
         endpoint = "/api/v1/official-work/sessions"
@@ -776,7 +775,7 @@ class OfficialWorkService:
         idempotency_key: str,
         raw_body: bytes,
     ) -> tuple[int, dict[str, Any]]:
-        """S-OFF1 end (M09 §5.6, R-ATT-16): duration is computed server-side from the two
+        """Official-work end: duration is computed server-side from the two
         server-held timestamps, never trusted from the client's tick counter."""
 
         tenant_id, employee_id = claims.tenant_id, claims.employee_id

@@ -1,15 +1,15 @@
-"""`orders` — the highest-risk table in the whole design. database-design.md §10, §10.1-§10.4.
+"""`orders` — the highest-risk table in the whole design.
 
-The path/money CHECKs below are the single most valuable block of DDL in this schema (§10).
+The path/money CHECKs below are the single most valuable block of DDL in this schema.
 `order_path` is SFA's own binary route classification, sourced from the chosen seller's
-`requires_purchase_order` (epic 07 Story 7.4, `integration/humbee/seller.py`) — never from an
+`requires_purchase_order` (`integration/humbee/seller.py`) — never from an
 outlet tier or classification, which the verified Humbee build does not expose at outlet level at
-all (`docs/features/03-humbee-integration-contract.md` §8). `requires_approval` is sourced
+all. `requires_approval` is sourced
 independently from the same seller's `manager_approval_required` and is **not** implied by
 `order_path` — a seller can require approval without requiring a PO, or vice versa, so there is no
 longer a CHECK binding the two together. `seller_type_snapshot` is Humbee's seller type
 (`MANUFACTURER` / `R1` / `R2` / `R3` / `R4`) and deliberately carries no CHECK.
-GST is per line (§10.1), so there is no order-level rate column here — `gst_amount_paise` is the
+GST is per line, so there is no order-level rate column here — `gst_amount_paise` is the
 sum of `orders_lines.line_gst_amount_paise`.
 """
 
@@ -60,7 +60,7 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
                 "AND dp_created_at IS NULL"
             ),
         ),
-        # the ops queue behind S-ORD7's retry banner
+        # the ops queue behind the order detail's retry banner
         Index(
             "ix_orders_failed",
             "tenant_id",
@@ -74,13 +74,13 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
             "'dp_creation_pending','dp_created','submission_failed','cancelled')",
             name="orders_status_chk",
         ),
-        # no CHECK on seller_type_snapshot: Humbee's open set, still B2-pending (§8.2)
+        # no CHECK on seller_type_snapshot: Humbee's open set
         CheckConstraint(
             "ship_to_type IS NULL OR ship_to_type IN ('self','dealer')", name="orders_ship_to_chk"
         ),
         CheckConstraint("currency = 'INR'", name="orders_currency_chk"),
-        # route invariants, keyed on the chosen seller's `requires_purchase_order` (epic 07 Story
-        # 7.4), never on an outlet tier
+        # route invariants, keyed on the chosen seller's `requires_purchase_order`, never on an
+        # outlet tier
         CheckConstraint(
             "order_path <> 'po_backed' OR humbee_po_id IS NOT NULL",
             name="orders_po_backed_needs_po_chk",
@@ -100,7 +100,7 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
             "requires_approval = false OR approval_request_id IS NOT NULL",
             name="orders_approval_handle_chk",
         ),
-        # money arithmetic — INV-11
+        # money arithmetic
         CheckConstraint(
             "subtotal_net_paise >= 0 AND scheme_discount_paise >= 0 AND product_discount_paise >= 0 "
             "AND taxable_base_paise >= 0 AND gst_amount_paise >= 0 AND gross_total_paise >= 0",
@@ -117,7 +117,7 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
         CheckConstraint(
             "scheme_discount_paise <= subtotal_net_paise", name="orders_scheme_bound_chk"
         ),
-        # INV-09: no DP order without proof
+        # no DP order without proof
         CheckConstraint(
             "status <> 'dp_created' OR downstream_dp_order_ref IS NOT NULL",
             name="orders_dp_created_ref_chk",
@@ -129,7 +129,7 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
     order_path: Mapped[str] = mapped_column(String(32), nullable=False)  # 'po_backed' | 'direct'
     seller_type_snapshot: Mapped[str] = mapped_column(
         String(32), nullable=False
-    )  # Humbee's, open set (B2)
+    )  # Humbee's, open set
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     sub_status_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     cart_draft_id: Mapped[str | None] = mapped_column(
@@ -145,13 +145,13 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
         String(26), nullable=True
     )  # denormalised for reporting scope
 
-    # Humbee snapshots (§2.5)
+    # Humbee snapshots
     humbee_outlet_id: Mapped[str] = mapped_column(String(64), nullable=False)
     outlet_name_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
     outlet_locality_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     humbee_manufacturer_id: Mapped[str] = mapped_column(String(64), nullable=False)
     manufacturer_name_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
-    # The seller chosen for this (outlet, brand) — replaces the pre-epic-07 outlet-classification-
+    # The seller chosen for this (outlet, brand) — replaces the former outlet-classification-
     # driven "distribution partner" concept entirely.
     humbee_seller_id: Mapped[str] = mapped_column(String(64), nullable=False)
     seller_name_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
@@ -167,8 +167,8 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
     shipping_address_state_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     shipping_address_district_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     shipping_address_pincode: Mapped[str | None] = mapped_column(String(6), nullable=True)
-    # R-ORD-04: was the seller relationship re-verified live at submission, not assumed from the
-    # cart's provisional snapshot (epic 07 Story 7.4 — was `classification_confirmed_live`).
+    # Was the seller relationship re-verified live at submission, not assumed from the
+    # cart's provisional snapshot (was `classification_confirmed_live`).
     seller_confirmed_live: Mapped[bool] = mapped_column(nullable=False, default=False)
     snapshot_taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     snapshot_source_as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -182,7 +182,7 @@ class Order(Base, ConventionsMixin, FieldEventTimingMixin):
     approver_name_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # money (§3c)
+    # money
     subtotal_net_paise: Mapped[int] = mapped_column(BigInteger, nullable=False)
     scheme_discount_paise: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     scheme_label_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)

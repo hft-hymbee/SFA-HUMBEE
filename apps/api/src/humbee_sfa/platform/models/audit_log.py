@@ -1,6 +1,6 @@
-"""`platform_audit_logs` — the INV-13 landing zone: every state transition writes a row here.
-database-design.md §12.1, §3 reconciliation item 3 (JSON → JSONB). Not partitioned (§17.1) —
-append-only but low-volume relative to `platform_domain_events`, retained indefinitely (INV-12).
+"""`platform_audit_logs` — the audit landing zone: every state transition writes a row here.
+Not partitioned — append-only but low-volume relative to `platform_domain_events`, retained
+indefinitely.
 """
 
 from __future__ import annotations

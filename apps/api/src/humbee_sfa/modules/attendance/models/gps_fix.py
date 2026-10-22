@@ -1,4 +1,4 @@
-"""`attendance_gps_fixes` — append-only, raw GPS evidence. database-design.md §9.
+"""`attendance_gps_fixes` — append-only, raw GPS evidence.
 
 Both the `numeric` lat/lng and the PostGIS `point` are stored: `numeric` is the raw evidence the
 device reported, `point` is the derived spatial index key — collapsing to only `point` would make
@@ -27,7 +27,7 @@ class GpsFix(Base, ConventionsMixin):
             "tenant_id",
             postgresql_where=text("geocode_status = 'pending'"),
         ),
-        # Backs `latest_gps_fixes_for_employees` (S-ROUTE5's latest-fix lookup) — DISTINCT ON
+        # Backs `latest_gps_fixes_for_employees` (the coverage drill-down's latest-fix lookup) — DISTINCT ON
         # (created_by_employee_id) ORDER BY created_by_employee_id, captured_at DESC over a
         # tenant/employee/time window, without this the table's append-only growth means a full
         # scan per coverage request.

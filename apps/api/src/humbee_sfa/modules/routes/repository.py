@@ -1,18 +1,19 @@
-"""Routes/Visits persistence — M08 §3, §3b, §7. Thin, scoped, no business decisions.
+"""Routes/Visits persistence. Thin, scoped, no business decisions.
 
-Routes/visits are activity data (M08 §9): SELF for the owning Sales Person, OWN_TREE for their
+Routes/visits are activity data: SELF for the owning Sales Person, OWN_TREE for their
 manager, ORG for Admin — the same resolution table `beats` and `attendance` use.
 """
 
 from __future__ import annotations
 
+import typing
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
 from geoalchemy2 import Geometry
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import Numeric, Select, and_, case, cast, func, select, update
+from sqlalchemy import CursorResult, Numeric, Select, and_, case, cast, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -197,7 +198,7 @@ def fill_stop_distances(session: Session, *, route_plan_id: str) -> None:
 def route_business_dates(
     session: Session, *, tenant_id: str, employee_id: str, from_date: date, to_date: date
 ) -> list[date]:
-    """S-CVIS1's day picker (R-RTE-30): business dates the employee already has a live plan for."""
+    """The combined-visit day picker: business dates the employee already has a live plan for."""
 
     stmt = (
         select(RoutePlan.business_date)
@@ -286,7 +287,7 @@ def attach_day_visits_to_plan(
         )
         .values(route_plan_id=route_plan_id)
     )
-    result = session.execute(stmt)
+    result = typing.cast(CursorResult[Any], session.execute(stmt))
     return int(result.rowcount or 0)
 
 
@@ -309,7 +310,7 @@ def outcomes_for_visits(
     session: Session, *, visit_ids: list[str],
 ) -> dict[str, RouteVisitOutcome]:
     """`{visit_id: RouteVisitOutcome}` — one closed-out visit's outcome, for the day-drill-down
-    timeline's "what happened here in short" (S-ROUTE5, M08 §12.14)."""
+    timeline's "what happened here in short"."""
 
     if not visit_ids:
         return {}
@@ -425,7 +426,7 @@ def count_visited_in_window(
 
 
 # ---------------------------------------------------------------------------
-# Coverage (S-ROUTE5)
+# Coverage
 # ---------------------------------------------------------------------------
 
 

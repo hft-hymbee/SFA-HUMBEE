@@ -4,8 +4,8 @@ Idempotent: re-running the same day overwrites FEMD / FEOD order columns + distr
 same full-day recompute as the orders projector. No Humbee calls — district comes from the
 local outlet projection.
 
-Must run after `apps/api/db/bootstrap/16_reporting_manufacturer_district.sql` is applied,
-or every manufacturer and district chart stays empty.
+Run it after `alembic upgrade head`; until it runs, manufacturer and district charts stay empty for
+days recorded before the projector stamped districts.
 """
 
 from __future__ import annotations
@@ -43,8 +43,8 @@ def main() -> None:
     if missing_tables:
         missing = ", ".join(missing_tables)
         raise RuntimeError(
-            "Apply apps/api/db/bootstrap/16_reporting_manufacturer_district.sql before this "
-            f"backfill. Missing tables: {missing}"
+            "Run `alembic upgrade head` from apps/api before this backfill. "
+            f"Missing tables: {missing}"
         )
 
     tenant_id = settings.tenant_id

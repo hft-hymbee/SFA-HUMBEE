@@ -1,9 +1,8 @@
-"""`targets` models — database-design.md §11.2. Read this file for the index; open a specific
-module for column detail.
+"""`targets` models. Read this file for the index; open a specific module for column detail.
 
 - `target.py`                          `Target` — `targets`, one active row per (employee, type,
   month); `target_value` is null for `sales` — the rollup is derived per-basis from its lines
-  (R-TGT-09) since a sales target has no single basis of its own.
+  since a sales target has no single basis of its own.
 - `target_manufacturer_line.py`        `TargetManufacturerLine` — `targets_manufacturer_lines`,
   per-manufacturer breakdown of a `sales` target; `line_basis` comes from that manufacturer's own
   Humbee-fixed unit, resolved server-side and snapshotted; declared FK `ON DELETE CASCADE` to `targets`.

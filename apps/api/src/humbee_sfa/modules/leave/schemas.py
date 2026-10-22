@@ -1,9 +1,9 @@
-"""Leave HTTP DTOs — M12 §10.
+"""Leave HTTP DTOs.
 
-Only the four screens' worth of surface is modelled: S-LV1 (balances, preview, submit), S-LV2
-(own history) and S-LV3 (team). Display strings the client can compose from these fields — the
+Only the leave screens' surface is modelled: apply (balances, preview, submit), own history and
+team. Display strings the client can compose from these fields — the
 `"Casual · 22–23 Jul"` title, the `"Applied 2h ago"` relative label, the status chip — are not sent
-(M12 §8 lists them as client formatters, and R-LV-18 makes the status→label map a shared client
+(they are client formatters, and the status→label map is a shared client
 mapper). Day counts are `float`: the column is `numeric(4,1)`, so a JSON number is lossless and the
 client does arithmetic on it.
 """
@@ -18,7 +18,7 @@ from humbee_sfa.modules.leave.leave_type import LeaveType
 
 LeaveTypeName = LeaveType
 
-# S-LV2 tabs (M12 §4) and S-LV3 filter chips. Server-side, not client-side (R-LV-17).
+# Own-history tabs and team filter chips. Server-side, not client-side.
 MINE_STATUS_FILTERS: dict[str, tuple[str, ...]] = {
     "all": (),
     "pending": ("pending",),
@@ -27,7 +27,7 @@ MINE_STATUS_FILTERS: dict[str, tuple[str, ...]] = {
 TEAM_STATUS_FILTERS: dict[str, tuple[str, ...]] = {
     "all": (),
     "pending": ("pending",),
-    # `approved` and `auto_approved` are deliberately distinct buckets (M12 §3.4, §12 Q9).
+    # `approved` and `auto_approved` are deliberately distinct buckets.
     "approved": ("approved", "approved_with_edits"),
     "auto_approved": ("auto_approved",),
     "rejected": ("rejected",),
@@ -35,8 +35,8 @@ TEAM_STATUS_FILTERS: dict[str, tuple[str, ...]] = {
 
 
 class SubmitLeaveBody(BaseModel):
-    """S-LV1 submit. `id` is the client-generated ULID that makes a retried submit provably the
-    same request (M12 §3.1); `is_half_day` has no S-LV1 control in v1 (§12 Q4) and is not accepted.
+    """Leave submit. `id` is the client-generated ULID that makes a retried submit provably the
+    same request; `is_half_day` has no client control in v1 and is not accepted.
     """
 
     id: str | None = Field(default=None, min_length=26, max_length=26)
@@ -52,7 +52,7 @@ class LeaveBalanceItem(BaseModel):
     entitled_days: float
     consumed_days: float
     pending_days: float
-    # R-LV-21, never clamped at 0 — a negative available balance is a legitimate visible state.
+    # Never clamped at 0 — a negative available balance is a legitimate visible state.
     available_days: float
 
 
@@ -62,14 +62,14 @@ class LeaveBalancesResponse(BaseModel):
 
 
 class LeavePreviewResponse(BaseModel):
-    """The S-LV1 info card, server-authoritative (M12 §10). `exceeds_balance` drives the advisory
-    banner only — submission is never blocked on it (R-LV-11)."""
+    """The apply-leave info card, server-authoritative. `exceeds_balance` drives the advisory
+    banner only — submission is never blocked on it."""
 
     leave_type: LeaveType
     from_date: date
     to_date: date
     # The leave year this projection is drawn from — `from_date`'s, which is not always the year
-    # the balance cards show (M12 §12 Q14).
+    # the balance cards show.
     period_year: int
     day_count: float
     available_days: float
@@ -78,8 +78,8 @@ class LeavePreviewResponse(BaseModel):
 
 
 class LeaveRequestItem(BaseModel):
-    """One S-LV2 row. `approval_request_id` is what the Withdraw action posts to —
-    `POST /api/v1/approvals/{id}/withdraw` (M12 §4 S-LV2, §10 "Decisions — not here")."""
+    """One own-history row. `approval_request_id` is what the Withdraw action posts to —
+    `POST /api/v1/approvals/{id}/withdraw`."""
 
     id: str
     leave_type: LeaveType
@@ -102,7 +102,7 @@ class LeaveRequestListResponse(BaseModel):
 
 
 class TeamLeaveItem(BaseModel):
-    """One S-LV3 row. The avatar initials are derived client-side from `employee_name` (M12 §8)."""
+    """One team-leave row. The avatar initials are derived client-side from `employee_name`."""
 
     id: str
     employee_id: str

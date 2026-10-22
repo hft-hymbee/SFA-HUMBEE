@@ -1,4 +1,4 @@
-"""Orders/cart persistence — Stories 4.1-4.3. Thin, no business decisions (M10 §3.3, §3.4)."""
+"""Orders/cart persistence. Thin, no business decisions."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def get_line(session: Session, *, cart_draft_id: str, product_id: str) -> CartLi
     return session.execute(stmt).scalar_one_or_none()
 
 
-# -- orders (Story 4.2/4.3) --------------------------------------------------
+# -- orders --------------------------------------------------
 
 
 def get_order(session: Session, *, tenant_id: str, order_id: str) -> Order | None:
@@ -80,7 +80,7 @@ def get_order_by_id_or_cart(session: Session, *, tenant_id: str, order_id: str) 
 
 def get_order_by_cart(session: Session, *, tenant_id: str, cart_draft_id: str) -> Order | None:
     """The subject-lookup path for `DpOrderAdapter`: the approval subject is the cart, the mutable
-    row is the order (M10 §3.1 relationship, avoids the order-row-before-approval-request chicken-
+    row is the order (avoids the order-row-before-approval-request chicken-
     and-egg — see `orders.service.OrderService.submit_order`)."""
 
     stmt = select(Order).where(
@@ -165,7 +165,7 @@ def list_order_lines(session: Session, *, order_id: str) -> list[OrderLine]:
 def list_orders(
     session: Session, *, scope: ScopeContext, status: str | None, cursor: str | None, limit: int
 ) -> list[Order]:
-    """S-ORD6/S-ORD7-M. Scoped via the shared `ScopeResolver` (SELF for a Sales Person, OWN_TREE
+    """Scoped via the shared `ScopeResolver` (SELF for a Sales Person, OWN_TREE
     for a Manager) rather than a hand-rolled `employee_id` check."""
 
     stmt: Select[tuple[Order]] = select(Order).where(Order.is_active.is_(True))
@@ -181,7 +181,7 @@ def list_orders(
 
 
 def get_order_in_scope(session: Session, *, scope: ScopeContext, order_id: str) -> Order | None:
-    """S-ORD7/S-ORD7-M read. `404`, never `403`, on out-of-scope (R-ORD-42) — the caller treats a
+    """`404`, never `403`, on out-of-scope — the caller treats a
     `None` the same as "not found"."""
 
     # Approval subject_id is the cart, not the order (submit_order / DpOrderAdapter).

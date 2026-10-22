@@ -16,7 +16,7 @@ from humbee_sfa.modules.identity.service import IdentityService, assert_live_ses
 router = APIRouter(prefix="/api/v1", tags=["Identity & Session"])
 
 # Identity owns `identity_sessions`, so it supplies the persisted live-session check that
-# every authenticated route in every module runs (R-IDN-21).
+# every authenticated route in every module runs.
 register_session_guard(assert_live_session)
 
 

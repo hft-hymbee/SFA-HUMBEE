@@ -1,12 +1,12 @@
-"""Generic reporting projector engine. M11 §3b.3 (projector semantics), §3b.4 (late-arriving
-events) and §3b.5 (replay/recompute), and epic 05 Story 5.1 checkbox 1.
+"""Generic reporting projector engine: projector semantics, late-arriving events and
+replay/recompute.
 
 This module owns the durable-log bookkeeping shared by every producer rollup: cursor advance
 against `platform_domain_events`, at-least-once dedup by `event_seq`, lateness quarantine, the
 `fact_employee_day` upsert-and-recompute primitive, and operator replay/health. Producers (see
 `producers/`) only supply the per-event-type fold logic for the columns their stream owns.
 
-Recompute, never increment (§3b.3 rule 2): `upsert_fact_employee_day` always *sets* the columns a
+Recompute, never increment: `upsert_fact_employee_day` always *sets* the columns a
 producer passes it from that event's own payload, never `+= 1`s a counter. Replaying the same
 event any number of times converges on the same row, which is what makes catch-up, late-event
 healing and full replay all safe to run against live traffic without a shadow-table swap.
@@ -35,8 +35,8 @@ from humbee_sfa.platform.models import DomainEvent, EventQuarantine
 
 logger = structlog.get_logger("humbee_sfa.modules.reporting.projector")
 
-# Bumped when a KPI formula in M11 §3a changes; see `fact_employee_day.formula_version`. Story 5.1
-# ships the first formula generation only — a version bump and its recompute-queue drain are
+# Bumped when a KPI formula changes; see `fact_employee_day.formula_version`. This ships the
+# first formula generation only — a version bump and its recompute-queue drain are
 # out of scope here.
 FORMULA_VERSION = 1
 
@@ -48,9 +48,8 @@ BATCH_SIZE = 500
 class DimensionNotReady(Exception):
     """Raised by a producer when the employee's current `dim_employee` row does not exist yet.
 
-    Story 5.1 does not build the `org` -> `dim_employee` SCD2 projector (org's published events
-    carry only ids/codes today, not the display/geography shape `dim_employee` needs — see
-    epic 05-reporting-performance.md Story 5.1 notes). Until that lands, any producer event for an
+    The `org` -> `dim_employee` SCD2 projector is not built here (org's published events carry
+    only ids/codes today, not the display/geography shape `dim_employee` needs). Until that lands, any producer event for an
     employee with no dimension row is quarantined with this reason and heals via operator replay
     once the dimension exists, instead of failing the FK write or fabricating a placeholder row.
     """
@@ -69,7 +68,7 @@ def process_stream(
 
     Events are applied in `event_seq` order; the offset advances past every event in the batch
     whether it was applied, quarantined for lateness, or quarantined for a handler failure — an
-    event is never retried automatically, only via explicit operator replay (§3b.5). A failing
+    event is never retried automatically, only via explicit operator replay. A failing
     handler's partial writes are rolled back to a savepoint so one bad event cannot corrupt or
     stall the rest of the batch. Caller owns the outer transaction/commit (same contract as
     `platform/scheduler.py` job bodies).
@@ -145,14 +144,14 @@ def replay_quarantined(
     limit: int = BATCH_SIZE,
 ) -> int:
     """Re-applies up to `limit` quarantined events on `stream` whose quarantine `reason` can
-    resolve itself over time — `employee_dimension_missing` (M11 §3b.5): once `dim_employee` gets
+    resolve itself over time — `employee_dimension_missing`: once `dim_employee` gets
     a row for the employee, the exact same event that failed before will now fold cleanly; and
     `handler_failed`, once the handler is fixed. `process_stream` never retries automatically
     (its offset already advanced past the event), so this is the only path back for an event
     quarantined that way.
 
     Never call this with `reason="beyond_lateness_window"` — that rejection is permanent by design
-    (M11 §3b.4: don't silently rewrite an old month), not a transient gap to heal.
+    (don't silently rewrite an old month), not a transient gap to heal.
     """
 
     active_clock = clock or SystemClock()
@@ -206,7 +205,7 @@ def upsert_fact_employee_day(
 ) -> FactEmployeeDay:
     """Recompute-and-write the columns in `fields` on one `fact_employee_day` row.
 
-    A caller only ever passes the columns its own stream owns (M11 §3b.2), so two producers
+    A caller only ever passes the columns its own stream owns, so two producers
     folding the same row never clobber each other's counters. `revision` increments on every
     write, proving a recompute happened (never a counter of business events).
 
@@ -340,7 +339,7 @@ def drop_stale_manufacturer_days(
 ) -> None:
     """Delete `fact_employee_manufacturer_day` rows the day's recompute no longer produces.
 
-    A full-day recompute (§3b.3 rule 2) owns the whole grain, not just the rows it writes: a
+    A full-day recompute owns the whole grain, not just the rows it writes: a
     manufacturer whose only order was cancelled must lose its row, or its money outlives the
     order it came from. FEMD exists solely because of orders, so deleting is correct here.
     """

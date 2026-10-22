@@ -1,25 +1,20 @@
-"""Provider-neutral port for Humbee geography reads (M03 §3a.1, R-ORG-35).
+"""Provider-neutral port for Humbee geography reads.
 
 Humbee owns the upstream geography master. SFA persists employee geography assignments and their
 label projections in `modules/org`; this module holds the upstream records and the adapter.
 
-G-2/G-3/G-4 (SFA-API-Contract v2.2) serve the zone → state → district tree one level at a time,
+The geography endpoints serve the zone → state → district tree one level at a time,
 for a picker that drills down rather than loading the whole tree up front.
 They expose neither a shop-category taxonomy nor district outlet counts, so geography assignment
 contains neither.
 
 OPEN DECISION — the `Location` level.
-    Humbee exposes Zone / State / District and *no* `Location` level, which some downstream
-    screens ask for. That gap is an unresolved product/data decision
-    (`epics/humbee-sfa-build/EPIC.md` line "Humbee G-1 does not currently provide the `Location`
-    level required by geography assignment"; `epics/humbee-sfa-build/01-organization-identity-
-    access.md` Story 1.2; and `docs/rpi/2026-08-22-backend-epic-restructure/research.md`
-    §"Location"). This module therefore deliberately has **no** `Location` record type and no
-    `fetch_locations` method: inventing one would bake a guess at Humbee's API into the
-    assignment contract. Do not add one until the decision lands in
-    `docs/features/M03-org-workforce-and-geography.md`.
+    Humbee exposes Zone / State / District and *no* `Location` level, which some downstream screens
+    ask for. That gap is an unresolved product/data decision. This module therefore deliberately has
+    **no** `Location` record type and no `fetch_locations` method: inventing one would bake a guess
+    at Humbee's API into the assignment contract. Do not add one until the decision lands.
 
-    Not answered by `GET /sfa/v1/locations` (C-16, `integration/humbee/onboarding.py`): that
+    Not answered by `GET /sfa/v1/locations` (`integration/humbee/onboarding.py`): that
     endpoint returns two flat, mutually-filterable lists (localities, pincodes) scoped to one
     district for address entry, with no assignment/pool semantics — a different concept from the
     hierarchical tier this decision is about.
@@ -72,7 +67,7 @@ class HumbeeGeographyMasterProvider:
         self._settings = settings
 
     def fetch_zones(self, *, tenant_id: str) -> tuple[ZoneOption, ...]:
-        del tenant_id  # G-2 takes no parameters; one zone list for the whole master
+        del tenant_id  # The zones endpoint takes no parameters; one zone list for the whole master
         client = get_humbee_client(self._settings)
         try:
             data = client.call(
@@ -136,10 +131,10 @@ class HumbeeGeographyMasterProvider:
     def fetch_state_of_district(self, *, tenant_id: str, district_id: str) -> str | None:
         """The state a district belongs to, or `None` when the master does not know the district.
 
-        G-4 offers no by-district lookup, so this reads the whole district master (748 rows) and
-        matches locally. A caller that already holds a state must not use it. It exists because
-        C-15 serviceability is bounded by state and two of the order flow's three checks hold only
-        a district id.
+        The districts endpoint offers no by-district lookup, so this reads the whole district master
+        (748 rows) and matches locally. A caller that already holds a state must not use it. It
+        exists because serviceability is bounded by state and two of the order flow's three checks
+        hold only a district id.
         """
 
         return next(

@@ -1,10 +1,10 @@
-"""Approvals HTTP routes — M06 §10.
+"""Approvals HTTP routes.
 
 Handlers validate and translate HTTP only: authorisation is the service's resolved `ScopeContext`
 plus `policies.can_decide`, transaction ownership is the service's, and errors leave as raised
 `ApiError`s for the application-level handlers to envelope. There is no create endpoint here by
 design — a request is created by the subject's own endpoint calling `approvals.service.create`, and
-the decision endpoints below are the only way a request changes state (R-AP-01).
+the decision endpoints below are the only way a request changes state.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/v1", tags=["Approvals"])
 
 ApprovalId = Annotated[str, Path(min_length=1, max_length=26)]
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)]
-# `If-Match` carries the `subject_version` the client is deciding on (R-AP-29).
+# `If-Match` carries the `subject_version` the client is deciding on.
 IfMatch = Annotated[int | None, Header(alias="If-Match", ge=1)]
 
 

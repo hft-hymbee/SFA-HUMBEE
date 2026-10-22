@@ -1,6 +1,6 @@
-"""`platform_idempotency_records`. database-design.md §12.1, §3 reconciliation item 3
-(JSON → JSONB). Keys are scoped per endpoint, not globally (`endpoint` added, unique index
-rescoped from `(tenant_id, idempotency_key)` to `(tenant_id, endpoint, idempotency_key)`).
+"""`platform_idempotency_records`. Keys are scoped per endpoint, not globally (`endpoint`
+added, unique index rescoped from `(tenant_id, idempotency_key)` to
+`(tenant_id, endpoint, idempotency_key)`).
 """
 
 from __future__ import annotations

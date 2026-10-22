@@ -1,27 +1,27 @@
-"""Routes/Visits HTTP routes — M08 §10.
+"""Routes/Visits HTTP routes.
 
 Handlers translate HTTP only; transaction ownership and scope resolution are the service's.
 
 Endpoints intentionally **not** built, matching the beats/attendance routers' precedent of naming
 skips explicitly:
 
-- `GET /route-plans/beat-options` — S-ROUTE2b's "assigned today vs other" grouping is presentation
-  over data the client already has from `GET /beats?status=approved` (M07); no new SFA fact is
+- `GET /route-plans/beat-options` — the "assigned today vs other" beat grouping is presentation
+  over data the client already has from `GET /beats?status=approved`; no new SFA fact is
   computed, so the client can group client-side rather than SFA growing a second beat-listing
-  endpoint. `POST /route-plans/switch-beat` still derives `run_origin` server-side (R-RTE-11),
+  endpoint. `POST /route-plans/switch-beat` still derives `run_origin` server-side,
   which is the part that actually has to be authoritative.
 - `PATCH /route-plans/{id}` — no screen reorders/edits a saved plan's stops after creation; the
-  documented flows only ever create a plan (S-ROUTE2a) or replace it wholesale (S-ROUTE2b).
+  documented flows only ever create a plan or replace it wholesale.
 - `POST /routes/sequence-preview` — a PostGIS per-leg distance preview with no consuming screen
   logic built yet; stop distances are written when stops are appended to a plan.
-- `GET /outlets/{outlet_ref}/visit-snapshot` and `/activity` — Humbee-proxy reads owned by M14's
-  outlet projection/ACL, not this module; not part of Story 3.3.
-- `POST /uploads` — object-storage signed URLs depend on epic 06 (not done yet), matching
-  Story 3.2's precedent for `attendance_export_jobs`. Outcome photos stay unsupported until then
-  (R-RTE-18 already treats a missing photo as never blocking).
-- `DELETE /combined-visits/{id}` — no screen offers cancelling a scheduled tag-along yet (M08
-  §12.26 is an open question); adding a cancel path with no caller would be speculative.
-- `DELETE /visits/{id}` — deliberately absent; visits are never deleted (R-RTE-35).
+- `GET /outlets/{outlet_ref}/visit-snapshot` and `/activity` — Humbee-proxy reads owned by the
+  outlet projection/ACL, not this module.
+- `POST /uploads` — object-storage signed URLs are not built yet, matching
+  the precedent for `attendance_export_jobs`. Outcome photos stay unsupported until then
+  (a missing photo is already never blocking).
+- `DELETE /combined-visits/{id}` — no screen offers cancelling a scheduled tag-along yet (still an
+  open question); adding a cancel path with no caller would be speculative.
+- `DELETE /visits/{id}` — deliberately absent; visits are never deleted.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def get_current_route_plan(
     business_date: Annotated[date | None, Query()] = None,
     employee_id: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
-    """S-ROUTE1/3. A manager/admin may pass `employee_id` for S-ROUTE5's drill-down."""
+    """A manager/admin may pass `employee_id` for the coverage drill-down."""
 
     return RouteService(session).get_day(
         claims=claims, business_date=business_date, employee_id=employee_id
@@ -74,8 +74,6 @@ async def start_beat(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Transition #12 (S-ROUTE2b)."""
-
     status_code, payload = RouteService(session).start_beat(
         claims=claims, body=body, idempotency_key=idempotency_key, raw_body=await request.body(),
     )
@@ -100,7 +98,7 @@ def route_days(
     from_date: Annotated[date, Query(alias="from")],
     to_date: Annotated[date, Query(alias="to")],
 ) -> dict[str, Any]:
-    """S-CVIS1's day picker (R-RTE-30)."""
+    """The combined-visit day picker."""
 
     return RouteService(session).route_days(
         claims=claims, employee_id=employee_id, from_date=from_date, to_date=to_date
@@ -116,7 +114,7 @@ async def check_in(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Transitions #2/#3 (S-ROUTE4 entry, or "Add unplanned visit")."""
+    """Visit entry or "Add unplanned visit"."""
 
     status_code, payload = RouteService(session).check_in(
         claims=claims, visit_id=visit_id, body=body, idempotency_key=idempotency_key,
@@ -136,7 +134,7 @@ async def submit_coordinate_correction(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """O-4 field pin correction."""
+    """Field pin correction."""
 
     status_code, payload = RouteService(session).submit_coordinate_correction(
         claims=claims, visit_id=visit_id, body=body, idempotency_key=idempotency_key,
@@ -154,8 +152,6 @@ async def log_outcome(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """Transition #6 (S-VISIT1)."""
-
     status_code, payload = RouteService(session).log_outcome(
         claims=claims, visit_id=visit_id, body=body, idempotency_key=idempotency_key,
         raw_body=await request.body(),
@@ -169,7 +165,7 @@ def get_visit_outcome(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """Read-back for S-VISIT1 — reopening a completed visit shows its recorded outcome."""
+    """Read-back for a visit's close-out — reopening a completed visit shows its recorded outcome."""
 
     return RouteService(session).get_visit_outcome(claims=claims, visit_id=visit_id)
 
@@ -189,7 +185,7 @@ def check_out(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """"End visit & check out" (S-ROUTE4). `422 OUTCOME_REQUIRED` per R-RTE-15. Never mutates
+    """"End visit & check out"; may return `422 OUTCOME_REQUIRED`. Never mutates
     state (see `RouteService.check_out`), so no `Idempotency-Key` is required."""
 
     _, payload = RouteService(session).check_out(claims=claims, visit_id=visit_id)
@@ -204,7 +200,7 @@ def list_missed_visits(
     from_date: Annotated[date | None, Query(alias="from")] = None,
     to_date: Annotated[date | None, Query(alias="to")] = None,
 ) -> dict[str, Any]:
-    """S-VISIT2 — read-only audit trail (R-RTE-19). Defaults to the trailing 7 days ("this week")."""
+    """Read-only missed-visit audit trail. Defaults to the trailing 7 days ("this week")."""
 
     return RouteService(session).list_missed_visits(
         claims=claims, employee_id=employee_id, from_date=from_date, to_date=to_date
@@ -218,7 +214,7 @@ def coverage_team(
     business_date: Annotated[date, Query()],
     only_sales_person: Annotated[bool, Query()] = False,
 ) -> dict[str, Any]:
-    """S-ROUTE5 (Manager `OWN_TREE` / Admin `ORG`, same path)."""
+    """Manager `OWN_TREE` / Admin `ORG`, same path."""
 
     return RouteService(session).coverage_team(
         claims=claims, business_date=business_date, only_sales_person=only_sales_person,
@@ -233,8 +229,6 @@ async def create_combined_visit(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-CVIS1."""
-
     status_code, payload = RouteService(session).create_combined_visit(
         claims=claims, body=body, idempotency_key=idempotency_key, raw_body=await request.body(),
     )
@@ -246,7 +240,7 @@ def list_combined_visits(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """S-CVIS1's "manager's scheduled and pending-feedback tag-alongs" list."""
+    """The "manager's scheduled and pending-feedback tag-alongs" list."""
 
     return RouteService(session).list_combined_visits(claims=claims)
 
@@ -257,8 +251,6 @@ def get_combined_visit(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """S-CVIS2 entry."""
-
     return RouteService(session).get_combined_visit(claims=claims, combined_visit_id=combined_visit_id)
 
 
@@ -273,8 +265,6 @@ async def submit_combined_visit_feedback(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> JSONResponse:
-    """S-CVIS2."""
-
     status_code, payload = RouteService(session).submit_combined_visit_feedback(
         claims=claims, combined_visit_id=combined_visit_id, body=body,
         idempotency_key=idempotency_key, raw_body=await request.body(),
@@ -288,7 +278,7 @@ def trigger_end_of_day_sweep(
     claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """Operator-only manual trigger for `routes.end_of_day_sweep` (M08 §3b, §10). Not a product
+    """Operator-only manual trigger for `routes.end_of_day_sweep`. Not a product
     capability — no screen calls this; it is a manual recovery/re-run path beside the scheduled
     worker trigger."""
 

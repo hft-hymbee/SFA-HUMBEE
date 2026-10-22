@@ -1,4 +1,4 @@
-"""`identity_auth_audit_events`. database-design.md §5. Append-only; drives S-A2 vs S-A4 routing
+"""`identity_auth_audit_events`. Append-only; drives re-login vs deactivated-account routing
 via `revocation_reason` on the related session, not stored here.
 """
 

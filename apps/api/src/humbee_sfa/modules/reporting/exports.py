@@ -1,7 +1,7 @@
 """Admin Excel report downloads — synchronous, in-request generation.
 
 Each report composes other modules only through their public service classes/functions,
-never their repositories or models directly (see CLAUDE.md). Admin-only, gated the same way
+never their repositories or models directly. Admin-only, gated the same way
 `ReportingService.admin_coverage_trend` gates its endpoint.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import calendar
 import io
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import Response
@@ -51,7 +51,7 @@ def _add_months(value: date, months: int) -> date:
 
 def _designation_level_label(designation_code: str) -> str:
     """"L1".."L5" from the single canonical ladder in `reporting.service`. Admin carries no
-    level — it sits above the ladder, not on it (M03 designation_role_chk)."""
+    level — it sits above the ladder, not on it (org's designation_role_chk)."""
 
     level = _LEVEL_BY_DESIGNATION.get(designation_code)
     return f"L{level + 1}" if level is not None else "Admin"
@@ -63,7 +63,7 @@ def _workbook_response(
     """One workbook, one or more named sheets. `sheets` is `(name, headers, rows)` triples."""
 
     workbook = Workbook()
-    workbook.remove(workbook.active)
+    workbook.remove(workbook.worksheets[0])
     for sheet_name, headers, rows in sheets:
         sheet = workbook.create_sheet(sheet_name)
         sheet.append(headers)
@@ -98,7 +98,7 @@ def _yes_no(value: bool) -> str:
     return "Yes" if value else "No"
 
 
-def _ist_time(value: Any) -> str:
+def _ist_time(value: datetime | None) -> str:
     if value is None:
         return ""
     return value.astimezone(IST_ZONE).strftime("%H:%M")
@@ -414,7 +414,11 @@ class AdminReportsService:
             if outlet.external_id in assigned_external_ids or outlet.external_id in seen:
                 continue
             seen.add(outlet.external_id)
-            geo = district_geo.get(outlet.district_external_id, {})
+            geo = (
+                district_geo.get(outlet.district_external_id, {})
+                if outlet.district_external_id is not None
+                else {}
+            )
             rows.append(
                 [
                     outlet.external_id,

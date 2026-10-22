@@ -1,5 +1,4 @@
-"""`orders_po_reference_lines` — per-SKU snapshot of the referenced PO's lines. database-design.md
-§10, §10.1.
+"""`orders_po_reference_lines` — per-SKU snapshot of the referenced PO's lines.
 
 `balance_qty_snapshot` (with `orders_po_lines_balance_chk` pinning it to
 `ordered - fulfilled`) is the evidence that stock headroom existed when the order was submitted —

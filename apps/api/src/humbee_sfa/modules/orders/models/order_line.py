@@ -1,7 +1,7 @@
-"""`orders_lines` — per-SKU lines of an order. database-design.md §10, §10.1.
+"""`orders_lines` — per-SKU lines of an order.
 
-GST lives here, not on `orders`, because it is per-HSN and a basket is nearly always mixed
-(§10.1). `orders_lines_net_chk`/`orders_lines_approved_net_chk` make money arithmetic a database
+GST lives here, not on `orders`, because it is per-HSN and a basket is nearly always mixed.
+`orders_lines_net_chk`/`orders_lines_approved_net_chk` make money arithmetic a database
 fact, and `orders_lines_po_line_chk` makes `price_source`/`humbee_po_line_id` an unbreakable pair
 so a PO-priced line can always be traced back to the contract line it drew against.
 """
@@ -81,7 +81,7 @@ class OrderLine(Base, ConventionsMixin):
     product_name_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
     category_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     form_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    # Both dropped from Humbee's product response on 26 Aug 2026 (§9) — null rather than a
+    # Both dropped from Humbee's product response on 26 Aug 2026 — null rather than a
     # fabricated placeholder.
     pack_size_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     uom_snapshot: Mapped[str] = mapped_column(Text, nullable=False)

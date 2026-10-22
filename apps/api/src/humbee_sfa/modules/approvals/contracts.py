@@ -1,17 +1,16 @@
-"""The approvals engine's public contract — M06 §3a.
+"""The approvals engine's public contract.
 
 Everything a consuming module needs in order to plug a new subject type in lives here: the
-canonical enums (§3a.2/§3a.3), the DTOs the engine renders generically, the
-`ApprovalSubjectAdapter` Protocol (§3a.4) and the `SubjectTypeRegistry` whose completeness is a
-fatal boot invariant (R-AP-03).
+canonical enums, the DTOs the engine renders generically, the `ApprovalSubjectAdapter` Protocol
+and the `SubjectTypeRegistry` whose completeness is a fatal boot invariant.
 
 `approvals/service.py` calls **nothing** on a subject except the Protocol below. That is what keeps
 "one approval engine, not five" true: adding expense approval tomorrow is a new adapter and a new
 `SubjectType` value, not a change to the engine.
 
-Two deliberate deviations from the Protocol as written in M06 §3a.4, both so adapters can honour
-R-AP-16 ("apply_edit, the status transition, the decision row, the adapter callback and the
-notification write all occur in one database transaction"):
+Two deliberate deviations from the Protocol as originally written, both so that apply_edit, the
+status transition, the decision row, the adapter callback and the notification write all occur in
+one database transaction:
 
 * every method that touches the database takes the **caller's** `Session` as its first argument —
   an adapter must never open a session or a transaction of its own;
@@ -33,7 +32,7 @@ from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.modules.approvals.models import Request
 
 # ---------------------------------------------------------------------------
-# Canonical enums (M06 §3a.2, §3a.3, §3.2) — these mirror the CHECK constraints on
+# Canonical enums — these mirror the CHECK constraints on
 # `approvals_requests` / `approvals_decisions` exactly. Changing one without the other is a bug.
 # ---------------------------------------------------------------------------
 
@@ -53,7 +52,7 @@ class ApprovalStatus(StrEnum):
     AUTO_APPROVED = "auto_approved"
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
-    EXPIRED = "expired"  # reserved; unreachable in v1 (M06 §12 Q13)
+    EXPIRED = "expired"  # reserved; unreachable in v1
 
 
 class RoutingReason(StrEnum):
@@ -87,8 +86,8 @@ GRANTED_STATUSES: frozenset[str] = frozenset(
     {ApprovalStatus.APPROVED, ApprovalStatus.APPROVED_WITH_EDITS, ApprovalStatus.AUTO_APPROVED}
 )
 
-# Timeline step states — the four values `HM1.ApprovalTimeline` accepts (M06 §3.3). Not to be
-# confused with `ApprovalStatus`; `edited` doubles as the escalation step (§12 Q6).
+# Timeline step states — the four values `HM1.ApprovalTimeline` accepts. Not to be
+# confused with `ApprovalStatus`; `edited` doubles as the escalation step.
 TIMELINE_DONE = "done"
 TIMELINE_EDITED = "edited"
 TIMELINE_CURRENT = "current"
@@ -122,14 +121,14 @@ class Actor:
 
 
 # ---------------------------------------------------------------------------
-# Subject DTOs (M06 §3a.4)
+# Subject DTOs
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class SubjectSummary:
-    """Row content for S-AP1 / S-AP3. Denormalised onto the request at write time (M06 §5.1.4) so
-    the inbox never calls back into a subject module or Humbee."""
+    """Row content for the inbox and my-requests lists. Denormalised onto the request at write time
+    so the inbox never calls back into a subject module or Humbee."""
 
     title: str
     subtitle: str
@@ -140,8 +139,9 @@ class SubjectSummary:
 
 @dataclass(frozen=True)
 class SubjectDetailBlock:
-    """One typed block on S-AP2. `kind` is one of `key_values`, `line_items`, `date_range`, `map`,
-    `photo_grid`; the engine renders it generically and knows nothing about atta, beats or leave."""
+    """One typed block on the request detail. `kind` is one of `key_values`, `line_items`,
+    `date_range`, `map`, `photo_grid`; the engine renders it generically and knows nothing about
+    atta, beats or leave."""
 
     kind: str
     label: str
@@ -155,7 +155,7 @@ class SubjectDetailBlocks:
 
 @dataclass(frozen=True)
 class EditableField:
-    """One control in the S-AP2 Edit sheet. An empty list hides the Edit button (R-AP-13)."""
+    """One control in the request detail's Edit sheet. An empty list hides the Edit button."""
 
     key: str
     label: str
@@ -179,7 +179,7 @@ class SubjectEvent:
 @dataclass(frozen=True)
 class EditResult:
     """`apply_edit` must bump `subject_version` and hand back the recomputed summary so the
-    request's denormalised title/subtitle/amount stay correct (M06 §3a.4)."""
+    request's denormalised title/subtitle/amount stay correct."""
 
     summary: SubjectSummary
     subject_version: int
@@ -189,7 +189,7 @@ class EditResult:
 
 @dataclass(frozen=True)
 class ApprovalAdvisory:
-    """Non-blocking only — severity is never `blocking` (R-AP-19)."""
+    """Non-blocking only — severity is never `blocking`."""
 
     code: str
     severity: str  # `info` | `warning`
@@ -198,7 +198,7 @@ class ApprovalAdvisory:
 
 @dataclass(frozen=True)
 class NotificationSpec:
-    """Materialised strings, computed at write time (R-AP-22). Consumed by Story 2.3."""
+    """Materialised strings, computed at write time."""
 
     kind: str
     title: str
@@ -217,7 +217,7 @@ class DeepLink:
 
 class SubjectEditRejected(Exception):
     """Raised by `apply_edit` on validation failure. The engine turns this into
-    `422 SUBJECT_EDIT_REJECTED` and rolls the whole decision back (R-AP-16)."""
+    `422 SUBJECT_EDIT_REJECTED` and rolls the whole decision back."""
 
     def __init__(self, message: str, *, field_key: str | None = None) -> None:
         super().__init__(message)
@@ -226,7 +226,7 @@ class SubjectEditRejected(Exception):
 
 
 # ---------------------------------------------------------------------------
-# The subject-type contract (M06 §3a.4)
+# The subject-type contract
 # ---------------------------------------------------------------------------
 
 
@@ -235,7 +235,7 @@ class ApprovalSubjectAdapter(Protocol):
     """Implemented once per `SubjectType` by the owning module, registered at startup.
 
     Every method that reads or writes runs inside the engine's transaction on the `session` it is
-    given (R-AP-16). None of them may commit, roll back, or open a session.
+    given. None of them may commit, roll back, or open a session.
     """
 
     subject_type: SubjectType
@@ -243,10 +243,11 @@ class ApprovalSubjectAdapter(Protocol):
     # ---- rendering -------------------------------------------------------
 
     def summary(self, session: Session, *, subject_id: str, viewer: Actor) -> SubjectSummary:
-        """Row content for S-AP1 / S-AP3 / notification titles."""
+        """Row content for the inbox, my-requests list and notification titles."""
 
     def detail(self, session: Session, *, subject_id: str, viewer: Actor) -> SubjectDetailBlocks:
-        """Ordered, typed blocks rendered between the routing banner and the trail on S-AP2."""
+        """Ordered, typed blocks rendered between the routing banner and the trail on the request
+        detail."""
 
     # ---- editing ---------------------------------------------------------
 
@@ -261,13 +262,17 @@ class ApprovalSubjectAdapter(Protocol):
 
     # ---- outcome callbacks (all run in the decision transaction) ---------
 
-    def on_approved(self, session: Session, *, request: Request) -> list[SubjectEvent]: ...
-
-    def on_rejected(
-        self, session: Session, *, request: Request, reason: str
+    def on_approved(
+        self, session: Session, *, request: Request, decided_at: datetime
     ) -> list[SubjectEvent]: ...
 
-    def on_withdrawn(self, session: Session, *, request: Request) -> list[SubjectEvent]: ...
+    def on_rejected(
+        self, session: Session, *, request: Request, reason: str, decided_at: datetime
+    ) -> list[SubjectEvent]: ...
+
+    def on_withdrawn(
+        self, session: Session, *, request: Request, decided_at: datetime
+    ) -> list[SubjectEvent]: ...
 
     # ---- advisory + notification -----------------------------------------
 
@@ -281,14 +286,14 @@ class ApprovalSubjectAdapter(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# Registry (M06 §3a.1, R-AP-03)
+# Registry
 # ---------------------------------------------------------------------------
 
 
 class SubjectTypeRegistry:
     """Startup-populated plugin table. `validate_complete()` is what stops a sixth workflow
     quietly growing its own approval table: a `SubjectType` with no adapter is a **fatal boot
-    error**, never a runtime 500 (R-AP-03)."""
+    error**, never a runtime 500."""
 
     def __init__(self) -> None:
         self._adapters: dict[SubjectType, ApprovalSubjectAdapter] = {}
@@ -317,7 +322,7 @@ class SubjectTypeRegistry:
         missing = sorted(value for value in SubjectType if value not in self._adapters)
         if missing:
             raise RuntimeError(
-                "Approval subject types without a registered adapter (R-AP-03): "
+                "Approval subject types without a registered adapter: "
                 + ", ".join(missing)
             )
 

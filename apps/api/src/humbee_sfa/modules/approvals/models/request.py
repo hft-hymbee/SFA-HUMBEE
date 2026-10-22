@@ -1,5 +1,5 @@
 """`approvals_requests` — the single approval-request table serving beat create/edit, DP orders,
-leave and outlet verification (M06 §3a.1). database-design.md §6.
+leave and outlet verification.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from humbee_sfa.core.db import Base
 class Request(Base, ConventionsMixin):
     __tablename__ = "approvals_requests"
     __table_args__ = (
-        # R-AP-04: at most one pending request per subject. The single most important index here.
+        # At most one pending request per subject. The single most important index here.
         Index(
             "uq_approvals_one_pending_per_subject",
             "tenant_id",
@@ -46,7 +46,7 @@ class Request(Base, ConventionsMixin):
         ),
         Index("ix_approvals_mine", "tenant_id", "requester_id", text("submitted_at DESC")),
         Index("ix_approvals_subject", "tenant_id", "subject_type", "subject_id"),
-        # Backs the daily re-routing sweep (M06 §3b.4), which scans every pending request once per IST day.
+        # Backs the daily re-routing sweep, which scans every pending request once per IST day.
         Index(
             "ix_approvals_sweep",
             "tenant_id",
@@ -66,17 +66,17 @@ class Request(Base, ConventionsMixin):
             "routing_reason IN ('direct_parent','escalated_parent_on_leave','auto_top_of_hierarchy')",
             name="routing_reason_chk",
         ),
-        # Unbounded, superseded 2026-08-21 (§19.8) — NOT the old "BETWEEN 0 AND 4".
+        # Unbounded, superseded 2026-08-21 — NOT the old "BETWEEN 0 AND 4".
         CheckConstraint("escalation_depth >= 0", name="escalation_depth_chk"),
         CheckConstraint("amount_paise IS NULL OR amount_paise >= 0", name="amount_chk"),
-        # INV-03 / R-AP-09: a pending request always has an approver; auto-approved never does.
+        # A pending request always has an approver; auto-approved never does.
         CheckConstraint(
             "status <> 'pending' OR assigned_approver_id IS NOT NULL", name="pending_has_approver_chk"
         ),
         CheckConstraint(
             "status <> 'auto_approved' OR assigned_approver_id IS NULL", name="auto_no_approver_chk"
         ),
-        # R-AP-14: rejection requires a reason.
+        # Rejection requires a reason.
         CheckConstraint(
             "status <> 'rejected' OR (decision_note IS NOT NULL AND length(btrim(decision_note)) > 0)",
             name="reject_note_chk",

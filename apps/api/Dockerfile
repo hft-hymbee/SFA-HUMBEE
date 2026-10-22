@@ -2,7 +2,7 @@
 # Humbee SFA API (FastAPI). Build context: apps/api
 #   docker build -t humbee-sfa-api apps/api
 #   docker run --env-file <secrets.env> -e HUMBEE_SFA_PROFILE=prd -p 8001:8001 humbee-sfa-api
-# Required runtime env per profile: see apps/api/README.md "Deployment secrets".
+# Required runtime env per profile: see DEPLOY.md "API environment".
 FROM python:3.12-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.7.4 /uv /usr/local/bin/uv
@@ -21,7 +21,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Project itself. Editable install keeps settings.py resolving ./config relative to /app.
 COPY src ./src
 COPY config ./config
-COPY db ./db
+COPY alembic.ini ./
+COPY migrations ./migrations
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
@@ -42,7 +43,7 @@ USER humbee
 EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=4).status == 200 else 1)"
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/livez', timeout=4).status == 200 else 1)"
 
 # Secrets (JWT/HMAC/enc keys, DB creds, SMS creds, HUMBEE_API_KEY) come from the environment.
 CMD ["humbee-sfa-api"]

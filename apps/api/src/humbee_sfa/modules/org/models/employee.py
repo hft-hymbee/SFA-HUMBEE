@@ -1,6 +1,6 @@
-"""`org_employees` — the employee master. database-design.md §4, §3 reconciliation item 1.
+"""`org_employees` — the employee master.
 
-Moved here from `identity` (was `identity_employees`) per §3 item 1: identity reads employees
+Moved here from `identity` (was `identity_employees`): identity reads employees
 through `org.service`, never its own model.
 """
 
@@ -74,9 +74,9 @@ class Employee(Base, ConventionsMixin):
         String(26), ForeignKey("org_employees.id", name="fk_org_employees_manager"), nullable=True
     )
     joined_on: Mapped[date | None] = mapped_column(Date, nullable=True)
-    # ltree — display/debugging path only, never an authorisation input (§2.2).
+    # ltree — display/debugging path only, never an authorisation input.
     hierarchy_path: Mapped[str | None] = mapped_column(LtreeType(), nullable=True)
-    phone_e164_hmac: Mapped[str] = mapped_column(CHAR(64), nullable=False)  # see §17.3
+    phone_e164_hmac: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     phone_e164_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     phone_last4: Mapped[str] = mapped_column(CHAR(4), nullable=False)
     geo_scope_id: Mapped[str | None] = mapped_column(String(26), nullable=True)  # logical → org_geography_scope_assignments

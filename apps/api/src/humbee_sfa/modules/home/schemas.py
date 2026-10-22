@@ -1,7 +1,7 @@
-"""Today composition HTTP DTOs — M08 §4.1/§5.1 (S-HOME).
+"""Today composition HTTP DTOs.
 
 Each section is `{status: "available", data}` or `{status: "unavailable", reason, retryable,
-as_of}` (epic 03 Story 3.4: "stable per-section discriminators"). `identity` is typed precisely
+as_of}`. `identity` is typed precisely
 since it is small and wholly owned by this module; the other sections carry whatever their owning
 module's own public service already returns, so this module never duplicates attendance/routes/
 approvals/notifications DTOs.

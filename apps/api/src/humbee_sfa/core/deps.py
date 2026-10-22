@@ -70,7 +70,7 @@ def _require_string(payload: dict[str, Any], key: str) -> str:
     return value
 
 
-# A valid signature is not a live session. The persisted-session check (R-IDN-21) belongs to
+# A valid signature is not a live session. The persisted-session check belongs to
 # `identity`, which owns `identity_sessions`, but every authenticated route in every module
 # must run it — so `identity` registers its guard here at import time and `core` stays free of
 # any module import. Exactly one guard is installed; the last registration wins.

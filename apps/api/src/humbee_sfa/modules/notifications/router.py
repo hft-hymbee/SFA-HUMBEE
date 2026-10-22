@@ -1,4 +1,4 @@
-"""Notification HTTP routes — M06 §10.
+"""Notification HTTP routes.
 
 There is no create endpoint and never will be: a notification is a side effect of a state
 transition somewhere else, written through `notifications.service.record` inside that transition's
@@ -6,7 +6,7 @@ transaction. Nothing may post one over HTTP.
 
 Handlers translate HTTP only. Authorisation is not re-implemented here — it is not a route concern
 at all in this module, because the service pins `recipient_id` to the caller's own employee id for
-every role (M06 §9).
+every role.
 """
 
 from __future__ import annotations
