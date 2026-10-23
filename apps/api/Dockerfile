@@ -39,7 +39,7 @@ FROM python:3.12-slim AS runtime
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    HUMBEE_SFA_PROFILE=prd
+    HUMBEE_SFA_PROFILE=sbx
 
 RUN useradd --system --uid 10001 --no-create-home humbee
 
