@@ -1,28 +1,35 @@
 # syntax=docker/dockerfile:1
-# Humbee SFA API (FastAPI). Build context: apps/api
-#   docker build -t humbee-sfa-api apps/api
+# Humbee SFA API (FastAPI). Build context: REPO ROOT
+#   docker build -f apps/api/Dockerfile -t humbee-sfa-api .
 #   docker run --env-file <secrets.env> -e HUMBEE_SFA_PROFILE=prd -p 8001:8001 humbee-sfa-api
 # Required runtime env per profile: see DEPLOY.md "API environment".
 FROM python:3.12-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.7.4 /uv /usr/local/bin/uv
 
+# Slow-network tolerance (uv's 30s default times out on Docker Desktop).
+ARG UV_HTTP_TIMEOUT=300
+ARG UV_CONCURRENT_DOWNLOADS=4
+
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=never
+    UV_PYTHON_DOWNLOADS=never \
+    UV_HTTP_TIMEOUT=$UV_HTTP_TIMEOUT \
+    UV_CONCURRENT_DOWNLOADS=$UV_CONCURRENT_DOWNLOADS
 
 WORKDIR /app
 
 # Dependencies first (cached unless pyproject/uv.lock change).
-COPY pyproject.toml uv.lock ./
+COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
 # Project itself. Editable install keeps settings.py resolving ./config relative to /app.
-COPY src ./src
-COPY config ./config
-COPY alembic.ini ./
-COPY migrations ./migrations
+COPY apps/api/src ./src
+COPY apps/api/config ./config
+# Alembic (script_location = %(here)s/migrations): DEPLOY.md runs `alembic upgrade head` in this image.
+COPY apps/api/alembic.ini ./alembic.ini
+COPY apps/api/migrations ./migrations
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 

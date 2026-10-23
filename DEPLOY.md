@@ -11,7 +11,7 @@ Non-secret settings live in YAML. Secrets come from the platform secret store as
 | | API | Web |
 | --- | --- | --- |
 | Dockerfile | `apps/api/Dockerfile` | `apps/web/Dockerfile` |
-| Build context | `apps/api` | repo root |
+| Build context | repo root | repo root |
 | Listen | `8001` | `8080` |
 | Liveness | `GET /livez` | `GET /` |
 | Readiness | `GET /health` (checks the database) | `GET /` |
@@ -20,7 +20,7 @@ Non-secret settings live in YAML. Secrets come from the platform secret store as
 ## Build
 
 ```bash
-docker build -t humbee-sfa-api apps/api
+docker build -f apps/api/Dockerfile -t humbee-sfa-api .
 
 docker build -f apps/web/Dockerfile \
   --build-arg NEXT_PUBLIC_SFA_API_BASE_URL=https://<sbx-api-host> \
