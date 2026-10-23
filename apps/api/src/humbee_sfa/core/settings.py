@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from functools import lru_cache
@@ -29,6 +30,8 @@ API_ROOT = _api_root()
 CONFIG_DIR = API_ROOT / "config"
 ENV_FILE = API_ROOT / ".env"
 PROFILE_PATTERN = re.compile(r"^[a-z0-9_-]+$")
+ENV_PREFIX = "HUMBEE_SFA_"
+SECRETS_JSON_ENV = f"{ENV_PREFIX}SECRETS_JSON"
 
 
 def _selected_profile() -> str:
@@ -62,9 +65,53 @@ class YamlConfigSettingsSource(PydanticBaseSettingsSource):
         return config
 
 
+class SecretsJsonSettingsSource(PydanticBaseSettingsSource):
+    """Load settings from one JSON object in HUMBEE_SFA_SECRETS_JSON.
+
+    ECS injects the whole Secrets Manager secret into that variable. Its keys are the same names as
+    the individual environment variables (HUMBEE_SFA_JWT_SECRET, HUMBEE_API_KEY, ...); an individual
+    environment variable still wins over the JSON.
+    """
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        raw = os.getenv(SECRETS_JSON_ENV, "").strip()
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # Never echo the payload: it holds secrets.
+            raise ValueError(f"{SECRETS_JSON_ENV} must be a JSON object") from None
+        if not isinstance(data, dict):
+            raise TypeError(f"{SECRETS_JSON_ENV} must be a JSON object")
+
+        by_env_name = {str(key).upper(): value for key, value in data.items()}
+        values: dict[str, Any] = {}
+        known: set[str] = set()
+        for field_name, field in self.settings_cls.model_fields.items():
+            alias = field.validation_alias if isinstance(field.validation_alias, str) else None
+            env_name = alias or f"{ENV_PREFIX}{field_name.upper()}"
+            known.add(env_name)
+            if env_name not in by_env_name:
+                continue
+            value = by_env_name[env_name]
+            if isinstance(value, str) and self.field_is_complex(field):
+                value = self.decode_complex_value(field_name, field, value)
+            values[alias or field_name] = value
+
+        unknown = sorted(set(by_env_name) - known)
+        if unknown:
+            # A misspelt key would otherwise be dropped silently.
+            raise ValueError(f"{SECRETS_JSON_ENV} has unknown keys: {', '.join(unknown)}")
+        return values
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="HUMBEE_SFA_",
+        env_prefix=ENV_PREFIX,
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
@@ -155,6 +202,7 @@ class Settings(BaseSettings):
         return (
             init_settings,
             env_settings,
+            SecretsJsonSettingsSource(settings_cls),
             dotenv_settings,
             YamlConfigSettingsSource(settings_cls),
             file_secret_settings,
