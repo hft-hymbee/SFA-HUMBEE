@@ -8,7 +8,7 @@ tenant_id: humbee-prd
 # HUMBEE_SFA_DB_USER and HUMBEE_SFA_DB_PASSWORD.
 db_host: sfa-db.ckr8vatt5tli.ap-south-1.rds.amazonaws.com
 db_port: 5432
-db_name: humbee_sfa_PROD
+db_name: humbee_sfa_prod
 db_sslmode: require
 db_schema: public
 
