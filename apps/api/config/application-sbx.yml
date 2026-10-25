@@ -10,7 +10,6 @@ db_host: sfa-db.ckr8vatt5tli.ap-south-1.rds.amazonaws.com
 db_port: 5432
 db_name: humbee_sfa
 db_sslmode: require
-db_schema: public
 
 otp_skip_verification: true
 otp_ttl_seconds: 600

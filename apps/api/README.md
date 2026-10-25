@@ -110,9 +110,9 @@ Secrets come from environment variables or `apps/api/.env` (never committed; sta
 - `HUMBEE_SFA_DB_USER` and `HUMBEE_SFA_DB_PASSWORD`, or a full `HUMBEE_SFA_DATABASE_URL`
 - `HUMBEE_API_KEY` (no `HUMBEE_SFA_` prefix)
 
-Profile YAML carries the non-secret DB parts (`db_host`, `db_port`, `db_name`, `db_sslmode`,
-`db_schema`); the app composes `database_url` when the full URL is omitted.
-`application-local.yml` uses the `sfa` schema via `search_path=sfa,public`.
+Profile YAML carries the non-secret DB parts (`db_host`, `db_port`, `db_name`, `db_sslmode`);
+the app composes `database_url` when the full URL is omitted. All tables and extensions live in
+the `public` schema.
 
 Generate a Fernet key:
 
