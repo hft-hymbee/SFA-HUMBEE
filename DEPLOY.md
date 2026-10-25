@@ -84,7 +84,7 @@ docker run --rm -p 8080:8080 humbee-sfa-web:prd
 
 `HUMBEE_API_KEY` has no `HUMBEE_SFA_` prefix. The process refuses to start without it, and without an absolute `https` Humbee base URL.
 
-`HUMBEE_SFA_DATABASE_URL` may replace the `DB_*` variables. It must be a full SQLAlchemy URL, and it must carry `options=-csearch_path%3Dsfa%2Cpublic` itself; the `DB_*` form adds that automatically.
+`HUMBEE_SFA_DATABASE_URL` may replace the `DB_*` variables. It must be a full SQLAlchemy URL. Everything lives in the `public` schema, so no `search_path` option is needed.
 
 `HUMBEE_SFA_CORS_WEB_ORIGINS` is a JSON list of the web app's origins, for example `["https://sfa.example.com"]`. Startup fails in sbx and prd when it is empty. The mobile app origins (`https://localhost` for Android, `capacitor://localhost` for iOS) are already allowed by `application.yml`. A browser on any other origin is refused.
 
@@ -103,7 +103,7 @@ Use a distinct JWT secret and a distinct phone HMAC secret per environment. Rota
 
 Sandbox (`apps/api/config/application-sbx.yml`):
 
-- Postgres host, name `humbee_sfa`, SSL `require`, schema `sfa` are in YAML. Credentials stay in the environment.
+- Postgres host, name `humbee_sfa`, SSL `require` are in YAML; everything lives in the `public` schema. Credentials stay in the environment.
 - `otp_skip_verification` is true: any OTP code is accepted and SMS gateway credentials are optional.
 - Humbee base URL is `https://api-dev.humbee.in`.
 - API docs are served at `/docs`, `/redoc` and `/openapi.json`.
@@ -125,7 +125,7 @@ Postgres with PostGIS is the only datastore. The schema is managed by Alembic (`
 docker run --rm --env-file <prd-secrets.env> -e HUMBEE_SFA_PROFILE=prd -e HUMBEE_SFA_DB_HOST=<prd-db-endpoint> humbee-sfa-api alembic upgrade head
 ```
 
-- **New database:** the first `upgrade head` applies the baseline: it installs the `postgis`, `btree_gist`, `ltree` and `pgcrypto` extensions, creates the `sfa` schema and creates every table. Installing `postgis` needs a superuser (`rds_superuser` on RDS); run the first upgrade with such a role, or create the extensions beforehand.
+- **New database:** the first `upgrade head` applies the baseline: it installs the `postgis`, `btree_gist`, `ltree` and `pgcrypto` extensions and creates every table in the `public` schema. Installing `postgis` needs a superuser (`rds_superuser` on RDS); run the first upgrade with such a role, or create the extensions beforehand.
 - **Existing UAT database:** it predates Alembic and differs from the baseline in a few indexes and leftover objects. Bring it level once, then record it as current and verify:
 
   ```bash

@@ -135,7 +135,6 @@ class Settings(BaseSettings):
     db_user: str | None = None
     db_password: str | None = None
     db_sslmode: str | None = None
-    db_schema: str = "sfa"
     day_boundary_hour_ist: int = Field(default=0, ge=0, le=23)
     leave_default_yearly_privileged_days: int = Field(default=12, ge=0)
     leave_default_yearly_casual_days: int = Field(default=6, ge=0)
@@ -233,12 +232,9 @@ class Settings(BaseSettings):
                 f"db_password are provided (missing: {', '.join(missing)})."
             )
 
-        schema = self.db_schema.strip()
         query: dict[str, str] = {}
         if self.db_sslmode and self.db_sslmode.strip():
             query["sslmode"] = self.db_sslmode.strip()
-        if schema:
-            query["options"] = f"-csearch_path={schema},public"
 
         auth = f"{quote(db_user, safe='')}:{quote(db_password, safe='')}"
         base = f"{self.db_driver}://{auth}@{db_host}:{self.db_port}/{db_name}"
