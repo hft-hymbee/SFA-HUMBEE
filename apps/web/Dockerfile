@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1 
 # Humbee SFA web (Next.js static export served by nginx). Build context: REPO ROOT (pnpm workspace)
 #   docker build -f apps/web/Dockerfile \
 #     --build-arg NEXT_PUBLIC_SFA_API_BASE_URL=https://api.example.com \
