@@ -3,7 +3,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:qa": "set -a && . ./.env.qa && set +a && next dev",
+    "dev:prod": "set -a && . ./.env.prod && set +a && next dev",
     "build": "next build",
+    "build:qa": "set -a && . ./.env.qa && set +a && next build",
+    "build:prod": "set -a && . ./.env.prod && set +a && next build",
     "start": "npx --yes serve@latest out",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
