@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1 
 # Humbee SFA API (FastAPI). Build context: REPO ROOT
 #   docker build -f apps/api/Dockerfile -t humbee-sfa-api .
 #   docker run --env-file <secrets.env> -e HUMBEE_SFA_PROFILE=prd -p 8001:8001 humbee-sfa-api
