@@ -171,6 +171,8 @@ pnpm --dir apps/mobile sync
 
 Then build and sign in Android Studio or Xcode with the client's signing keys. See `apps/mobile/README.md`.
 
+For Android, `pnpm mobile:apk:<local|qa|prod>[:release]` does all of this and signs the APK. See `apps/mobile/BUILDING.md`.
+
 ## Check
 
 ```bash

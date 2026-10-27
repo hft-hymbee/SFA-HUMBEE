@@ -9,7 +9,12 @@
     "open:android": "cap open android",
     "add:ios": "cap add ios",
     "add:android": "cap add android",
-    "doctor": "cap doctor"
+    "doctor": "cap doctor",
+    "apk:local": "bash scripts/build-android.sh local debug",
+    "apk:qa": "bash scripts/build-android.sh qa debug",
+    "apk:qa:release": "bash scripts/build-android.sh qa release",
+    "apk:prod": "bash scripts/build-android.sh prod debug",
+    "apk:prod:release": "bash scripts/build-android.sh prod release"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

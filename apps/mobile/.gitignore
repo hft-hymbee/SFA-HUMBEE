@@ -3,6 +3,7 @@ android/app/src/main/assets/public/
 ios/App/App/public/
 
 # Native build output
+dist/
 android/build/
 android/app/build/
 android/.gradle/
@@ -20,6 +21,7 @@ DerivedData/
 *.p8
 *.p12
 *.cer
+android/keystore.properties
 
 # Fastlane artifacts
 fastlane/report.xml
