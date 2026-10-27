@@ -7,6 +7,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "dev:web": "pnpm --dir apps/web dev",
+    "dev:web:qa": "pnpm --dir apps/web dev:qa",
+    "dev:web:prod": "pnpm --dir apps/web dev:prod",
     "build:web": "pnpm --dir apps/web build",
     "lint:web": "pnpm --dir apps/web lint",
     "dev:prototype": "python3 -m http.server 4173",

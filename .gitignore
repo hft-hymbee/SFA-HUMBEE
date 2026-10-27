@@ -41,6 +41,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+!.env.qa
+!.env.prod
 
 # OS and editor junk
 .DS_Store
