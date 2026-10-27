@@ -14,7 +14,14 @@
     "apk:qa": "bash scripts/build-android.sh qa debug",
     "apk:qa:release": "bash scripts/build-android.sh qa release",
     "apk:prod": "bash scripts/build-android.sh prod debug",
-    "apk:prod:release": "bash scripts/build-android.sh prod release"
+    "apk:prod:release": "bash scripts/build-android.sh prod release",
+    "ios:sim:local": "bash scripts/run-ios-sim.sh local",
+    "ios:sim:qa": "bash scripts/run-ios-sim.sh qa",
+    "ios:sim:prod": "bash scripts/run-ios-sim.sh prod",
+    "ipa:qa": "bash scripts/build-ios.sh qa testflight",
+    "ipa:qa:file": "bash scripts/build-ios.sh qa ipa",
+    "ipa:prod": "bash scripts/build-ios.sh prod testflight",
+    "ipa:prod:file": "bash scripts/build-ios.sh prod ipa"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
