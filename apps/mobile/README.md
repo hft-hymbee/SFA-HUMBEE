@@ -36,8 +36,8 @@ pnpm --filter mobile sync
 
 ## Everyday build
 
-To build an APK for local, QA or prod with one command (`pnpm mobile:apk:qa` etc.), and for first-time machine setup,
-see [`BUILDING.md`](BUILDING.md). The manual steps are below.
+To build for local, QA or prod with one command (Android: `pnpm mobile:apk:qa`; iOS Simulator: `pnpm mobile:ios:sim:qa`;
+TestFlight: `pnpm mobile:ipa:qa`), and for first-time setup, see [`BUILDING.md`](BUILDING.md). The manual steps are below.
 
 ```bash
 pnpm --filter web build       # produces apps/web/out

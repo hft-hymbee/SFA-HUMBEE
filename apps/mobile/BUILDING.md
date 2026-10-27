@@ -1,4 +1,12 @@
-# Building the Android APK
+# Building the mobile apps
+
+- [Android](#android): APKs for the emulator, phones and testers.
+- [iOS](#ios): the Simulator and TestFlight.
+
+Both platforms build the web app with the chosen environment's `apps/web/.env.*` (`local`, `qa`, `prod`). They check
+that the env's API URL is `https://` and is the one baked into the bundle, then wrap it with Capacitor.
+
+## Android
 
 One command builds an APK for an environment:
 
@@ -21,7 +29,7 @@ QA and prod share the app id `com.humbee.sfa`, so a phone holds one of them at a
 The script is `scripts/build-android.sh`. It checks your setup first and stops with a pointer back to this guide if
 something is missing.
 
-## One-time machine setup (macOS)
+## Android: one-time machine setup (macOS)
 
 Do these once. Each step ends with a check.
 
@@ -100,7 +108,7 @@ If the team already has a keystore, use that one instead of generating a new one
 
 Check: `pnpm mobile:apk:qa:release` succeeds.
 
-## Installing
+## Android: installing
 
 **Emulator or USB phone**
 
@@ -118,7 +126,7 @@ Send the release APK through Drive, Slack or WhatsApp. On their phone, opening t
 With the device connected, open `chrome://inspect` in Chrome on the Mac. Click **inspect** under *Humbee SFA* and watch
 the Network tab.
 
-## Troubleshooting
+## Android: troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
@@ -131,3 +139,110 @@ the Network tab.
 | App opens but every request fails on a `local` build | `localhost` on a device means the device itself. Point `.env.local` at your Mac's LAN address or a tunnel, over https. |
 | App shows an old UI | Don't run Gradle by hand after changing web code. The script always rebuilds the web export first. |
 | `adb devices` shows `unauthorized` | Unplug the phone, revoke USB debugging authorisations in Developer options, plug it back in and accept the prompt. |
+
+## iOS
+
+```bash
+pnpm mobile:ios:sim:qa        # run QA on the iOS Simulator (no Apple account needed)
+pnpm mobile:ios:sim:prod      # run prod on the Simulator
+pnpm mobile:ipa:qa            # archive QA and upload it to TestFlight
+pnpm mobile:ipa:prod          # archive prod and upload it to TestFlight
+pnpm mobile:ipa:qa:file       # archive QA and save an .ipa to apps/mobile/dist (no upload)
+pnpm mobile:ipa:prod:file
+```
+
+- **Version** (`CFBundleShortVersionString`) is `NEXT_PUBLIC_APP_VERSION` from the env file.
+- **Build number** (`CFBundleVersion`) is `<git commit count>.<yyMMdd>.<HHmm>`, e.g. `19.261027.1530`. QA and prod upload
+  to the same App Store Connect app, and every upload needs a new build number, so the time is part of it.
+- QA and prod share the bundle id `com.humbee.sfa`. In TestFlight, tell builds apart with the *What to Test* note and
+  separate tester groups.
+
+The scripts are `scripts/run-ios-sim.sh` and `scripts/build-ios.sh`. They check your setup first.
+
+## iOS: one-time setup
+
+Step 1 is all you need for the Simulator. Steps 2–6 are needed for TestFlight.
+
+### 1. Xcode and simulators
+
+Install Xcode from the Mac App Store and open it once. Then:
+
+```bash
+sudo xcodebuild -license accept
+xcodebuild -runFirstLaunch
+```
+
+Xcode → Settings → Components: install the iOS platform it offers.
+
+Check: `xcrun simctl list devices available` lists iPhones. The script uses "iPhone 17 Pro" on the newest iOS runtime, or
+the first iPhone there. Choose another with `HUMBEE_IOS_SIM="iPhone Air" pnpm mobile:ios:sim:qa`.
+
+### 2. Sign in to Xcode with the company Apple ID
+
+Xcode → Settings → Accounts → **+** → Apple ID. The company team appears with your role. You need **Admin** or **App
+Manager** to create distribution certificates and upload builds.
+
+### 3. Team ID
+
+developer.apple.com → Account → Membership details → **Team ID** (10 characters).
+
+It's not secret. Set it once in the project: Xcode → open `apps/mobile/ios/App/App.xcodeproj` → target **App** → Signing &
+Capabilities → Team. Commit the `project.pbxproj` change. Until then, pass it per build:
+`HUMBEE_IOS_TEAM_ID=ABCDE12345 pnpm mobile:ipa:qa`.
+
+### 4. Bundle id
+
+developer.apple.com → Certificates, IDs & Profiles → Identifiers. Check that `com.humbee.sfa` exists; if not, **+** →
+App IDs → App → Bundle ID `com.humbee.sfa`, description "Humbee SFA".
+
+### 5. App Store Connect app record
+
+appstoreconnect.apple.com → Apps → **+** → New App:
+
+- Platform **iOS**, name **Humbee SFA**, language English, bundle id `com.humbee.sfa`, SKU `humbee-sfa`.
+- Access: Full Access.
+
+The first upload fails without this record.
+
+### 6. TestFlight testers
+
+App Store Connect → Humbee SFA → TestFlight:
+
+- **Internal testing:** up to 100 people who are App Store Connect users on the team. No review. Create a group (e.g.
+  "QA testers") and add them.
+- **External testing:** anyone by email or public link, up to 10,000. The first build in a group goes through Beta App
+  Review, which usually takes about a day.
+
+Testers install the **TestFlight** app from the App Store and accept the email invite.
+
+## iOS: shipping a build to TestFlight
+
+1. `pnpm mobile:ipa:qa` (or `:prod`). The first run creates the Apple Distribution certificate and provisioning profile
+   automatically (`-allowProvisioningUpdates`). macOS may ask for your login password to save the certificate to the
+   keychain; choose **Always Allow**.
+2. Wait for the email saying the build has finished processing (usually 10–30 minutes).
+3. App Store Connect → TestFlight → the build → **What to Test**: say whether it's the **QA** or **PROD** build.
+4. Add the build to the tester group. Testers get a notification in TestFlight and tap **Install**.
+
+`pnpm mobile:ipa:qa:file` does the same archive but saves the `.ipa` to `apps/mobile/dist/` instead of uploading it.
+Upload that file later with Apple's **Transporter** app.
+
+Inspect a running app: Safari → Settings → Advanced → *Show features for web developers*, then Safari → Develop →
+the Simulator or iPhone → localhost.
+
+## iOS: troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `Unable to find a destination matching the provided destination specifier` | The simulator is on an iOS runtime this Xcode can't build for. The script picks the newest runtime; install it in Xcode → Settings → Components. |
+| App icon appears but the Simulator shows the home screen | Tap **Humbee SFA**. A freshly booted simulator sometimes brings the home screen up over the app. |
+| "No Apple team ID" | Step 3. |
+| `No Account for Team` / `No profiles for 'com.humbee.sfa' were found` | Xcode isn't signed in with an Apple ID on that team (step 2), or the team ID is wrong (step 3). |
+| `No signing certificate "iOS Distribution" found` | Your role can't create certificates. Ask for Admin or App Manager. |
+| Upload fails with "No suitable application records were found" | Create the App Store Connect app record (step 5). |
+| Upload fails with "The bundle version must be higher than the previously uploaded version" | Run the command again; the build number includes the time. |
+| Script stops with "API URL … only allows https" | iOS blocks plain `http://` API calls. Give the env an https URL. |
+| Build is "Missing Compliance" in TestFlight | `ITSAppUsesNonExemptEncryption` is set to `false` in `Info.plist`, so this shouldn't appear. If it does, answer "None of the algorithms mentioned above". |
+
+Not covered yet, needed before an App Store (public) release: the app's `PrivacyInfo.xcprivacy`, the App Privacy answers
+in App Store Connect, and a review of the "Always" location permission string (v1 uses foreground location only).

@@ -5,26 +5,14 @@
 # First-time machine setup: see apps/mobile/BUILDING.md.
 set -euo pipefail
 
-ENV_NAME="${1:-}"
 BUILD_TYPE="${2:-debug}"
 
-MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
-WEB_DIR="$REPO_ROOT/apps/web"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/web-build.sh"
 ANDROID_DIR="$MOBILE_DIR/android"
 STUDIO_JBR="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 COMPILE_SDK=36
 
-fail() { echo "ERROR: $*" >&2; exit 1; }
-warn() { echo "WARNING: $*" >&2; }
-step() { echo; echo "==> $*"; }
-
-case "$ENV_NAME" in
-  local) ENV_FILE="$WEB_DIR/.env.local"; WEB_SCRIPT="build" ;;
-  qa)    ENV_FILE="$WEB_DIR/.env.qa";    WEB_SCRIPT="build:qa" ;;
-  prod)  ENV_FILE="$WEB_DIR/.env.prod";  WEB_SCRIPT="build:prod" ;;
-  *) fail "usage: $0 <local|qa|prod> [debug|release]" ;;
-esac
+resolve_env "${1:-}" "$0 <local|qa|prod> [debug|release]"
 case "$BUILD_TYPE" in
   debug)   GRADLE_TASK="assembleDebug" ;;
   release) GRADLE_TASK="assembleRelease" ;;
@@ -56,33 +44,13 @@ if [[ "$BUILD_TYPE" == "release" ]]; then
     || fail "Release builds need android/keystore.properties. Copy keystore.properties.example and fill it in. See BUILDING.md step 6."
 fi
 
-step "Environment: $ENV_NAME ($ENV_FILE)"
-[[ -f "$ENV_FILE" ]] || fail "$ENV_FILE not found"
-read_env() { grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//'; }
-API_URL="$(read_env NEXT_PUBLIC_SFA_API_BASE_URL)"
-VERSION_NAME="$(read_env NEXT_PUBLIC_APP_VERSION)"
-VERSION_NAME="${VERSION_NAME:-1.0.0}"
-VERSION_CODE="$(git -C "$REPO_ROOT" rev-list --count HEAD)"
-
-[[ -n "$API_URL" ]] || fail "NEXT_PUBLIC_SFA_API_BASE_URL is not set in $ENV_FILE"
-if [[ "$API_URL" != https://* ]]; then
-  fail "API URL for '$ENV_NAME' is '$API_URL'. The Android app only allows https (cleartext traffic and mixed content are disabled), so every API call would fail. Switch the URL to https."
-fi
-if [[ "$API_URL" == *localhost* || "$API_URL" == *127.0.0.1* ]]; then
-  warn "API URL points at localhost. On a phone or emulator that is the device itself, so API calls will fail. Use your Mac's LAN address or a tunnel."
-fi
-echo "API URL:      $API_URL"
+load_env
+VERSION_NAME="$APP_VERSION"
+VERSION_CODE="$COMMIT_COUNT"
 echo "versionName:  $VERSION_NAME"
 echo "versionCode:  $VERSION_CODE"
 
-step "Building web export (pnpm --dir apps/web $WEB_SCRIPT)"
-rm -rf "$WEB_DIR/out"
-pnpm --dir "$WEB_DIR" "$WEB_SCRIPT"
-[[ -f "$WEB_DIR/out/index.html" ]] || fail "web build did not produce apps/web/out/index.html"
-# Next.js also auto-loads .env.local; make sure this env's API URL is the one baked into the bundle.
-grep -rqF "${API_URL%/}" "$WEB_DIR/out/_next/static" \
-  || fail "web export does not contain $API_URL. Another env file (e.g. .env.local) may have overridden $ENV_FILE."
-echo "Verified: web export calls $API_URL"
+build_web
 
 step "Syncing web export into the Android project"
 pnpm --dir "$MOBILE_DIR" exec cap sync android
