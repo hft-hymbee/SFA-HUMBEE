@@ -77,5 +77,5 @@ xcrun simctl spawn "$SIM_UDID" launchctl list | grep -q "$BUNDLE_ID" \
   || xcrun simctl launch "$SIM_UDID" "$BUNDLE_ID" >/dev/null
 
 step "Done"
-echo "Humbee SFA ($ENV_NAME) is running on the simulator."
+echo "Humbee GO ($ENV_NAME) is running on the simulator."
 echo "Inspect it: Safari > Develop > Simulator > localhost (enable Develop in Safari > Settings > Advanced)."

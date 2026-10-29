@@ -1965,7 +1965,8 @@ button.hb-bottom-nav__item:not(:disabled):active {
 .sp-login-logo {
   display: block;
   height: auto;
-  max-width: 260px;
+  max-width: 300px;
+  width: 76%;
 }
 
 .sp-login-title {
