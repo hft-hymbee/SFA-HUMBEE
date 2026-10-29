@@ -1,7 +1,8 @@
-// Regenerate every native app icon and launch-screen image from the master
-// logo SVGs in /brand. Re-run after changing the logo, then rebuild the app.
+// Regenerate every native app icon and launch-screen image, plus the web copies
+// of the logo, from the master SVGs in /brand. Re-run after changing the logo,
+// then rebuild the app.
 //   Usage: pnpm --dir apps/mobile icons
-import { readdir } from "node:fs/promises";
+import { copyFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -10,6 +11,7 @@ const MOBILE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const BRAND_DIR = path.resolve(MOBILE_DIR, "../../brand");
 const IOS_ASSETS = path.join(MOBILE_DIR, "ios/App/App/Assets.xcassets");
 const ANDROID_RES = path.join(MOBILE_DIR, "android/app/src/main/res");
+const REPO_DIR = path.resolve(MOBILE_DIR, "../..");
 
 const MARK = path.join(BRAND_DIR, "humbee-go-mark.svg");
 const LOCKUP = path.join(BRAND_DIR, "humbee-go-lockup.svg");
@@ -42,6 +44,16 @@ const circle = (size) =>
 async function splash(file, width, height, share) {
   const lockup = await svg(LOCKUP, { width: Math.round(Math.min(width, height) * share) });
   await write(file, width, height, WHITE, lockup);
+}
+
+// The web app and design system ship their own copies; keep them in step.
+console.log("Web");
+for (const [from, to] of [
+  [LOCKUP, "packages/humbee-design-system/src/assets/humbee_go_logo.svg"],
+  [MARK, "apps/web/app/icon.svg"],
+]) {
+  await copyFile(from, path.join(REPO_DIR, to));
+  console.log(`  ${to}`);
 }
 
 console.log("iOS");
