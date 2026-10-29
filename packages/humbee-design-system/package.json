@@ -11,7 +11,8 @@
       "types": "./index.d.ts",
       "default": "./index.js"
     },
-    "./assets/humbee_logo.svg": "./src/assets/humbee_logo.svg",
+    "./assets/humbee_go_logo.svg": "./src/assets/humbee_go_logo.svg",
+    "./assets/humbee_go_mark.svg": "./src/assets/humbee_go_mark.svg",
     "./theme": "./theme/index.js",
     "./package.json": "./package.json"
   },

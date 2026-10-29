@@ -9,7 +9,7 @@ import {
   TextField,
   TopAppBar,
 } from "humbee-design-system";
-import humbeeLogo from "humbee-design-system/assets/humbee_logo.svg";
+import humbeeLogo from "humbee-design-system/assets/humbee_go_logo.svg";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -94,7 +94,7 @@ export function SplashScreen() {
 
   return (
     <section className="sp-screen sp-login-screen sp-splash">
-      <Image className="sp-splash-logo" src={humbeeLogo} alt="Humbee" priority />
+      <Image className="sp-splash-logo" src={humbeeLogo} alt="Humbee GO" priority />
       <p>Sales Force Automation</p>
       {error ? (
         <p className="sp-meta sp-splash-version">{error}</p>
@@ -164,7 +164,9 @@ export function LoginScreen() {
       style={{ backgroundImage: 'url("/brand/humbee-honeycomb.svg")' }}
     >
       <div className="sp-scroll">
-        <div className="sp-login-brand" aria-hidden="true" />
+        <div className="sp-login-brand">
+          <Image className="sp-login-logo" src={humbeeLogo} alt="Humbee GO" priority />
+        </div>
         <div className="sp-login-body">
           <div>
             <h1 className="sp-login-title">Log in</h1>
