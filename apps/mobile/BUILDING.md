@@ -123,7 +123,7 @@ Send the release APK through Drive, Slack or WhatsApp. On their phone, opening t
 
 **See which API the app talks to**
 
-With the device connected, open `chrome://inspect` in Chrome on the Mac. Click **inspect** under *Humbee SFA* and watch
+With the device connected, open `chrome://inspect` in Chrome on the Mac. Click **inspect** under *Humbee GO* and watch
 the Network tab.
 
 ## Android: troubleshooting
@@ -235,7 +235,7 @@ the Simulator or iPhone → localhost.
 | Symptom | Fix |
 | --- | --- |
 | `Unable to find a destination matching the provided destination specifier` | The simulator is on an iOS runtime this Xcode can't build for. The script picks the newest runtime; install it in Xcode → Settings → Components. |
-| App icon appears but the Simulator shows the home screen | Tap **Humbee SFA**. A freshly booted simulator sometimes brings the home screen up over the app. |
+| App icon appears but the Simulator shows the home screen | Tap **Humbee GO**. A freshly booted simulator sometimes brings the home screen up over the app. |
 | "No Apple team ID" | Step 3. |
 | `No Account for Team` / `No profiles for 'com.humbee.sfa' were found` | Xcode isn't signed in with an Apple ID on that team (step 2), or the team ID is wrong (step 3). |
 | `No signing certificate "iOS Distribution" found` | Your role can't create certificates. Ask for Admin or App Manager. |

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Humbee SFA</string>
-    <string name="title_activity_main">Humbee SFA</string>
+    <string name="app_name">Humbee GO</string>
+    <string name="title_activity_main">Humbee GO</string>
     <string name="package_name">com.humbee.sfa</string>
     <string name="custom_url_scheme">com.humbee.sfa</string>
 </resources>
