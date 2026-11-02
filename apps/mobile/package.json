@@ -2,7 +2,7 @@
   "name": "mobile",
   "version": "0.1.0",
   "private": true,
-  "description": "Capacitor native shell for Humbee SFA. Contains no application code — wraps the static export from apps/web.",
+  "description": "Capacitor native shell for Humbee GO. Contains no application code — wraps the static export from apps/web.",
   "scripts": {
     "sync": "cap sync",
     "open:ios": "cap open ios",
@@ -21,7 +21,8 @@
     "ipa:qa": "bash scripts/build-ios.sh qa testflight",
     "ipa:qa:file": "bash scripts/build-ios.sh qa ipa",
     "ipa:prod": "bash scripts/build-ios.sh prod testflight",
-    "ipa:prod:file": "bash scripts/build-ios.sh prod ipa"
+    "ipa:prod:file": "bash scripts/build-ios.sh prod ipa",
+    "icons": "node scripts/build-app-icons.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
@@ -31,6 +32,7 @@
     "@capacitor/ios": "8.5.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.3"
+    "@capacitor/cli": "^8.5.3",
+    "sharp": "0.35.5"
   }
 }

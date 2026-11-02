@@ -1,7 +1,7 @@
 "use client";
 
 import { BottomNav, Icon, IconSurface, OfflineBanner, TopAppBar } from "humbee-design-system";
-import humbeeLogo from "humbee-design-system/assets/humbee_logo.svg";
+import humbeeLogo from "humbee-design-system/assets/humbee_go_logo.svg";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useUnreadNotificationCount } from "@/src/features/approvals/hooks";
