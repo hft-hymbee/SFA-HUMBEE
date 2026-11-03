@@ -77,3 +77,40 @@ def test_secrets_json_rejects_unknown_keys(secrets_only_in_json: pytest.MonkeyPa
 
     with pytest.raises(ValueError, match="HUMBEE_SFA_JWT_SECERT"):
         Settings()  # type: ignore[call-arg]
+
+
+def test_fixed_otp_from_secrets_json_allowed_in_prd(
+    secrets_only_in_json: pytest.MonkeyPatch,
+) -> None:
+    secrets_only_in_json.setenv(
+        SECRETS_JSON_ENV,
+        _secrets(
+            HUMBEE_SFA_OTP_FIXED_CODE_PHONE_E164="99035 71247", HUMBEE_SFA_OTP_FIXED_CODE="231225"
+        ),
+    )
+
+    settings = Settings(  # type: ignore[call-arg]
+        environment="prd", cors_web_origins=["https://sfa.example.com"], local_otp_override=None,
+        humbee_base_url="https://humbee.example.com",
+    )
+
+    assert settings.otp_fixed_code_phone_e164 == "+919903571247"
+    assert settings.otp_fixed_code == "231225"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"HUMBEE_SFA_OTP_FIXED_CODE_PHONE_E164": "9903571247"},
+        {"HUMBEE_SFA_OTP_FIXED_CODE": "231225"},
+        {"HUMBEE_SFA_OTP_FIXED_CODE_PHONE_E164": "12345", "HUMBEE_SFA_OTP_FIXED_CODE": "231225"},
+        {"HUMBEE_SFA_OTP_FIXED_CODE_PHONE_E164": "9903571247", "HUMBEE_SFA_OTP_FIXED_CODE": "2312"},
+    ],
+)
+def test_fixed_otp_rejects_bad_config(
+    secrets_only_in_json: pytest.MonkeyPatch, overrides: dict[str, str]
+) -> None:
+    secrets_only_in_json.setenv(SECRETS_JSON_ENV, _secrets(**overrides))
+
+    with pytest.raises(ValueError, match="otp_fixed_code"):
+        Settings()  # type: ignore[call-arg]

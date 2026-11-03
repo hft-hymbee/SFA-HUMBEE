@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ from humbee_sfa.modules.identity.models import Session as IdentitySession
 from humbee_sfa.modules.org import repository as org_repository
 from humbee_sfa.modules.org.models import Employee
 from humbee_sfa.modules.org.scope import maintenance_scope
+from humbee_sfa.platform.sms import LocalSmsGateway
 
 WRONG_CODE = "654321"
 
@@ -159,3 +161,36 @@ def test_verify_rate_limited_per_phone(api_client: TestClient, db_session: Sessi
     sixth = verify_otp(api_client, challenge_id, code=OTP)
     assert (sixth.status_code, error_code(sixth)) == (429, "otp_rate_limited")
     assert _sessions(db_session, employee) == []
+
+
+FIXED_CODE = "231225"
+
+
+def test_fixed_code_phone_always_accepts_fixed_code(
+    api_client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixed_employee = seed.employee(db_session, "sales_person")
+    other_employee = seed.employee(db_session, "sales_person")
+    settings = get_settings()
+    monkeypatch.setattr(settings, "otp_fixed_code_phone_e164", seed.phone_of(fixed_employee))
+    monkeypatch.setattr(settings, "otp_fixed_code", FIXED_CODE)
+    sent: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        LocalSmsGateway,
+        "send_otp",
+        lambda self, *, phone_e164, code, purpose: sent.append((phone_e164, code)),
+    )
+
+    # A wrong code on the fixed phone still fails and uses an attempt.
+    challenge_id = _challenge_id(api_client, fixed_employee)
+    wrong = verify_otp(api_client, challenge_id, code=WRONG_CODE)
+    assert (wrong.status_code, error_code(wrong)) == (400, "invalid_code")
+    verified = verify_otp(api_client, challenge_id, code=FIXED_CODE)
+    assert verified.status_code == 200, verified.text
+    # The SMS is still sent, carrying the fixed code.
+    assert sent[0] == (seed.phone_of(fixed_employee), FIXED_CODE)
+
+    # Any other phone is unaffected: the fixed code is rejected.
+    other = verify_otp(api_client, _challenge_id(api_client, other_employee), code=FIXED_CODE)
+    assert (other.status_code, error_code(other)) == (400, "invalid_code")
+    assert sent[1] == (seed.phone_of(other_employee), OTP)
