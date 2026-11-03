@@ -149,6 +149,11 @@ class Settings(BaseSettings):
     otp_verify_rate_limit_per_challenge: int = Field(default=10, ge=1)
     otp_skip_verification: bool = False
     local_otp_override: str | None = Field(default=None, pattern=r"^\d{4,8}$")
+    # One phone whose OTP is always `otp_fixed_code`, in every environment including prd.
+    # Sourced from secrets only; set both or neither. The SMS is still sent so the owner of the
+    # number sees every login attempt.
+    otp_fixed_code_phone_e164: str | None = None
+    otp_fixed_code: str | None = None
     otp_sms_gateway_url: str = ""
     otp_sms_username: str | None = None
     otp_sms_api_key: str | None = None
@@ -249,6 +254,26 @@ class Settings(BaseSettings):
             raise ValueError("local_otp_override is allowed only in local, sbx, or test environments")
         if len(self.local_otp_override) != self.otp_length:
             raise ValueError("local_otp_override length must match otp_length")
+        return self
+
+    @model_validator(mode="after")
+    def validate_otp_fixed_code(self) -> Self:
+        phone = "".join((self.otp_fixed_code_phone_e164 or "").split())
+        code = (self.otp_fixed_code or "").strip()
+        if not phone and not code:
+            self.otp_fixed_code_phone_e164 = None
+            self.otp_fixed_code = None
+            return self
+        if not phone or not code:
+            raise ValueError("otp_fixed_code_phone_e164 and otp_fixed_code must be set together")
+        if re.fullmatch(r"\d{10}", phone):
+            phone = f"+91{phone}"
+        if not re.fullmatch(r"\+91\d{10}", phone):
+            raise ValueError("otp_fixed_code_phone_e164 must be a 10-digit Indian mobile number")
+        if not re.fullmatch(r"\d{4,8}", code) or len(code) != self.otp_length:
+            raise ValueError("otp_fixed_code must be digits matching otp_length")
+        self.otp_fixed_code_phone_e164 = phone
+        self.otp_fixed_code = code
         return self
 
     @model_validator(mode="after")
