@@ -293,9 +293,15 @@ class IdentityService:
         if live is not None:
             repository.supersede_challenge(live, consumed_at=now)
 
-        code = self._settings.local_otp_override or generate_otp_code(
-            self._settings.otp_length
-        )
+        if (
+            self._settings.otp_fixed_code is not None
+            and resolved_phone == self._settings.otp_fixed_code_phone_e164
+        ):
+            # Configured test number: the OTP is always the fixed code. Still sent over SMS below.
+            code = self._settings.otp_fixed_code
+            logger.info("otp_fixed_code_used", purpose=purpose)
+        else:
+            code = self._settings.local_otp_override or generate_otp_code(self._settings.otp_length)
         challenge = repository.create_challenge(
             self._session,
             tenant_id=self._settings.tenant_id,
