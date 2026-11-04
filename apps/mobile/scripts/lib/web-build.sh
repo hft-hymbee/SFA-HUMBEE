@@ -1,5 +1,9 @@
 # Shared by build-android.sh, run-ios-sim.sh and build-ios.sh. Source it; don't run it.
-# Provides: MOBILE_DIR, REPO_ROOT, WEB_DIR, fail/warn/step, resolve_env, load_env, build_web.
+# Provides: MOBILE_DIR, REPO_ROOT, WEB_DIR, APP_BUILD_NUMBER, fail/warn/step, resolve_env, load_env, build_web.
+
+# Store build number for both platforms: the Android versionCode and the first part of the iOS build number.
+# Play rejects a versionCode it already has, so raise this before every Play upload.
+APP_BUILD_NUMBER=36
 
 MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
@@ -22,14 +26,13 @@ resolve_env() {
 
 read_env() { grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//'; }
 
-# load_env: reads API_URL and APP_VERSION from ENV_FILE, sets COMMIT_COUNT, and rejects non-https API URLs.
+# load_env: reads API_URL and APP_VERSION from ENV_FILE and rejects non-https API URLs.
 load_env() {
   step "Environment: $ENV_NAME ($ENV_FILE)"
   [[ -f "$ENV_FILE" ]] || fail "$ENV_FILE not found"
   API_URL="$(read_env NEXT_PUBLIC_SFA_API_BASE_URL)"
   APP_VERSION="$(read_env NEXT_PUBLIC_APP_VERSION)"
   APP_VERSION="${APP_VERSION:-1.0.0}"
-  COMMIT_COUNT="$(git -C "$REPO_ROOT" rev-list --count HEAD)"
 
   [[ -n "$API_URL" ]] || fail "NEXT_PUBLIC_SFA_API_BASE_URL is not set in $ENV_FILE"
   if [[ "$API_URL" != https://* ]]; then

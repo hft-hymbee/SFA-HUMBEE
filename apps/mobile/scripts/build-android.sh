@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Build an Android APK for one environment.
-#   Usage: scripts/build-android.sh <local|qa|prod> [debug|release]
+# Build an Android APK, or a Play Store App Bundle (.aab), for one environment.
+#   Usage: scripts/build-android.sh <local|qa|prod> [debug|release|aab]
 # Output: apps/mobile/dist/Humbee-SFA-<env>-<versionName>-<versionCode>-<type>.apk
+#         apps/mobile/dist/Humbee-SFA-<env>-<versionName>-<versionCode>-release.aab (aab)
 # First-time machine setup: see apps/mobile/BUILDING.md.
 set -euo pipefail
 
@@ -12,11 +13,12 @@ ANDROID_DIR="$MOBILE_DIR/android"
 STUDIO_JBR="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 COMPILE_SDK=36
 
-resolve_env "${1:-}" "$0 <local|qa|prod> [debug|release]"
+resolve_env "${1:-}" "$0 <local|qa|prod> [debug|release|aab]"
 case "$BUILD_TYPE" in
   debug)   GRADLE_TASK="assembleDebug" ;;
   release) GRADLE_TASK="assembleRelease" ;;
-  *) fail "build type must be 'debug' or 'release', got '$BUILD_TYPE'" ;;
+  aab)     GRADLE_TASK="bundleRelease" ;;
+  *) fail "build type must be 'debug', 'release' or 'aab', got '$BUILD_TYPE'" ;;
 esac
 
 step "Preflight"
@@ -39,14 +41,14 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
   || fail "Android SDK Platform $COMPILE_SDK is not installed. Install it in Android Studio > Settings > Android SDK. See BUILDING.md step 2."
 echo "Android SDK: $ANDROID_HOME"
 
-if [[ "$BUILD_TYPE" == "release" ]]; then
+if [[ "$BUILD_TYPE" != "debug" ]]; then
   [[ -f "$ANDROID_DIR/keystore.properties" ]] \
     || fail "Release builds need android/keystore.properties. Copy keystore.properties.example and fill it in. See BUILDING.md step 6."
 fi
 
 load_env
 VERSION_NAME="$APP_VERSION"
-VERSION_CODE="$COMMIT_COUNT"
+VERSION_CODE="$APP_BUILD_NUMBER"
 echo "versionName:  $VERSION_NAME"
 echo "versionCode:  $VERSION_CODE"
 
@@ -58,9 +60,22 @@ pnpm --dir "$MOBILE_DIR" exec cap sync android
 step "Gradle $GRADLE_TASK"
 (cd "$ANDROID_DIR" && bash ./gradlew clean "$GRADLE_TASK" -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME")
 
+mkdir -p "$MOBILE_DIR/dist"
+
+if [[ "$BUILD_TYPE" == "aab" ]]; then
+  AAB_SRC="$ANDROID_DIR/app/build/outputs/bundle/release/app-release.aab"
+  [[ -f "$AAB_SRC" ]] || fail "expected bundle not found at $AAB_SRC"
+  AAB_OUT="$MOBILE_DIR/dist/Humbee-SFA-$ENV_NAME-$VERSION_NAME-$VERSION_CODE-release.aab"
+  cp "$AAB_SRC" "$AAB_OUT"
+
+  step "Done"
+  echo "App Bundle: $AAB_OUT"
+  echo "Upload it in Play Console > Test and release > a track > Create new release."
+  exit 0
+fi
+
 APK_SRC="$ANDROID_DIR/app/build/outputs/apk/$BUILD_TYPE/Humbee-SFA-$BUILD_TYPE.apk"
 [[ -f "$APK_SRC" ]] || fail "expected APK not found at $APK_SRC"
-mkdir -p "$MOBILE_DIR/dist"
 APK_OUT="$MOBILE_DIR/dist/Humbee-SFA-$ENV_NAME-$VERSION_NAME-$VERSION_CODE-$BUILD_TYPE.apk"
 cp "$APK_SRC" "$APK_OUT"
 

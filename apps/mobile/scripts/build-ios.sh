@@ -32,7 +32,7 @@ echo "Team ID:      $TEAM_ID"
 
 load_env
 # Build numbers must be unique per upload; QA and prod share one App Store Connect app, so add a timestamp.
-BUILD_NUMBER="$COMMIT_COUNT.$(date +%y%m%d).$(date +%H%M)"
+BUILD_NUMBER="$APP_BUILD_NUMBER.$(date +%y%m%d).$(date +%H%M)"
 echo "Version:      $APP_VERSION ($BUILD_NUMBER)"
 
 build_web
