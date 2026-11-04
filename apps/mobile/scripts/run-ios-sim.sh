@@ -48,7 +48,7 @@ echo "Xcode:        $(xcodebuild -version | head -n 1)"
 echo "Simulator:    $SIM_PICKED ($SIM_RUNTIME, $SIM_UDID)"
 
 load_env
-echo "Version:      $APP_VERSION ($COMMIT_COUNT)"
+echo "Version:      $APP_VERSION ($APP_BUILD_NUMBER)"
 
 build_web
 
@@ -59,7 +59,7 @@ step "Building for the simulator"
 xcodebuild -project "$IOS_PROJECT" -scheme App -configuration Debug \
   -sdk iphonesimulator -destination "id=$SIM_UDID" \
   -derivedDataPath "$DERIVED_DATA" \
-  MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$COMMIT_COUNT" \
+  MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$APP_BUILD_NUMBER" \
   CODE_SIGNING_ALLOWED=NO -quiet build
 APP_PATH="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/App.app"
 [[ -d "$APP_PATH" ]] || fail "expected app not found at $APP_PATH"
