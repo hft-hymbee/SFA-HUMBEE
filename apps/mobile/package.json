@@ -2,7 +2,7 @@
   "name": "mobile",
   "version": "0.1.0",
   "private": true,
-  "description": "Capacitor native shell for Humbee SFA. Contains no application code — wraps the static export from apps/web.",
+  "description": "Capacitor native shell for HUMBEE Go SFA. Contains no application code — wraps the static export from apps/web.",
   "scripts": {
     "sync": "cap sync",
     "open:ios": "cap open ios",

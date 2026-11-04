@@ -5,7 +5,7 @@ import { AppQueryProvider } from "@/src/shared/state";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Humbee GO",
+  title: "HUMBEE Go SFA",
   description: "Humbee sales force automation.",
 };
 
