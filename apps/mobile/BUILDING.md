@@ -22,7 +22,10 @@ Each run rebuilds the web export with that environment's `apps/web/.env.*`, sync
 and writes `apps/mobile/dist/Humbee-SFA-<env>-<versionName>-<versionCode>-<debug|release>.apk`.
 
 - **versionName** is `NEXT_PUBLIC_APP_VERSION` from the env file.
-- **versionCode** is the git commit count, so a newer build always installs over an older one.
+- **versionCode** is `APP_BUILD_NUMBER` in `scripts/lib/web-build.sh`, shared with iOS. Raise it before every Play
+  upload; Play rejects a versionCode it already has.
+- For Play, build an App Bundle instead of an APK: `bash scripts/build-android.sh prod aab` writes
+  `apps/mobile/dist/Humbee-SFA-prod-<versionName>-<versionCode>-release.aab`.
 
 QA and prod share the app id `com.humbee.sfa`, so a phone holds one of them at a time.
 
@@ -123,7 +126,7 @@ Send the release APK through Drive, Slack or WhatsApp. On their phone, opening t
 
 **See which API the app talks to**
 
-With the device connected, open `chrome://inspect` in Chrome on the Mac. Click **inspect** under *Humbee GO* and watch
+With the device connected, open `chrome://inspect` in Chrome on the Mac. Click **inspect** under *HUMBEE Go SFA* and watch
 the Network tab.
 
 ## Android: troubleshooting
@@ -152,7 +155,7 @@ pnpm mobile:ipa:prod:file
 ```
 
 - **Version** (`CFBundleShortVersionString`) is `NEXT_PUBLIC_APP_VERSION` from the env file.
-- **Build number** (`CFBundleVersion`) is `<git commit count>.<yyMMdd>.<HHmm>`, e.g. `19.261027.1530`. QA and prod upload
+- **Build number** (`CFBundleVersion`) is `<APP_BUILD_NUMBER>.<yyMMdd>.<HHmm>`, e.g. `36.261104.1530`. QA and prod upload
   to the same App Store Connect app, and every upload needs a new build number, so the time is part of it.
 - QA and prod share the bundle id `com.humbee.sfa`. In TestFlight, tell builds apart with the *What to Test* note and
   separate tester groups.
@@ -235,7 +238,7 @@ the Simulator or iPhone → localhost.
 | Symptom | Fix |
 | --- | --- |
 | `Unable to find a destination matching the provided destination specifier` | The simulator is on an iOS runtime this Xcode can't build for. The script picks the newest runtime; install it in Xcode → Settings → Components. |
-| App icon appears but the Simulator shows the home screen | Tap **Humbee GO**. A freshly booted simulator sometimes brings the home screen up over the app. |
+| App icon appears but the Simulator shows the home screen | Tap **HUMBEE Go SFA**. A freshly booted simulator sometimes brings the home screen up over the app. |
 | "No Apple team ID" | Step 3. |
 | `No Account for Team` / `No profiles for 'com.humbee.sfa' were found` | Xcode isn't signed in with an Apple ID on that team (step 2), or the team ID is wrong (step 3). |
 | `No signing certificate "iOS Distribution" found` | Your role can't create certificates. Ask for Admin or App Manager. |

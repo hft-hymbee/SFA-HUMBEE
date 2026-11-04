@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.humbee.sfa",
-  appName: "Humbee GO",
+  appName: "HUMBEE Go SFA",
   webDir: "../web/out",
   bundledWebRuntime: false,
   server: {
