@@ -48,7 +48,7 @@ echo "Xcode:        $(xcodebuild -version | head -n 1)"
 echo "Simulator:    $SIM_PICKED ($SIM_RUNTIME, $SIM_UDID)"
 
 load_env
-echo "Version:      $APP_VERSION ($COMMIT_COUNT)"
+echo "Version:      $APP_VERSION ($APP_BUILD_NUMBER)"
 
 build_web
 
@@ -59,7 +59,7 @@ step "Building for the simulator"
 xcodebuild -project "$IOS_PROJECT" -scheme App -configuration Debug \
   -sdk iphonesimulator -destination "id=$SIM_UDID" \
   -derivedDataPath "$DERIVED_DATA" \
-  MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$COMMIT_COUNT" \
+  MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$APP_BUILD_NUMBER" \
   CODE_SIGNING_ALLOWED=NO -quiet build
 APP_PATH="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/App.app"
 [[ -d "$APP_PATH" ]] || fail "expected app not found at $APP_PATH"
@@ -77,5 +77,5 @@ xcrun simctl spawn "$SIM_UDID" launchctl list | grep -q "$BUNDLE_ID" \
   || xcrun simctl launch "$SIM_UDID" "$BUNDLE_ID" >/dev/null
 
 step "Done"
-echo "Humbee GO ($ENV_NAME) is running on the simulator."
+echo "HUMBEE Go SFA ($ENV_NAME) is running on the simulator."
 echo "Inspect it: Safari > Develop > Simulator > localhost (enable Develop in Safari > Settings > Advanced)."
