@@ -40,6 +40,17 @@ def get_assignment(
     return session.execute(stmt).scalar_one_or_none()
 
 
+def list_assignments_for_employees(
+    session: Session, *, scope: ScopeContext, employee_ids: list[str]
+) -> list[GeographyScopeAssignment]:
+    if not employee_ids:
+        return []
+    stmt = _scoped_assignments(scope).where(
+        GeographyScopeAssignment.employee_id.in_(employee_ids)
+    )
+    return list(session.execute(stmt).scalars().all())
+
+
 def list_assignments_in_scope(
     session: Session, *, scope: ScopeContext
 ) -> list[GeographyScopeAssignment]:

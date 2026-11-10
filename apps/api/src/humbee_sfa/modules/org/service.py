@@ -104,6 +104,33 @@ def get_employee(session: Session, *, tenant_id: str, employee_id: str) -> Emplo
     return _to_projection(employee)
 
 
+@dataclass(frozen=True)
+class EmployeeCodeProjection:
+    id: str
+    employee_code: str
+    role_code: str
+    is_active: bool
+
+
+def find_employees_by_codes(
+    session: Session, *, tenant_id: str, employee_codes: Sequence[str]
+) -> dict[str, EmployeeCodeProjection]:
+    """`{employee_code: employee}` in one query, for bulk imports that name people by code.
+    Deactivated employees are included so the caller can tell "inactive" from "unknown"."""
+
+    return {
+        employee.employee_code: EmployeeCodeProjection(
+            id=employee.id,
+            employee_code=employee.employee_code,
+            role_code=employee.role_code,
+            is_active=employee.is_active,
+        )
+        for employee in repository.list_by_employee_codes(
+            session, scope=internal_routing_scope(tenant_id), employee_codes=employee_codes
+        )
+    }
+
+
 def list_employee_names(
     session: Session, *, tenant_id: str, employee_ids: Sequence[str]
 ) -> dict[str, str]:
