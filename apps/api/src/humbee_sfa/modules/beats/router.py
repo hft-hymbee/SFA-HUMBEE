@@ -24,14 +24,15 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Path, Query
+from fastapi import APIRouter, Depends, File, Header, Path, Query, UploadFile
 from fastapi import Request as HttpRequest
-from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.db import get_db_session
 from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims
-from humbee_sfa.modules.beats import schemas
+from humbee_sfa.modules.beats import beat_import, schemas
 from humbee_sfa.modules.beats.service import BeatService
 from humbee_sfa.platform.telemetry.middleware import get_request_id
 
@@ -57,6 +58,57 @@ def list_shop_categories(
     zone/state/district pickers under `/org/geography/*`."""
 
     return schemas.ShopCategoriesResponse(categories=list(schemas.ShopCategory)).model_dump(mode="json")
+
+
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.get(
+    "/beats/import/template",
+    response_class=Response,
+    responses={200: {"content": {_XLSX: {}}}},
+)
+def beat_import_template(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> Response:
+    return Response(
+        content=BeatService(session).import_template(claims=claims),
+        media_type=_XLSX,
+        headers={"Content-Disposition": 'attachment; filename="beat-import-template.xlsx"'},
+    )
+
+
+@router.post(
+    "/beats/import",
+    response_model=schemas.BeatImportResponse,
+    status_code=201,
+    responses={200: {"model": schemas.BeatImportResponse, "description": "Dry-run preview"}},
+)
+async def import_beats(
+    file: Annotated[UploadFile, File(description="xlsx; see GET /beats/import/template")],
+    request: HttpRequest,
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+    dry_run: Annotated[bool, Query()] = False,
+    idempotency_key: Annotated[
+        str | None, Header(alias="Idempotency-Key", max_length=128)
+    ] = None,
+) -> JSONResponse:
+    """Admin bulk create of approved beats from a two-sheet workbook. All-or-nothing; every row
+    error comes back at once as `422 xlsx_validation_failed`."""
+
+    # One byte past the cap is enough for the parser to reject an oversized file.
+    xlsx_bytes = await file.read(beat_import.MAX_BYTES + 1)
+    status_code, payload = await run_in_threadpool(
+        BeatService(session).import_beats,
+        claims=claims,
+        xlsx_bytes=xlsx_bytes,
+        dry_run=dry_run,
+        idempotency_key=idempotency_key,
+        request_id=get_request_id(request),
+    )
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @router.get("/beats", response_model=schemas.BeatListResponse)
