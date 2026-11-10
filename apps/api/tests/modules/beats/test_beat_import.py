@@ -122,6 +122,7 @@ def test_import_creates_approved_beats(
     humbee.add_outlet("O2", district_id="100")
     humbee.add_outlet("O3", district_id="101", shop_category_id="CATEGORY_B")
     humbee.add_outlet("O4", district_id="200")
+    humbee.outlet_page_size = 10_000  # the fake otherwise caps every page at 2
     data = _xlsx(
         [
             _beat("Indiranagar", south),  # no categories: any category in the district
@@ -136,6 +137,11 @@ def test_import_creates_approved_beats(
     response = _upload(admin, data)
 
     assert response.status_code == 201, response.text
+    # One outlet search for the whole file, across all three beats' districts, at Humbee's
+    # maximum page size and with categories checked locally.
+    (search,) = humbee.calls_to("GET", "/sfa/v1/outlets")
+    assert search.params.get_list("district_ids") == ["100", "101", "200"]
+    assert search.params["limit"] == "10000" and "shop_category_ids" not in search.params
     body = response.json()
     assert body["dry_run"] is False and body["beat_count"] == 3
     assert [(b["row"], b["outlet_count"]) for b in body["beats"]] == [(2, 2), (3, 1), (4, 1)]
