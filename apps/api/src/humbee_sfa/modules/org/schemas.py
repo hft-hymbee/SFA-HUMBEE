@@ -66,6 +66,24 @@ class CreateEmployeeBody(BaseModel):
     sick_leave_days: Decimal | None = Field(default=None, ge=0, max_digits=4, decimal_places=1)
 
 
+class EmployeeImportRow(BaseModel):
+    """One CSV data row; `row` is the file line number (the header is line 1). `id` is null on a
+    dry run."""
+
+    row: int
+    id: str | None
+    employee_code: str
+    full_name: str
+    role_code: str
+    manager_employee_id: str | None
+
+
+class EmployeeImportResponse(BaseModel):
+    dry_run: bool
+    row_count: int
+    employees: list[EmployeeImportRow]
+
+
 class CreateAdminBody(BaseModel):
     """Bootstrap-only payload: role and hierarchy fields are intentionally fixed."""
 

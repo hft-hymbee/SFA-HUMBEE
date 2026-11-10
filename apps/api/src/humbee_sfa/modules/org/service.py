@@ -22,7 +22,7 @@ from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.security import decrypt_phone, encrypt_phone, hmac_phone
 from humbee_sfa.core.settings import Settings, get_settings
-from humbee_sfa.modules.org import events, policies, repository, schemas
+from humbee_sfa.modules.org import employee_import, events, policies, repository, schemas
 from humbee_sfa.modules.org.models import Employee
 from humbee_sfa.modules.org.scope import (
     OrgResource,
@@ -42,6 +42,7 @@ from humbee_sfa.platform.idempotency import IdempotencyService
 logger = structlog.get_logger("humbee_sfa.org")
 
 AUDIT_ENTITY = "org_employee"
+_IMPORT_ENDPOINT = "/api/v1/org/employees/import"
 _PATH_SEPARATOR = "."
 
 
@@ -330,6 +331,31 @@ def _employee_payload(employee: Employee, *, depth: int | None = None) -> dict[s
         joined_on=employee.joined_on,
         phone_e164=decrypt_phone(employee.phone_e164_enc),
         depth=depth,
+    ).model_dump(mode="json")
+
+
+def _import_payload(
+    *,
+    dry_run: bool,
+    rows: list[employee_import.ParsedRow],
+    created: dict[str | None, Employee],
+) -> dict[str, Any]:
+    # No phone numbers: this payload is also the stored idempotency response.
+    employees = []
+    for row in rows:
+        employee = created.get(row.employee_code)
+        employees.append(
+            schemas.EmployeeImportRow(
+                row=row.row,
+                id=employee.id if employee is not None else None,
+                employee_code=row.employee_code,
+                full_name=row.full_name,
+                role_code=row.role_code,
+                manager_employee_id=employee.manager_employee_id if employee is not None else None,
+            )
+        )
+    return schemas.EmployeeImportResponse(
+        dry_run=dry_run, row_count=len(rows), employees=employees
     ).model_dump(mode="json")
 
 
@@ -678,98 +704,8 @@ class OrgService:
                 if replay is not None:
                     return replay
 
-                self._reject_designation_mismatch(
-                    role_code=body.role_code, designation_code=body.designation_code
-                )
-                manager = self._resolve_new_parent(
-                    scope,
-                    subject_role_code=body.role_code,
-                    new_manager_employee_id=body.manager_employee_id,
-                )
-                self._reject_duplicate_identity(
-                    scope, employee_code=body.employee_code, phone_e164=body.phone_e164
-                )
-
-                employee = repository.insert_employee(
-                    self._session,
-                    scope=scope,
-                    employee_code=body.employee_code,
-                    full_name=body.full_name,
-                    first_name=_first_name(body.full_name),
-                    display_initials=_display_initials(body.full_name),
-                    role_code=body.role_code,
-                    designation_code=body.designation_code,
-                    login_enabled=body.login_enabled,
-                    manager_employee_id=manager.id if manager is not None else None,
-                    joined_on=body.joined_on,
-                    phone_e164_hmac=hmac_phone(body.phone_e164),
-                    phone_e164_enc=encrypt_phone(body.phone_e164),
-                    phone_last4=body.phone_e164[-4:],
-                    hierarchy_path=None,
-                )
-
-                # Closure rows: the self-row plus every ancestor of the new parent, depth summed.
-                # `depth` is stored for ancestor/subtree queries and is never compared against a
-                # ceiling — the 5-level cap was withdrawn 2026-08-21.
-                edges: list[tuple[str, str, int]] = [(employee.id, employee.id, 0)]
-                if manager is not None:
-                    edges.extend(
-                        (ancestor_id, employee.id, depth + 1)
-                        for ancestor_id, depth in self._ancestors_of_parent(scope, manager)
-                    )
-                repository.insert_edges(self._session, scope=scope, edges=edges)
-
-                path_prefix = manager.hierarchy_path if manager is not None else None
-                repository.set_hierarchy_paths(
-                    self._session,
-                    scope=scope,
-                    paths={employee.id: _join_path(path_prefix, employee.id)},
-                )
-                self._session.refresh(employee)
-                from humbee_sfa.modules.leave import service as leave_service
-
-                leave_service.provision_employee_join_year_balances(
-                    self._session,
-                    scope=scope,
-                    employee_id=employee.id,
-                    joined_on=employee.joined_on,
-                    privileged_leave_days=body.privileged_leave_days,
-                    casual_leave_days=body.casual_leave_days,
-                    sick_leave_days=body.sick_leave_days,
-                    clock=self._clock,
-                    settings=self._settings,
-                )
-
+                employee = self._insert_new_employee(scope, body, request_id=request_id)
                 payload = _employee_payload(employee)
-                self._audit.record_transition(
-                    tenant_id=scope.tenant_id,
-                    entity_type=AUDIT_ENTITY,
-                    entity_id=employee.id,
-                    from_state=None,
-                    to_state="active",
-                    actor_employee_id=scope.actor_employee_id,
-                    request_id=request_id,
-                    change_payload={
-                        "transition": events.EMPLOYEE_CREATED,
-                        "employee_code": employee.employee_code,
-                        "role_code": employee.role_code,
-                        "designation_code": employee.designation_code,
-                        "manager_employee_id": employee.manager_employee_id,
-                    },
-                )
-                events.publish_org_event(
-                    self._events,
-                    tenant_id=scope.tenant_id,
-                    event_type=events.EMPLOYEE_CREATED,
-                    aggregate_id=employee.id,
-                    payload={
-                        "employee_id": employee.id,
-                        "role_code": employee.role_code,
-                        "manager_employee_id": employee.manager_employee_id,
-                    },
-                    actor_employee_id=scope.actor_employee_id,
-                    request_id=request_id,
-                )
                 self._store_idempotency(
                     endpoint=endpoint,
                     idempotency_key=idempotency_key,
@@ -789,6 +725,283 @@ class OrgService:
             actor_employee_id=scope.actor_employee_id,
         )
         return 201, payload
+
+    def _insert_new_employee(
+        self, scope: ScopeContext, body: schemas.CreateEmployeeBody, *, request_id: str | None
+    ) -> Employee:
+        """Validate and write one employee with its closure rows, leave, audit and event.
+
+        Opens no transaction: single create and CSV import both call it inside their own.
+        """
+
+        self._reject_designation_mismatch(
+            role_code=body.role_code, designation_code=body.designation_code
+        )
+        manager = self._resolve_new_parent(
+            scope,
+            subject_role_code=body.role_code,
+            new_manager_employee_id=body.manager_employee_id,
+        )
+        self._reject_duplicate_identity(
+            scope, employee_code=body.employee_code, phone_e164=body.phone_e164
+        )
+
+        employee = repository.insert_employee(
+            self._session,
+            scope=scope,
+            employee_code=body.employee_code,
+            full_name=body.full_name,
+            first_name=_first_name(body.full_name),
+            display_initials=_display_initials(body.full_name),
+            role_code=body.role_code,
+            designation_code=body.designation_code,
+            login_enabled=body.login_enabled,
+            manager_employee_id=manager.id if manager is not None else None,
+            joined_on=body.joined_on,
+            phone_e164_hmac=hmac_phone(body.phone_e164),
+            phone_e164_enc=encrypt_phone(body.phone_e164),
+            phone_last4=body.phone_e164[-4:],
+            hierarchy_path=None,
+        )
+
+        # Closure rows: the self-row plus every ancestor of the new parent, depth summed.
+        # `depth` is stored for ancestor/subtree queries and is never compared against a
+        # ceiling — the 5-level cap was withdrawn 2026-08-21.
+        edges: list[tuple[str, str, int]] = [(employee.id, employee.id, 0)]
+        if manager is not None:
+            edges.extend(
+                (ancestor_id, employee.id, depth + 1)
+                for ancestor_id, depth in self._ancestors_of_parent(scope, manager)
+            )
+        repository.insert_edges(self._session, scope=scope, edges=edges)
+
+        path_prefix = manager.hierarchy_path if manager is not None else None
+        repository.set_hierarchy_paths(
+            self._session,
+            scope=scope,
+            paths={employee.id: _join_path(path_prefix, employee.id)},
+        )
+        self._session.refresh(employee)
+        from humbee_sfa.modules.leave import service as leave_service
+
+        leave_service.provision_employee_join_year_balances(
+            self._session,
+            scope=scope,
+            employee_id=employee.id,
+            joined_on=employee.joined_on,
+            privileged_leave_days=body.privileged_leave_days,
+            casual_leave_days=body.casual_leave_days,
+            sick_leave_days=body.sick_leave_days,
+            clock=self._clock,
+            settings=self._settings,
+        )
+
+        self._audit.record_transition(
+            tenant_id=scope.tenant_id,
+            entity_type=AUDIT_ENTITY,
+            entity_id=employee.id,
+            from_state=None,
+            to_state="active",
+            actor_employee_id=scope.actor_employee_id,
+            request_id=request_id,
+            change_payload={
+                "transition": events.EMPLOYEE_CREATED,
+                "employee_code": employee.employee_code,
+                "role_code": employee.role_code,
+                "designation_code": employee.designation_code,
+                "manager_employee_id": employee.manager_employee_id,
+            },
+        )
+        events.publish_org_event(
+            self._events,
+            tenant_id=scope.tenant_id,
+            event_type=events.EMPLOYEE_CREATED,
+            aggregate_id=employee.id,
+            payload={
+                "employee_id": employee.id,
+                "role_code": employee.role_code,
+                "manager_employee_id": employee.manager_employee_id,
+            },
+            actor_employee_id=scope.actor_employee_id,
+            request_id=request_id,
+        )
+        return employee
+
+    # -- CSV import ----------------------------------------------------------
+
+    def import_template(self, *, claims: AccessTokenClaims) -> str:
+        self._employee_write_scope(claims)
+        return employee_import.TEMPLATE_CSV
+
+    def import_employees(
+        self,
+        *,
+        claims: AccessTokenClaims,
+        csv_bytes: bytes,
+        dry_run: bool,
+        idempotency_key: str | None,
+        request_id: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        """All-or-nothing bulk create: every row is validated before any is written, and one
+        transaction writes them all, so a bad row creates nobody."""
+
+        # Admin-only, checked before the file is read.
+        scope = self._employee_write_scope(claims)
+        if not dry_run and idempotency_key is None:
+            raise ApiError(
+                422, "idempotency_key_required", "An Idempotency-Key header is required to import."
+            )
+        if len(csv_bytes) > employee_import.MAX_BYTES:
+            raise ApiError(
+                413,
+                "file_too_large",
+                "The CSV file is larger than 1 MB.",
+                details={"max_bytes": employee_import.MAX_BYTES},
+            )
+        if idempotency_key is not None and not dry_run:
+            # Before validation: on a replay the rows already exist and would fail as duplicates.
+            replay = self._check_idempotency(
+                endpoint=_IMPORT_ENDPOINT,
+                idempotency_key=idempotency_key,
+                raw_body=csv_bytes,
+                tenant_id=scope.tenant_id,
+            )
+            if replay is not None:
+                return replay
+
+        rows, errors = employee_import.parse_csv(csv_bytes)
+        ordered, cycle_errors = employee_import.order_managers_first(rows)
+        db_managers, check_errors = self._check_import_rows(scope, rows)
+        errors = sorted([*errors, *cycle_errors, *check_errors], key=lambda error: error.row)
+        if errors:
+            raise ApiError(
+                422,
+                "csv_validation_failed",
+                "The CSV has invalid rows; no employees were created.",
+                details={"row_count": len(rows), "errors": [error.as_dict() for error in errors]},
+            )
+        if dry_run:
+            return 200, _import_payload(dry_run=True, rows=rows, created={})
+
+        assert idempotency_key is not None
+        created: dict[str | None, Employee] = {}  # keyed by employee_code
+        try:
+            with transaction(self._session):
+                for row in ordered:
+                    assert row.body is not None
+                    manager = created.get(row.manager_code) or db_managers.get(row.manager_code)
+                    body = row.body.model_copy(
+                        update={"manager_employee_id": manager.id if manager is not None else None}
+                    )
+                    created[row.employee_code] = self._insert_new_employee(
+                        scope, body, request_id=request_id
+                    )
+                payload = _import_payload(dry_run=False, rows=rows, created=created)
+                self._store_idempotency(
+                    endpoint=_IMPORT_ENDPOINT,
+                    idempotency_key=idempotency_key,
+                    raw_body=csv_bytes,
+                    status_code=201,
+                    payload=payload,
+                    scope=scope,
+                )
+        except IntegrityError as exc:
+            raise self._identity_conflict(exc) from exc
+
+        logger.info(
+            "employees_imported",
+            count=len(created),
+            actor_employee_id=scope.actor_employee_id,
+        )
+        return 201, payload
+
+    def _check_import_rows(
+        self, scope: ScopeContext, rows: list[employee_import.ParsedRow]
+    ) -> tuple[dict[str | None, Employee], list[employee_import.RowError]]:
+        """Checks that need the database or the whole file, reusing the single-create rules.
+
+        Returns the already-existing managers by employee_code so the insert pass does not look them up
+        again. ponytail: ~3 queries per row; batch with `IN (...)` if files outgrow MAX_ROWS.
+        """
+
+        RowError = employee_import.RowError
+        errors: list[employee_import.RowError] = []
+        first_code: dict[str, int] = {}
+        first_phone: dict[str, int] = {}
+        for row in rows:
+            if row.employee_code in first_code:
+                errors.append(
+                    RowError(
+                        row.row,
+                        "employee_code",
+                        "duplicate_in_file",
+                        f"Same employee_code as row {first_code[row.employee_code]}.",
+                    )
+                )
+            elif row.employee_code:
+                first_code[row.employee_code] = row.row
+            if row.phone in first_phone:
+                errors.append(
+                    RowError(
+                        row.row,
+                        "phone",
+                        "duplicate_in_file",
+                        f"Same phone as row {first_phone[row.phone]}.",
+                    )
+                )
+            elif row.phone is not None:
+                first_phone[row.phone] = row.row
+
+        in_file = {row.employee_code: row for row in rows if row.employee_code}
+        db_managers: dict[str | None, Employee] = {}
+        for row in rows:
+            if row.body is not None:
+                try:
+                    self._reject_designation_mismatch(
+                        role_code=row.body.role_code, designation_code=row.body.designation_code
+                    )
+                    self._reject_duplicate_identity(
+                        scope, employee_code=row.body.employee_code, phone_e164=row.body.phone_e164
+                    )
+                except ApiError as exc:
+                    column = {
+                        "designation_role_mismatch": "designation_code",
+                        "phone_already_registered": "phone",
+                    }.get(exc.code, "employee_code")
+                    errors.append(RowError(row.row, column, exc.code, exc.detail))
+
+            if row.manager_code is None or row.manager_code == row.employee_code:
+                continue
+            manager_row = in_file.get(row.manager_code)
+            if manager_row is not None:
+                manager_role = manager_row.role_code
+            else:
+                manager = db_managers.get(row.manager_code) or repository.get_by_employee_code(
+                    self._session, scope=scope, employee_code=row.manager_code
+                )
+                if manager is None or not manager.is_active:
+                    errors.append(
+                        RowError(
+                            row.row,
+                            "manager_code",
+                            "manager_not_found",
+                            "The selected manager was not found.",
+                        )
+                    )
+                    continue
+                manager_role = manager.role_code
+                db_managers[row.manager_code] = manager
+            # Same rule as `_resolve_new_parent`: only a Manager holds direct reports.
+            if not can_have_reports(manager_role):
+                errors.append(
+                    RowError(
+                        row.row,
+                        "manager_code",
+                        "invalid_manager",
+                        "The selected employee cannot hold direct reports.",
+                    )
+                )
+        return db_managers, errors
 
     def update_employee(
         self,
