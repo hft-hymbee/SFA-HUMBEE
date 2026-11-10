@@ -23,7 +23,11 @@ from humbee_sfa.core.db import end_read_transaction, transaction
 from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.settings import Settings, get_settings
-from humbee_sfa.integration.humbee.outlet import HumbeeOutletMasterProvider
+from humbee_sfa.integration.humbee.outlet import (
+    MAX_SEARCH_PAGE_SIZE,
+    HumbeeOutletMasterProvider,
+    OutletRecord,
+)
 from humbee_sfa.modules.approvals import repository as approvals_repository
 from humbee_sfa.modules.approvals import service as approvals_service
 from humbee_sfa.modules.approvals.contracts import ApprovalStatus, DecisionAction, SubjectEvent
@@ -2220,38 +2224,55 @@ class BeatService:
         geo_scopes: dict[int, dict[str, Any]],
         errors: list[beat_import.RowError],
     ) -> None:
-        """The same live Humbee search `_refresh_and_validate_outlets` runs, per beat, reporting
-        rather than raising. Each beat's projection refresh commits on its own: it is a cache of
-        Humbee, not import state, and holding its row locks across the next beat's Humbee round
-        trip would block every other outlet write for the length of the file.
+        """The live Humbee search `_refresh_and_validate_outlets` runs, done once for the whole
+        file rather than per beat: one search over the union of every beat's districts with no
+        category filter, then each beat's district and category rule checked locally from the
+        records' own `district_external_id` / `category`. Reports rather than raises.
 
-        ponytail: one paged search per beat (MAX_BEATS of them); group beats sharing districts if
-        imports outgrow that.
+        Each district batch's projection refresh commits on its own: it is a cache of Humbee, not
+        import state, and holding its row locks across the next Humbee round trip would block
+        every other outlet write for the length of the file.
+
+        ponytail: downloads every outlet in the file's districts (10,000 per page); a file spanning
+        many dense districts pays for all of them. Search by outlet id if Humbee ever offers it.
         """
 
-        for beat in beats:
-            if beat.row not in geo_scopes or not beat.outlet_refs:
-                continue
+        checked = [beat for beat in beats if beat.row in geo_scopes and beat.outlet_refs]
+        districts = list(dict.fromkeys(d for beat in checked for d in beat.districts))
+        refs = {ref for beat in checked for ref in beat.outlet_refs}
+        # Bounded `district_ids` query strings, the same batching the outlet module uses.
+        batch_size = OutletReadService._HUMBEE_OUTLET_SEARCH_DISTRICT_BATCH
+        records: dict[str, OutletRecord] = {}
+        for start in range(0, len(districts), batch_size):
             with transaction(self._session):
-                records = self._outlets().search_outlets(
+                for record in self._outlets().search_outlets(
                     tenant_id=scope.tenant_id,
-                    district_ids=beat.districts,
-                    category_ids=beat.cats,
+                    district_ids=districts[start : start + batch_size],
+                    category_ids=[],
                     query=None,
                     actor_employee_id=scope.actor_employee_id,
-                    upsert_refs=set(beat.outlet_refs),
-                )
-            in_scope = {record.external_id for record in records}
+                    upsert_refs=refs,
+                    page_size=MAX_SEARCH_PAGE_SIZE,
+                ):
+                    records[record.external_id] = record
+
+        for beat in checked:
             where = "districts and categories" if beat.cats else "districts"
-            errors.extend(
-                beat_import.RowError(
-                    beat_import.OUTLETS_SHEET, beat.outlet_rows[ref],
-                    beat_import.OUTLET_COLUMNS["outlet_ref"], "outlet_out_of_scope",
-                    f'Outlet {ref} is not in beat "{beat.name}"\'s {where}.',
+            for ref in beat.outlet_refs:
+                record = records.get(ref)
+                if (
+                    record is not None
+                    and record.district_external_id in beat.districts
+                    and (not beat.cats or record.category in beat.cats)
+                ):
+                    continue
+                errors.append(
+                    beat_import.RowError(
+                        beat_import.OUTLETS_SHEET, beat.outlet_rows[ref],
+                        beat_import.OUTLET_COLUMNS["outlet_ref"], "outlet_out_of_scope",
+                        f'Outlet {ref} is not in beat "{beat.name}"\'s {where}.',
+                    )
                 )
-                for ref in beat.outlet_refs
-                if ref not in in_scope
-            )
 
     def _insert_imported_beat(
         self,
