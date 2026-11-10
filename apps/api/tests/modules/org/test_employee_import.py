@@ -6,18 +6,21 @@ import httpx
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from tests.fakes.humbee import FakeHumbee
 from tests.fixtures import seed
 from tests.fixtures.auth import Authed, login
 from tests.fixtures.flows import error_code
 
 from humbee_sfa.core.conventions import generate_ulid
 from humbee_sfa.modules.org import employee_import
-from humbee_sfa.modules.org.models import Employee, HierarchyEdge
+from humbee_sfa.modules.org.models import Employee, GeographyScopeAssignment, HierarchyEdge
 from humbee_sfa.platform.models import AuditLog
+from humbee_sfa.platform.models.domain_event import DomainEvent
 
 IMPORT = "/api/v1/org/employees/import"
 TEMPLATE = "/api/v1/org/employees/import/template"
 HEADER = ",".join(employee_import.REQUIRED_COLUMNS)
+GEO_HEADER = HEADER + ",zone_ids,state_ids,district_ids"
 _numbers = itertools.count(70001)
 _AUTO = "auto"
 
@@ -57,6 +60,16 @@ def _employee_count(db: Session) -> int:
 
 def _by_code(db: Session, code: str) -> Employee:
     return db.scalars(select(Employee).where(Employee.employee_code == code)).one()
+
+
+def _assignment(db: Session, employee_id: str) -> GeographyScopeAssignment | None:
+    return db.scalars(
+        select(GeographyScopeAssignment).where(GeographyScopeAssignment.employee_id == employee_id)
+    ).one_or_none()
+
+
+def _assignment_count(db: Session) -> int:
+    return db.scalar(select(func.count()).select_from(GeographyScopeAssignment))
 
 
 def _edges(db: Session, employee_id: str) -> set[tuple[str, int]]:
@@ -252,6 +265,7 @@ def test_template_round_trip(api_client: TestClient, db_session: Session) -> Non
     assert response.status_code == 201, response.text
     manager_row, sp_row = response.json()["employees"]
     assert sp_row["manager_employee_id"] == manager_row["id"]
+    assert (manager_row["district_ids"], sp_row["district_ids"]) == ([], ["100", "101"])
 
 
 def test_normalize_phone_and_manager_ordering() -> None:
@@ -271,3 +285,105 @@ def test_normalize_phone_and_manager_ordering() -> None:
     ordered, cycle_errors = employee_import.order_managers_first(rows)
     assert errors == cycle_errors == []
     assert [row.employee_code for row in ordered] == ["L1", "L2", "L3"]
+
+
+def test_import_assigns_geography(api_client: TestClient, db_session: Session) -> None:
+    admin = login(api_client, seed.employee(db_session, "admin"))
+    data = _csv(
+        _row("G-1", _phone()) + ',1,10,"100, 101"',
+        _row("G-2", _phone()) + ",,,",
+        header=GEO_HEADER,
+    )
+
+    response = _upload(admin, data)
+
+    assert response.status_code == 201, response.text
+    assert [row["district_ids"] for row in response.json()["employees"]] == [["100", "101"], []]
+    with_geo, without_geo = _by_code(db_session, "G-1"), _by_code(db_session, "G-2")
+    assignment = _assignment(db_session, with_geo.id)
+    assert assignment is not None
+    assert (
+        assignment.zone_cluster_ids,
+        assignment.state_cluster_ids,
+        assignment.district_cluster_ids,
+    ) == (["1"], ["10"], ["100", "101"])
+    assert assignment.geo_labels["districts"][1] == {
+        "id": "101", "name": "Mysuru", "state_id": "10", "state_name": "Karnataka"
+    }
+    assert _assignment(db_session, without_geo.id) is None
+    audits = db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(
+            AuditLog.entity_id == assignment.id,
+            AuditLog.change_payload["transition"].astext == "geo_scope_assigned",
+        )
+    )
+    events = db_session.scalar(
+        select(func.count())
+        .select_from(DomainEvent)
+        .where(
+            DomainEvent.aggregate_id == with_geo.id,
+            DomainEvent.event_type == "geo_scope_assigned",
+        )
+    )
+    assert audits == events == 1
+    # The assignment is the real one: the per-employee read serves it.
+    scope = admin.get(f"/api/v1/org/employees/{with_geo.id}/geography-scope")
+    assert scope.status_code == 200 and scope.json()["districts"] == ["100", "101"]
+
+
+def test_geography_errors_block_the_file(api_client: TestClient, db_session: Session) -> None:
+    admin = login(api_client, seed.employee(db_session, "admin"))
+    before, assignments_before = _employee_count(db_session), _assignment_count(db_session)
+
+    rows = [
+        _row("V-1", _phone()) + ",1,10,100",  # 2: valid, but nothing may be written
+        _row("V-2", _phone()) + ",,,100",  # 3
+        _row("V-3", _phone()) + ",1,10,999",  # 4
+        _row("V-4", _phone()) + ",1,10,200",  # 5: Pune is in Maharashtra
+        _row("V-5", _phone()) + ",1,20,200",  # 6: Maharashtra is in West
+        _row("V-6", _phone()) + ',"1,9",10,100',  # 7
+        _row("V-7", _phone()) + ",2,20,200",  # 8: valid; brings zone 2's states into the file
+    ]
+    response = _upload(admin, _csv(*rows, header=GEO_HEADER))
+
+    assert (response.status_code, error_code(response)) == (422, "csv_validation_failed")
+    errors = response.json()["error"]["details"]["errors"]
+    assert {(e["row"], e["column"], e["code"]) for e in errors} == {
+        (3, "zone_ids", "geography_incomplete"),
+        (3, "state_ids", "geography_incomplete"),
+        (4, "district_ids", "unknown_district"),
+        (5, "district_ids", "district_not_in_state"),
+        (6, "state_ids", "state_not_in_zone"),
+        (7, "zone_ids", "unknown_zone"),
+    }
+    assert _employee_count(db_session) == before
+    assert _assignment_count(db_session) == assignments_before
+
+
+def test_dry_run_validates_geography(api_client: TestClient, db_session: Session) -> None:
+    admin = login(api_client, seed.employee(db_session, "admin"))
+    assignments_before = _assignment_count(db_session)
+
+    bad = _upload(admin, _csv(_row("W-1", _phone()) + ",1,10,999", header=GEO_HEADER), dry_run=True)
+    assert (bad.status_code, error_code(bad)) == (422, "csv_validation_failed")
+    good = _upload(
+        admin, _csv(_row("W-1", _phone()) + ",2,20,200", header=GEO_HEADER), dry_run=True, key=None
+    )
+    assert good.status_code == 200, good.text
+    assert good.json()["employees"][0]["district_ids"] == ["200"]
+    assert _assignment_count(db_session) == assignments_before
+
+
+def test_geography_master_down_writes_nothing(
+    api_client: TestClient, db_session: Session, humbee: FakeHumbee
+) -> None:
+    admin = login(api_client, seed.employee(db_session, "admin"))
+    before = _employee_count(db_session)
+    humbee.fail("GET", "/sfa/v1/geography-zones", "999", times=2)
+
+    response = _upload(admin, _csv(_row("U-1", _phone()) + ",1,10,100", header=GEO_HEADER))
+
+    assert (response.status_code, error_code(response)) == (503, "geography_master_unavailable")
+    assert _employee_count(db_session) == before
