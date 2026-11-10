@@ -26,6 +26,7 @@ dependencies = [
     "cryptography",
     "pyyaml>=6.0.3",
     "openpyxl",
+    "python-multipart",
 ]
 
 [project.scripts]
