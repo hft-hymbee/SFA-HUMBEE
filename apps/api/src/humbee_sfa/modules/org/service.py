@@ -17,12 +17,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.clock import Clock, SystemClock
-from humbee_sfa.core.db import transaction
+from humbee_sfa.core.db import end_read_transaction, transaction
 from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.security import decrypt_phone, encrypt_phone, hmac_phone
 from humbee_sfa.core.settings import Settings, get_settings
 from humbee_sfa.modules.org import employee_import, events, policies, repository, schemas
+from humbee_sfa.modules.org.geography_service import GeographyService, GeoSelection
 from humbee_sfa.modules.org.models import Employee
 from humbee_sfa.modules.org.scope import (
     OrgResource,
@@ -352,6 +353,7 @@ def _import_payload(
                 full_name=row.full_name,
                 role_code=row.role_code,
                 manager_employee_id=employee.manager_employee_id if employee is not None else None,
+                district_ids=row.districts,
             )
         )
     return schemas.EmployeeImportResponse(
@@ -872,7 +874,10 @@ class OrgService:
         rows, errors = employee_import.parse_csv(csv_bytes)
         ordered, cycle_errors = employee_import.order_managers_first(rows)
         db_managers, check_errors = self._check_import_rows(scope, rows)
-        errors = sorted([*errors, *cycle_errors, *check_errors], key=lambda error: error.row)
+        geo_labels, geo_errors = self._check_import_geography(scope, rows)
+        errors = sorted(
+            [*errors, *cycle_errors, *check_errors, *geo_errors], key=lambda error: error.row
+        )
         if errors:
             raise ApiError(
                 422,
@@ -885,6 +890,8 @@ class OrgService:
 
         assert idempotency_key is not None
         created: dict[str | None, Employee] = {}  # keyed by employee_code
+        geography = GeographyService(self._session, settings=self._settings, clock=self._clock)
+        geo_scope = ScopeResolver.resolve_from_claims(claims, OrgResource.GEOGRAPHY_ASSIGNMENT)
         try:
             with transaction(self._session):
                 for row in ordered:
@@ -896,6 +903,14 @@ class OrgService:
                     created[row.employee_code] = self._insert_new_employee(
                         scope, body, request_id=request_id
                     )
+                    if row.row in geo_labels:
+                        geography.write_assignment(
+                            scope=geo_scope,
+                            employee_id=created[row.employee_code].id,
+                            selection=GeoSelection(row.zones, row.states, row.districts),
+                            labels=geo_labels[row.row],
+                            request_id=request_id,
+                        )
                 payload = _import_payload(dry_run=False, rows=rows, created=created)
                 self._store_idempotency(
                     endpoint=_IMPORT_ENDPOINT,
@@ -914,6 +929,36 @@ class OrgService:
             actor_employee_id=scope.actor_employee_id,
         )
         return 201, payload
+
+    def _check_import_geography(
+        self, scope: ScopeContext, rows: list[employee_import.ParsedRow]
+    ) -> tuple[dict[int, dict[str, Any]], list[employee_import.RowError]]:
+        """Line -> geography labels for every row whose ids exist and nest, plus a row error per
+        rejected id. Three Humbee calls for the whole file, none when no row carries geography."""
+
+        with_geo = [row for row in rows if row.has_geography]
+        if not with_geo:
+            return {}, []
+        # The checks above read the database; don't hold that transaction across Humbee.
+        end_read_transaction(self._session)
+        results = GeographyService(
+            self._session, settings=self._settings, clock=self._clock
+        ).validate_selections(
+            tenant_id=scope.tenant_id,
+            selections=[GeoSelection(row.zones, row.states, row.districts) for row in with_geo],
+        )
+        labels: dict[int, dict[str, Any]] = {}
+        errors: list[employee_import.RowError] = []
+        for row, (row_labels, problems) in zip(with_geo, results, strict=True):
+            if row_labels is not None:
+                labels[row.row] = row_labels
+            errors.extend(
+                employee_import.RowError(
+                    row.row, employee_import.GEO_COLUMNS[level], code, message
+                )
+                for level, code, message in problems
+            )
+        return labels, errors
 
     def _check_import_rows(
         self, scope: ScopeContext, rows: list[employee_import.ParsedRow]

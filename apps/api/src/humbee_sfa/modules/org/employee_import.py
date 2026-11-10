@@ -10,7 +10,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import ValidationError
@@ -35,16 +35,21 @@ OPTIONAL_COLUMNS = (
     "privileged_leave_days",
     "casual_leave_days",
     "sick_leave_days",
+    "zone_ids",
+    "state_ids",
+    "district_ids",
 )
+# Geography level -> CSV column. Humbee ids, several per cell comma-separated.
+GEO_COLUMNS = {"zones": "zone_ids", "states": "state_ids", "districts": "district_ids"}
 # Admins are a deliberate one-off (they hold no position in the tree), never a bulk row.
 IMPORTABLE_ROLES = ("manager", "sales_person")
 
 TEMPLATE_CSV = (
     ",".join(REQUIRED_COLUMNS + OPTIONAL_COLUMNS)
     + "\r\n"
-    + "MGR-0001,Asha Rao,9876500001,manager,area_sales_manager,,true,2026-11-01,,,\r\n"
+    + "MGR-0001,Asha Rao,9876500001,manager,area_sales_manager,,true,2026-11-01,,,,,,\r\n"
     + "SP-0001,Ravi Kumar,9876500002,sales_person,network_officer_salesperson,MGR-0001,"
-    + "true,2026-11-01,,,\r\n"
+    + 'true,2026-11-01,,,,1,10,"100,101"\r\n'
 )
 
 _E164 = re.compile(r"^\+[1-9]\d{7,14}$")
@@ -78,6 +83,14 @@ class ParsedRow:
     phone: str | None
     manager_code: str | None
     body: schemas.CreateEmployeeBody | None
+    # Humbee ids to assign as the employee's geography scope; all empty means none.
+    zones: list[str] = field(default_factory=list)
+    states: list[str] = field(default_factory=list)
+    districts: list[str] = field(default_factory=list)
+
+    @property
+    def has_geography(self) -> bool:
+        return bool(self.zones and self.states and self.districts)
 
 
 def normalize_phone(raw: str) -> str | None:
@@ -243,6 +256,19 @@ def _parse_row(line: int, cells: dict[str, str]) -> tuple[ParsedRow, list[RowErr
         fields["login_enabled"] = False
     elif login_enabled:
         errors.append(RowError(line, "login_enabled", "invalid_value", "Use true or false."))
+    geo = {level: _split_ids(cells.get(column, "")) for level, column in GEO_COLUMNS.items()}
+    if any(geo.values()):
+        errors.extend(
+            RowError(
+                line,
+                column,
+                "geography_incomplete",
+                "Give zone_ids, state_ids and district_ids together, or leave all three blank.",
+            )
+            for level, column in GEO_COLUMNS.items()
+            if not geo[level]
+        )
+
     for column in ("joined_on", "privileged_leave_days", "casual_leave_days", "sick_leave_days"):
         if cells.get(column):
             fields[column] = cells[column]
@@ -268,5 +294,12 @@ def _parse_row(line: int, cells: dict[str, str]) -> tuple[ParsedRow, list[RowErr
         phone=phone,
         manager_code=manager_code,
         body=body,
+        zones=geo["zones"],
+        states=geo["states"],
+        districts=geo["districts"],
     )
     return row, errors
+
+
+def _split_ids(value: str) -> list[str]:
+    return list(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))

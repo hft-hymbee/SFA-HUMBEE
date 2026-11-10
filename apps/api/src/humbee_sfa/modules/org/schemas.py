@@ -76,6 +76,8 @@ class EmployeeImportRow(BaseModel):
     full_name: str
     role_code: str
     manager_employee_id: str | None
+    # Assigned geography districts (would-be, on a dry run); empty when the row had none.
+    district_ids: list[str] = Field(default_factory=list)
 
 
 class EmployeeImportResponse(BaseModel):

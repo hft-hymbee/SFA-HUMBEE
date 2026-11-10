@@ -48,6 +48,7 @@ from humbee_sfa.integration.humbee.geography import (
     ZoneOption,
 )
 from humbee_sfa.modules.org import events, geography_repository, geography_schemas, repository
+from humbee_sfa.modules.org.models import GeographyScopeAssignment
 from humbee_sfa.modules.org.scope import (
     OrgResource,
     Scope,
@@ -185,6 +186,17 @@ def district_geography_labels(session: Session, *, tenant_id: str) -> dict[str, 
                 "state_name": str(item.get("state_name") or ""),
             }
     return labels
+
+
+@dataclass(frozen=True)
+class GeoSelection:
+    zones: list[str]
+    states: list[str]
+    districts: list[str]
+
+
+# A rejected id within one selection: (level, code, message), level one of zones/states/districts.
+GeoProblem = tuple[str, str, str]
 
 
 # Named here rather than in `events.py` because geography is the only publisher.
@@ -342,50 +354,11 @@ class GeographyService:
         with transaction(self._session):
             self._employee_in_scope(claims, employee_id)
             selection, labels = self._validate_and_label(body, tenant_id=scope.tenant_id)
-
-            previous = geography_repository.get_assignment(
-                self._session, scope=scope, employee_id=employee_id
-            )
-            previous_districts = list(previous.district_cluster_ids) if previous else []
-
-            assignment = geography_repository.upsert_assignment(
-                self._session,
+            assignment = self.write_assignment(
                 scope=scope,
                 employee_id=employee_id,
-                zone_cluster_ids=selection.zones,
-                state_cluster_ids=selection.states,
-                district_cluster_ids=selection.districts,
-                geo_labels=labels,
-                at=self._clock.now_utc(),
-            )
-
-            self._audit.record_transition(
-                tenant_id=scope.tenant_id,
-                entity_type=AUDIT_ENTITY,
-                entity_id=assignment.id,
-                from_state="assigned" if previous is not None else None,
-                to_state="assigned",
-                actor_employee_id=scope.actor_employee_id,
-                request_id=request_id,
-                change_payload={
-                    "transition": GEO_SCOPE_ASSIGNED,
-                    "employee_id": employee_id,
-                    "from_district_cluster_ids": previous_districts,
-                    "to_district_cluster_ids": selection.districts,
-                },
-            )
-            events.publish_org_event(
-                self._events,
-                tenant_id=scope.tenant_id,
-                event_type=GEO_SCOPE_ASSIGNED,
-                aggregate_id=employee_id,
-                payload={
-                    "employee_id": employee_id,
-                    "zone_cluster_ids": selection.zones,
-                    "state_cluster_ids": selection.states,
-                    "district_cluster_ids": selection.districts,
-                },
-                actor_employee_id=scope.actor_employee_id,
+                selection=selection,
+                labels=labels,
                 request_id=request_id,
             )
             payload = geography_schemas.GeoScopeResponse(
@@ -406,17 +379,71 @@ class GeographyService:
         )
         return payload
 
-    # -- validation ----------------------------------------------------------
+    def write_assignment(
+        self,
+        *,
+        scope: ScopeContext,
+        employee_id: str,
+        selection: GeoSelection,
+        labels: dict[str, list[dict[str, Any]]],
+        request_id: str | None,
+    ) -> GeographyScopeAssignment:
+        """Replace one employee's scope with its audit row and `GeoScopeAssigned` event. Opens no
+        transaction and validates nothing: the single assign endpoint and the employee CSV import
+        both validate first and call it inside their own."""
 
-    @dataclass(frozen=True)
-    class _Selection:
-        zones: list[str]
-        states: list[str]
-        districts: list[str]
+        previous = geography_repository.get_assignment(
+            self._session, scope=scope, employee_id=employee_id
+        )
+        previous_districts = list(previous.district_cluster_ids) if previous else []
+
+        assignment = geography_repository.upsert_assignment(
+            self._session,
+            scope=scope,
+            employee_id=employee_id,
+            zone_cluster_ids=selection.zones,
+            state_cluster_ids=selection.states,
+            district_cluster_ids=selection.districts,
+            geo_labels=labels,
+            at=self._clock.now_utc(),
+        )
+
+        self._audit.record_transition(
+            tenant_id=scope.tenant_id,
+            entity_type=AUDIT_ENTITY,
+            entity_id=assignment.id,
+            from_state="assigned" if previous is not None else None,
+            to_state="assigned",
+            actor_employee_id=scope.actor_employee_id,
+            request_id=request_id,
+            change_payload={
+                "transition": GEO_SCOPE_ASSIGNED,
+                "employee_id": employee_id,
+                "from_district_cluster_ids": previous_districts,
+                "to_district_cluster_ids": selection.districts,
+            },
+        )
+        events.publish_org_event(
+            self._events,
+            tenant_id=scope.tenant_id,
+            event_type=GEO_SCOPE_ASSIGNED,
+            aggregate_id=employee_id,
+            payload={
+                "employee_id": employee_id,
+                "zone_cluster_ids": selection.zones,
+                "state_cluster_ids": selection.states,
+                "district_cluster_ids": selection.districts,
+            },
+            actor_employee_id=scope.actor_employee_id,
+            request_id=request_id,
+        )
+        return assignment
+
+    # -- validation ----------------------------------------------------------
 
     def _validate_and_label(
         self, body: geography_schemas.AssignGeoScopeBody, *, tenant_id: str
-    ) -> tuple[_Selection, dict[str, list[dict[str, Any]]]]:
+    ) -> tuple[GeoSelection, dict[str, list[dict[str, Any]]]]:
         """Server-side mirror of the picker cascade, and the `{id, name}` label snapshot taken at
         assignment time — combined so neither state nor district is fetched twice.
 
@@ -445,21 +472,72 @@ class GeographyService:
         districts_by_id = {d.external_id: d for d in districts_known}
         self._reject_unknown(districts, set(districts_by_id), "district")
 
-        selection = self._Selection(zones=zones, states=states, districts=districts)
-        labels = {
-            "zones": [{"id": z, "name": zones_by_id[z].name} for z in zones],
-            "states": [{"id": s, "name": states_by_id[s].name} for s in states],
-            "districts": [
-                {
-                    "id": d,
-                    "name": districts_by_id[d].name,
-                    "state_id": districts_by_id[d].state_external_id,
-                    "state_name": states_by_id[districts_by_id[d].state_external_id].name,
-                }
-                for d in districts
-            ],
-        }
-        return selection, labels
+        selection = GeoSelection(zones=zones, states=states, districts=districts)
+        return selection, _labels(selection, zones_by_id, states_by_id, districts_by_id)
+
+    def validate_selections(
+        self, *, tenant_id: str, selections: list[GeoSelection]
+    ) -> list[tuple[dict[str, list[dict[str, Any]]] | None, list[GeoProblem]]]:
+        """Batch counterpart of `_validate_and_label` for imports: three Humbee calls however many
+        selections, and each selection's problems reported rather than raised. Stricter on
+        nesting, too: a state must sit under one of *its own* zones, and a district under one of
+        its own states. Returns `(labels, [])` for a valid selection, `(None, problems)` otherwise.
+        """
+
+        zone_ids = _dedupe([zone for selection in selections for zone in selection.zones])
+        state_ids = _dedupe([state for selection in selections for state in selection.states])
+        zones_by_id = {z.external_id: z for z in self._fetch_zones(tenant_id)}
+        # An empty filter means "everything" upstream, so an empty level is skipped, not fetched.
+        states_by_id = (
+            {s.external_id: s for s in self._fetch_states(tenant_id, zone_ids)} if zone_ids else {}
+        )
+        districts_by_id = (
+            {d.external_id: d for d in self._fetch_districts(tenant_id, state_ids)}
+            if state_ids
+            else {}
+        )
+
+        results: list[tuple[dict[str, list[dict[str, Any]]] | None, list[GeoProblem]]] = []
+        for selection in selections:
+            problems: list[GeoProblem] = []
+            for zone in selection.zones:
+                if zone not in zones_by_id:
+                    problems.append(("zones", "unknown_zone", f"Zone {zone} does not exist."))
+            for state in selection.states:
+                state_option = states_by_id.get(state)
+                if state_option is None:
+                    problems.append(
+                        ("states", "unknown_state", f"State {state} is not under any zone given.")
+                    )
+                elif state_option.zone_external_id not in selection.zones:
+                    problems.append(
+                        ("states", "state_not_in_zone", f"State {state} is not under this row's zones.")
+                    )
+            for district in selection.districts:
+                district_option = districts_by_id.get(district)
+                if district_option is None:
+                    problems.append(
+                        (
+                            "districts",
+                            "unknown_district",
+                            f"District {district} is not under any state given.",
+                        )
+                    )
+                elif district_option.state_external_id not in selection.states:
+                    problems.append(
+                        (
+                            "districts",
+                            "district_not_in_state",
+                            f"District {district} is not under this row's states.",
+                        )
+                    )
+            labels = (
+                None
+                if problems
+                else _labels(selection, zones_by_id, states_by_id, districts_by_id)
+            )
+            results.append((labels, problems))
+        return results
 
     @staticmethod
     def _reject_unknown(selected: list[str], known: set[str], label: str) -> None:
@@ -472,6 +550,30 @@ class GeographyService:
                 "don't belong to a selected parent cluster.",
                 details={"unknown": unknown},
             )
+
+
+def _labels(
+    selection: GeoSelection,
+    zones_by_id: dict[str, ZoneOption],
+    states_by_id: dict[str, StateOption],
+    districts_by_id: dict[str, DistrictOption],
+) -> dict[str, list[dict[str, Any]]]:
+    """The `{id, name}` snapshot stored with an assignment. Districts carry their state because
+    district names repeat across states."""
+
+    return {
+        "zones": [{"id": z, "name": zones_by_id[z].name} for z in selection.zones],
+        "states": [{"id": s, "name": states_by_id[s].name} for s in selection.states],
+        "districts": [
+            {
+                "id": d,
+                "name": districts_by_id[d].name,
+                "state_id": districts_by_id[d].state_external_id,
+                "state_name": states_by_id[districts_by_id[d].state_external_id].name,
+            }
+            for d in selection.districts
+        ],
+    }
 
 
 def _dedupe(values: list[str]) -> list[str]:
