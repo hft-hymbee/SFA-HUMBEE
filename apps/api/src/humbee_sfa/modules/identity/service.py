@@ -300,6 +300,8 @@ class IdentityService:
             # Configured test number: the OTP is always the fixed code. Still sent over SMS below.
             code = self._settings.otp_fixed_code
             logger.info("otp_fixed_code_used", purpose=purpose)
+        elif self._settings.otp_skip_verification_code and self._settings.otp_skip_verification:
+            code = self._settings.otp_skip_verification_code
         else:
             code = self._settings.local_otp_override or generate_otp_code(self._settings.otp_length)
         challenge = repository.create_challenge(
@@ -464,7 +466,7 @@ class IdentityService:
             now=now,
         )
 
-        if not (self._settings.otp_skip_verification or verify_otp_code(code, challenge.code_hash)):
+        if not verify_otp_code(code, challenge.code_hash):
             attempts_used = repository.increment_attempts(challenge)
             attempts_remaining = max(challenge.max_attempts - attempts_used, 0)
             repository.record_audit_event(
