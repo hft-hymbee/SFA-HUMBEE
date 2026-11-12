@@ -692,6 +692,7 @@ class OutletReadService:
         query: str | None,
         actor_employee_id: str | None = None,
         upsert_refs: set[str] | None = None,
+        page_size: int | None = None,
     ) -> list[OutletRecord]:
         """Run the outlet list call, then stage the projection upsert — of every record, or only `upsert_refs`
         when the caller needs just those rows. Never commits — the caller owns the transaction,
@@ -703,6 +704,7 @@ class OutletReadService:
                 district_ids=district_ids,
                 category_ids=category_ids,
                 query=query,
+                page_size=page_size,
             )
         except OutletMasterUnavailable as exc:
             raise ApiError(
