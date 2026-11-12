@@ -73,6 +73,18 @@ def get_live_challenge(
     return session.execute(stmt).scalars().first()
 
 
+def list_live_challenges_for_employee(
+    session: OrmSession, *, tenant_id: str, employee_id: str
+) -> list[OtpChallenge]:
+    stmt = select(OtpChallenge).where(
+        OtpChallenge.tenant_id == tenant_id,
+        OtpChallenge.employee_id == employee_id,
+        OtpChallenge.consumed_at.is_(None),
+        OtpChallenge.is_active.is_(True),
+    )
+    return list(session.execute(stmt).scalars().all())
+
+
 def supersede_challenge(challenge: OtpChallenge, *, consumed_at: datetime) -> None:
     challenge.consumed_at = consumed_at
 

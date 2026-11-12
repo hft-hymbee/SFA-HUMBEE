@@ -1418,6 +1418,16 @@ export type CatalogResponse = {
 };
 
 /**
+ * ChangeEmployeePhoneBody
+ */
+export type ChangeEmployeePhoneBody = {
+    /**
+     * Phone E164
+     */
+    phone_e164: string;
+};
+
+/**
  * CheckInBody
  *
  * Visit entry or "Add unplanned visit".
@@ -8997,6 +9007,42 @@ export type ListMoveCandidatesApiV1OrgEmployeesEmployeeIdMoveCandidatesGetRespon
 };
 
 export type ListMoveCandidatesApiV1OrgEmployeesEmployeeIdMoveCandidatesGetResponse = ListMoveCandidatesApiV1OrgEmployeesEmployeeIdMoveCandidatesGetResponses[keyof ListMoveCandidatesApiV1OrgEmployeesEmployeeIdMoveCandidatesGetResponses];
+
+export type ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostData = {
+    body: ChangeEmployeePhoneBody;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Employee Id
+         */
+        employee_id: string;
+    };
+    query?: never;
+    url: '/api/v1/org/employees/{employee_id}/phone';
+};
+
+export type ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostError = ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostErrors[keyof ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostErrors];
+
+export type ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: EmployeeResponse;
+};
+
+export type ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostResponse = ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostResponses[keyof ChangeEmployeePhoneApiV1OrgEmployeesEmployeeIdPhonePostResponses];
 
 export type ListGeographyDistrictsApiV1OrgGeographyDistrictsGetData = {
     body?: never;
