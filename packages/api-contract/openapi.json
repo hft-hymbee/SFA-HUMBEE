@@ -1271,6 +1271,21 @@
         "title": "BeatOutletItem",
         "type": "object"
       },
+      "Body_import_employees_api_v1_org_employees_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "CSV; see GET /org/employees/import/template",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_employees_api_v1_org_employees_import_post",
+        "type": "object"
+      },
       "BranchEditResponse": {
         "properties": {
           "base_version_id": {
@@ -3085,7 +3100,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3135,7 +3149,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3151,7 +3164,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3296,7 +3308,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3362,7 +3373,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3383,7 +3393,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3914,6 +3923,92 @@
           "items"
         ],
         "title": "EditableFieldsResponse",
+        "type": "object"
+      },
+      "EmployeeImportResponse": {
+        "properties": {
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "employees": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeImportRow"
+            },
+            "title": "Employees",
+            "type": "array"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dry_run",
+          "row_count",
+          "employees"
+        ],
+        "title": "EmployeeImportResponse",
+        "type": "object"
+      },
+      "EmployeeImportRow": {
+        "description": "One CSV data row; `row` is the file line number (the header is line 1). `id` is null on a\ndry run.",
+        "properties": {
+          "district_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "District Ids",
+            "type": "array"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "manager_employee_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Employee Id"
+          },
+          "role_code": {
+            "title": "Role Code",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "id",
+          "employee_code",
+          "full_name",
+          "role_code",
+          "manager_employee_id"
+        ],
+        "title": "EmployeeImportRow",
         "type": "object"
       },
       "EmployeeListResponse": {
@@ -15371,6 +15466,103 @@
           }
         },
         "summary": "Create Employee",
+        "tags": [
+          "Organization & Workforce"
+        ]
+      }
+    },
+    "/api/v1/org/employees/import": {
+      "post": {
+        "operationId": "import_employees_api_v1_org_employees_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_employees_api_v1_org_employees_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeImportResponse"
+                }
+              }
+            },
+            "description": "Dry-run preview"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Employees",
+        "tags": [
+          "Organization & Workforce"
+        ]
+      }
+    },
+    "/api/v1/org/employees/import/template": {
+      "get": {
+        "operationId": "employee_import_template_api_v1_org_employees_import_template_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Employee Import Template",
         "tags": [
           "Organization & Workforce"
         ]

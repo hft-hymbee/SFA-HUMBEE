@@ -10,15 +10,16 @@ from __future__ import annotations
 import secrets
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Path, Query, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, File, Header, Path, Query, Request, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from humbee_sfa.core.db import get_db_session
 from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.settings import get_settings
-from humbee_sfa.modules.org import schemas
+from humbee_sfa.modules.org import employee_import, schemas
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.platform.telemetry.middleware import get_request_id
 
@@ -70,6 +71,51 @@ async def create_employee(
         body=body,
         idempotency_key=idempotency_key,
         raw_body=await request.body(),
+        request_id=get_request_id(request),
+    )
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.get(
+    "/org/employees/import/template",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}}},
+)
+def employee_import_template(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> Response:
+    return Response(
+        content=OrgService(session).import_template(claims=claims),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="employee-import-template.csv"'},
+    )
+
+
+@router.post(
+    "/org/employees/import",
+    response_model=schemas.EmployeeImportResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"model": schemas.EmployeeImportResponse, "description": "Dry-run preview"}},
+)
+async def import_employees(
+    file: Annotated[UploadFile, File(description="CSV; see GET /org/employees/import/template")],
+    request: Request,
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+    dry_run: Annotated[bool, Query()] = False,
+    idempotency_key: Annotated[
+        str | None, Header(alias="Idempotency-Key", max_length=128)
+    ] = None,
+) -> JSONResponse:
+    # One byte past the cap is enough for the service to reject an oversized file.
+    csv_bytes = await file.read(employee_import.MAX_BYTES + 1)
+    status_code, payload = await run_in_threadpool(
+        OrgService(session).import_employees,
+        claims=claims,
+        csv_bytes=csv_bytes,
+        dry_run=dry_run,
+        idempotency_key=idempotency_key,
         request_id=get_request_id(request),
     )
     return JSONResponse(status_code=status_code, content=payload)

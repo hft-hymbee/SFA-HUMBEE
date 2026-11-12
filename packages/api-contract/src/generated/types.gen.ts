@@ -711,6 +711,18 @@ export type BeatOutletItem = {
 };
 
 /**
+ * Body_import_employees_api_v1_org_employees_import_post
+ */
+export type BodyImportEmployeesApiV1OrgEmployeesImportPost = {
+    /**
+     * File
+     *
+     * CSV; see GET /org/employees/import/template
+     */
+    file: Blob | File;
+};
+
+/**
  * BranchEditResponse
  */
 export type BranchEditResponse = {
@@ -2203,6 +2215,61 @@ export type EditableFieldsResponse = {
      * Items
      */
     items: Array<EditableFieldSchema>;
+};
+
+/**
+ * EmployeeImportResponse
+ */
+export type EmployeeImportResponse = {
+    /**
+     * Dry Run
+     */
+    dry_run: boolean;
+    /**
+     * Employees
+     */
+    employees: Array<EmployeeImportRow>;
+    /**
+     * Row Count
+     */
+    row_count: number;
+};
+
+/**
+ * EmployeeImportRow
+ *
+ * One CSV data row; `row` is the file line number (the header is line 1). `id` is null on a
+ * dry run.
+ */
+export type EmployeeImportRow = {
+    /**
+     * District Ids
+     */
+    district_ids?: Array<string>;
+    /**
+     * Employee Code
+     */
+    employee_code: string;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Id
+     */
+    id: string | null;
+    /**
+     * Manager Employee Id
+     */
+    manager_employee_id: string | null;
+    /**
+     * Role Code
+     */
+    role_code: string;
+    /**
+     * Row
+     */
+    row: number;
 };
 
 /**
@@ -8775,6 +8842,60 @@ export type CreateEmployeeApiV1OrgEmployeesPostResponses = {
 };
 
 export type CreateEmployeeApiV1OrgEmployeesPostResponse = CreateEmployeeApiV1OrgEmployeesPostResponses[keyof CreateEmployeeApiV1OrgEmployeesPostResponses];
+
+export type ImportEmployeesApiV1OrgEmployeesImportPostData = {
+    body: BodyImportEmployeesApiV1OrgEmployeesImportPost;
+    headers?: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Dry Run
+         */
+        dry_run?: boolean;
+    };
+    url: '/api/v1/org/employees/import';
+};
+
+export type ImportEmployeesApiV1OrgEmployeesImportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportEmployeesApiV1OrgEmployeesImportPostError = ImportEmployeesApiV1OrgEmployeesImportPostErrors[keyof ImportEmployeesApiV1OrgEmployeesImportPostErrors];
+
+export type ImportEmployeesApiV1OrgEmployeesImportPostResponses = {
+    /**
+     * Dry-run preview
+     */
+    200: EmployeeImportResponse;
+    /**
+     * Successful Response
+     */
+    201: EmployeeImportResponse;
+};
+
+export type ImportEmployeesApiV1OrgEmployeesImportPostResponse = ImportEmployeesApiV1OrgEmployeesImportPostResponses[keyof ImportEmployeesApiV1OrgEmployeesImportPostResponses];
+
+export type EmployeeImportTemplateApiV1OrgEmployeesImportTemplateGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/org/employees/import/template';
+};
+
+export type EmployeeImportTemplateApiV1OrgEmployeesImportTemplateGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type GetEmployeeApiV1OrgEmployeesEmployeeIdGetData = {
     body?: never;
