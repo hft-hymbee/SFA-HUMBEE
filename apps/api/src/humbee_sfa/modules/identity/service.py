@@ -934,15 +934,23 @@ class IdentityService:
         employee_id: str,
         reason: str = "deactivated",
         actor_employee_id: str | None = None,
+        supersede_otps: bool = False,
     ) -> int:
         """Public entry point for revoking one employee's sessions.
 
         Owns its transaction, so `org` can call it straight after a deactivation and see
-        the revocation land with the deactivation itself.
+        the revocation land with the deactivation itself. `supersede_otps` also closes the
+        employee's unused OTP challenges: verify resolves the employee by the challenge, so after
+        a phone change a code already sent to the old number would otherwise still log in.
         """
 
         with transaction(self._session, commit_on=ApiError):
             now = self._clock.now_utc()
+            if supersede_otps:
+                for challenge in repository.list_live_challenges_for_employee(
+                    self._session, tenant_id=tenant_id, employee_id=employee_id
+                ):
+                    repository.supersede_challenge(challenge, consumed_at=now)
             rows = repository.list_live_sessions_for_employee(
                 self._session, tenant_id=tenant_id, employee_id=employee_id
             )
