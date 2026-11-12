@@ -18,6 +18,7 @@ from humbee_sfa.core.db import get_db_session
 from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.settings import get_settings
+from humbee_sfa.modules.identity.service import IdentityService
 from humbee_sfa.modules.org import schemas
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.platform.telemetry.middleware import get_request_id
@@ -175,6 +176,35 @@ async def move_employee(
         idempotency_key=idempotency_key,
         raw_body=await request.body(),
         request_id=get_request_id(request),
+    )
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post("/org/employees/{employee_id}/phone", response_model=schemas.EmployeeResponse)
+async def change_employee_phone(
+    employee_id: EmployeeId,
+    body: schemas.ChangeEmployeePhoneBody,
+    request: Request,
+    idempotency_key: IdempotencyKey,
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> JSONResponse:
+    status_code, payload = OrgService(session).change_employee_phone(
+        claims=claims,
+        employee_id=employee_id,
+        phone_e164=body.phone_e164,
+        idempotency_key=idempotency_key,
+        raw_body=await request.body(),
+        request_id=get_request_id(request),
+    )
+    # Orchestrated here because identity already imports org's service. It runs on replays too,
+    # so a retry finishes a revocation that failed after the phone change committed.
+    IdentityService(session).revoke_all_sessions_for_employee(
+        tenant_id=claims.tenant_id,
+        employee_id=employee_id,
+        reason="admin_revoke",
+        actor_employee_id=claims.employee_id,
+        supersede_otps=True,
     )
     return JSONResponse(status_code=status_code, content=payload)
 

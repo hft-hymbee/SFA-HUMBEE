@@ -99,6 +99,11 @@ class DeactivateEmployeeBody(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class ChangeEmployeePhoneBody(BaseModel):
+    # +91 only: login and the SMS gateway cannot reach any other number.
+    phone_e164: str = Field(pattern=r"^\+91\d{10}$")
+
+
 class MoveCandidateResponse(BaseModel):
     id: str
     full_name: str

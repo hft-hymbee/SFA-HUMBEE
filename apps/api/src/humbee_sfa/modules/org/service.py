@@ -1081,6 +1081,103 @@ class OrgService:
             )
         return 200, payload
 
+    def change_employee_phone(
+        self,
+        *,
+        claims: AccessTokenClaims,
+        employee_id: str,
+        phone_e164: str,
+        idempotency_key: str,
+        raw_body: bytes,
+        request_id: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        """Replace a Sales Person's or Manager's login phone. Inactive employees are allowed, so an
+        Admin can free a reused SIM. The caller must revoke the employee's sessions afterwards."""
+
+        scope = self._employee_write_scope(claims)
+        endpoint = f"/api/v1/org/employees/{employee_id}/phone"
+        try:
+            with transaction(self._session):
+                replay = self._check_idempotency(
+                    endpoint=endpoint,
+                    idempotency_key=idempotency_key,
+                    raw_body=raw_body,
+                    tenant_id=scope.tenant_id,
+                )
+                if replay is not None:
+                    return replay
+
+                employee = self._load_in_scope(scope, employee_id)
+                if employee.role_code == "admin":
+                    raise ApiError(
+                        403,
+                        "admin_phone_change_forbidden",
+                        "An Admin's phone number cannot be changed.",
+                    )
+                phone_hmac = hmac_phone(phone_e164)
+                if phone_hmac == employee.phone_e164_hmac:
+                    raise ApiError(
+                        422, "phone_unchanged", "That is already the employee's phone number."
+                    )
+                if repository.phone_hmac_exists(self._session, scope=scope, phone_hmac=phone_hmac):
+                    raise ApiError(
+                        409, "phone_already_registered", "That phone number is already in use."
+                    )
+
+                previous_last4 = employee.phone_last4
+                repository.apply_employee_updates(
+                    self._session,
+                    scope=scope,
+                    employee=employee,
+                    changes={
+                        "phone_e164_hmac": phone_hmac,
+                        "phone_e164_enc": encrypt_phone(phone_e164),
+                        "phone_last4": phone_e164[-4:],
+                    },
+                )
+                self._audit.record_transition(
+                    tenant_id=scope.tenant_id,
+                    entity_type=AUDIT_ENTITY,
+                    entity_id=employee.id,
+                    from_state=employee.status,
+                    to_state=employee.status,
+                    actor_employee_id=scope.actor_employee_id,
+                    request_id=request_id,
+                    # Last four digits only: the full number is stored encrypted.
+                    change_payload={
+                        "transition": events.EMPLOYEE_UPDATED,
+                        "fields": ["phone"],
+                        "phone_last4": {"from": previous_last4, "to": employee.phone_last4},
+                    },
+                )
+                events.publish_org_event(
+                    self._events,
+                    tenant_id=scope.tenant_id,
+                    event_type=events.EMPLOYEE_UPDATED,
+                    aggregate_id=employee.id,
+                    payload={"employee_id": employee.id, "fields": ["phone"]},
+                    actor_employee_id=scope.actor_employee_id,
+                    request_id=request_id,
+                )
+                payload = _employee_payload(employee)
+                self._store_idempotency(
+                    endpoint=endpoint,
+                    idempotency_key=idempotency_key,
+                    raw_body=raw_body,
+                    status_code=200,
+                    payload=payload,
+                    scope=scope,
+                )
+        except IntegrityError as exc:
+            raise self._identity_conflict(exc) from exc
+
+        logger.info(
+            "employee_phone_changed",
+            employee_id=employee_id,
+            actor_employee_id=scope.actor_employee_id,
+        )
+        return 200, payload
+
     # -- shared mutation helpers ------------------------------------------
 
     def _resolve_new_parent(
