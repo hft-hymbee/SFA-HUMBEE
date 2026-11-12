@@ -268,7 +268,12 @@ class OutletOnboardingService:
                     )
                 repository.supersede_challenge(live, consumed_at=now)
 
-            code = self._settings.local_otp_override or generate_otp_code(self._settings.otp_length)
+            if self._settings.otp_skip_verification_code and self._settings.otp_skip_verification:
+                code = self._settings.otp_skip_verification_code
+            else:
+                code = self._settings.local_otp_override or generate_otp_code(
+                    self._settings.otp_length
+                )
             challenge = repository.create_challenge(
                 self._session,
                 tenant_id=claims.tenant_id,
@@ -336,9 +341,7 @@ class OutletOnboardingService:
             ):
                 raise ApiError(409, "challenge_expired", "Challenge has expired.")
 
-            if not (
-                self._settings.otp_skip_verification or verify_otp_code(body.code, challenge.code_hash)
-            ):
+            if not verify_otp_code(body.code, challenge.code_hash):
                 attempts_used = repository.increment_attempts(challenge)
                 if attempts_used >= challenge.max_attempts:
                     raise ApiError(409, "challenge_expired", "Challenge has expired.")

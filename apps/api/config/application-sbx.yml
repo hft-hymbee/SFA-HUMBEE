@@ -12,6 +12,7 @@ db_name: humbee_sfa
 db_sslmode: require
 
 otp_skip_verification: false
+otp_skip_verification_code: "123456"
 otp_ttl_seconds: 600
 otp_resend_cooldown_seconds: 10
 otp_max_attempts: 10
