@@ -7244,6 +7244,17 @@
             "title": "As Of",
             "type": "string"
           },
+          "business_profiler_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Profiler Pct"
+          },
           "contact_mobile": {
             "anyOf": [
               {
@@ -8299,6 +8310,52 @@
           "removed_by"
         ],
         "title": "RemoveTargetResponse",
+        "type": "object"
+      },
+      "RouteBusinessProfilerItem": {
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "business_profiler_pct": {
+            "title": "Business Profiler Pct",
+            "type": "integer"
+          },
+          "is_live": {
+            "title": "Is Live",
+            "type": "boolean"
+          },
+          "outlet_ref": {
+            "title": "Outlet Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outlet_ref",
+          "business_profiler_pct",
+          "as_of",
+          "is_live"
+        ],
+        "title": "RouteBusinessProfilerItem",
+        "type": "object"
+      },
+      "RouteBusinessProfilerResponse": {
+        "description": "Business profiler % for the outlets on the day's route, merged into `RoutePlanResponse` by\n`outlet_ref`. `is_live: false` is the last known value; an outlet with no value at all is absent.",
+        "properties": {
+          "outlets": {
+            "items": {
+              "$ref": "#/components/schemas/RouteBusinessProfilerItem"
+            },
+            "title": "Outlets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outlets"
+        ],
+        "title": "RouteBusinessProfilerResponse",
         "type": "object"
       },
       "RouteDaysResponse": {
@@ -17588,6 +17645,73 @@
           }
         },
         "summary": "Get Current Route Plan",
+        "tags": [
+          "Routes"
+        ]
+      }
+    },
+    "/api/v1/route-plans/current/business-profiler": {
+      "get": {
+        "description": "Live business profiler % for the outlets of `GET /route-plans/current`, called alongside it so\nthe list renders without waiting on Humbee. Same `business_date` / `employee_id` rules.",
+        "operationId": "get_current_route_business_profiler_api_v1_route_plans_current_business_profiler_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "business_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Business Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteBusinessProfilerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Current Route Business Profiler",
         "tags": [
           "Routes"
         ]

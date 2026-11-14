@@ -4145,6 +4145,10 @@ export type OutletDetailResponse = {
      */
     as_of: string;
     /**
+     * Business Profiler Pct
+     */
+    business_profiler_pct?: number | null;
+    /**
      * Contact Mobile
      */
     contact_mobile: string | null;
@@ -4735,6 +4739,41 @@ export type RemoveTargetResponse = {
      * Target Id
      */
     target_id: string;
+};
+
+/**
+ * RouteBusinessProfilerItem
+ */
+export type RouteBusinessProfilerItem = {
+    /**
+     * As Of
+     */
+    as_of: string;
+    /**
+     * Business Profiler Pct
+     */
+    business_profiler_pct: number;
+    /**
+     * Is Live
+     */
+    is_live: boolean;
+    /**
+     * Outlet Ref
+     */
+    outlet_ref: string;
+};
+
+/**
+ * RouteBusinessProfilerResponse
+ *
+ * Business profiler % for the outlets on the day's route, merged into `RoutePlanResponse` by
+ * `outlet_ref`. `is_live: false` is the last known value; an outlet with no value at all is absent.
+ */
+export type RouteBusinessProfilerResponse = {
+    /**
+     * Outlets
+     */
+    outlets: Array<RouteBusinessProfilerItem>;
 };
 
 /**
@@ -10072,6 +10111,40 @@ export type GetCurrentRoutePlanApiV1RoutePlansCurrentGetResponses = {
 };
 
 export type GetCurrentRoutePlanApiV1RoutePlansCurrentGetResponse = GetCurrentRoutePlanApiV1RoutePlansCurrentGetResponses[keyof GetCurrentRoutePlanApiV1RoutePlansCurrentGetResponses];
+
+export type GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Business Date
+         */
+        business_date?: string | null;
+        /**
+         * Employee Id
+         */
+        employee_id?: string | null;
+    };
+    url: '/api/v1/route-plans/current/business-profiler';
+};
+
+export type GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetError = GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetErrors[keyof GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetErrors];
+
+export type GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: RouteBusinessProfilerResponse;
+};
+
+export type GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetResponse = GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetResponses[keyof GetCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGetResponses];
 
 export type RouteDaysApiV1RoutePlansDaysGetData = {
     body?: never;
