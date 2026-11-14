@@ -550,6 +550,43 @@ class RouteService:
             plan=plan,
         )
 
+    def get_business_profiler(
+        self, *, claims: AccessTokenClaims, business_date: date | None = None, employee_id: str | None = None,
+    ) -> dict[str, Any]:
+        """The live business profiler % of every outlet `get_day` lists, kept out of `get_day` so the route
+        list never waits on Humbee."""
+
+        scope = self._scope(claims)
+        resolved_business_date = business_date or current_business_date(
+            self._clock, settings=self._settings
+        )
+        target_employee_id = employee_id or claims.employee_id
+        if employee_id is None or employee_id == scope.actor_employee_id:
+            self._require_self(scope)
+        else:
+            self._authorize_report(scope, employee_id)
+        plan = repository.get_active_plan(
+            self._session, tenant_id=scope.tenant_id, employee_id=target_employee_id,
+            business_date=resolved_business_date,
+        )
+        stops = repository.list_stops(self._session, route_plan_id=plan.id) if plan is not None else []
+        visits = repository.list_day_visits(
+            self._session,
+            tenant_id=scope.tenant_id,
+            employee_id=target_employee_id,
+            business_date=resolved_business_date,
+        )
+        outlet_refs = [stop.humbee_outlet_id for stop in stops] + [visit.humbee_outlet_id for visit in visits]
+
+        end_read_transaction(self._session)
+        items = OutletReadService(
+            self._session,
+            settings=self._settings,
+            clock=self._clock,
+            outlet_port=self._injected_outlet_port,
+        ).get_business_profiler(tenant_id=scope.tenant_id, outlet_ids=outlet_refs)
+        return schemas.RouteBusinessProfilerResponse(outlets=items).model_dump(mode="json")
+
     def list_unplanned_outlets(self, *, claims: AccessTokenClaims) -> list[dict[str, Any]]:
         """Outlet search never returns locality — only the per-outlet detail call
         does, and this list is too large to fetch one at a time. `UnplannedOutletItem` carries
