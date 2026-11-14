@@ -146,6 +146,24 @@ def upsert_detail(
     )
 
 
+def record_business_profiler(
+    session: Session, *, tenant_id: str, pct_by_outlet: dict[str, int], as_of: datetime
+) -> None:
+    """Store live values on existing projection rows, never overwriting a newer one."""
+
+    if not pct_by_outlet:
+        return
+    rows = session.execute(
+        select(Outlet).where(
+            Outlet.tenant_id == tenant_id, Outlet.humbee_outlet_id.in_(list(pct_by_outlet))
+        )
+    ).scalars()
+    for row in rows:
+        if row.business_profiler_as_of is None or row.business_profiler_as_of <= as_of:
+            row.business_profiler_pct = pct_by_outlet[row.humbee_outlet_id]
+            row.business_profiler_as_of = as_of
+
+
 def create_challenge(
     session: Session,
     *,
