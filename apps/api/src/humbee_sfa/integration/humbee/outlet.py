@@ -36,6 +36,15 @@ class OutletRecord:
     registered_address: str | None = None
     credit_limit_paise: int | None = None
     credit_outstanding_paise: int | None = None
+    business_profiler_pct: int | None = None
+
+
+@dataclass(frozen=True)
+class BusinessProfilerBatch:
+    """Live business profiler % by outlet id. Outlets Humbee does not know are absent, never 0."""
+
+    pct_by_outlet: dict[str, int]
+    as_of: datetime
 
 
 @dataclass(frozen=True)
@@ -127,6 +136,7 @@ def _record_from_detail(data: dict[str, Any]) -> OutletRecord:
         registered_address=data.get("registered_address"),
         credit_limit_paise=_int(data.get("credit_limit_paise")),
         credit_outstanding_paise=_int(data.get("credit_outstanding_paise")),
+        business_profiler_pct=_int(data.get("business_profiler_pct")),
         as_of=_datetime(data.get("as_of")),
     )
 
@@ -247,6 +257,36 @@ class HumbeeOutletMasterProvider:
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise OutletMasterUnavailable(
                 f"unexpected outlet detail response shape: {exc}"
+            ) from exc
+
+    def fetch_business_profiler(self, *, tenant_id: str, outlet_ids: list[str]) -> BusinessProfilerBatch:
+        """One batch call for a whole route day. Short timeout and no retry: callers fall back to the
+        last known values rather than make a sales person wait."""
+
+        del tenant_id
+        try:
+            data = self._client.call(
+                "outlets.business_profiler",
+                "POST",
+                "/sfa/v1/outlets/business-profiler",
+                route="/outlets/business-profiler",
+                json_body={"outlet_ids": outlet_ids},
+                timeout_s=3.0,
+                max_retries=0,
+            )
+        except HumbeeError as exc:
+            raise OutletMasterUnavailable(str(exc)) from exc
+        try:
+            return BusinessProfilerBatch(
+                pct_by_outlet={
+                    str(item["outlet_id"]): int(item["business_profiler_pct"])
+                    for item in data.get("outlets") or []
+                },
+                as_of=_datetime(data.get("as_of")),
+            )
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise OutletMasterUnavailable(
+                f"unexpected outlet business profiler response shape: {exc}"
             ) from exc
 
     def submit_coordinate_correction(

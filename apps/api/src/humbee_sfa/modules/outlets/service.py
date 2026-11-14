@@ -854,6 +854,13 @@ class OutletReadService:
             fetched_at=self._clock.now_utc(),
             actor_employee_id=actor_employee_id,
         )
+        if record.business_profiler_pct is not None:
+            repository.record_business_profiler(
+                self._session,
+                tenant_id=tenant_id,
+                pct_by_outlet={record.external_id: record.business_profiler_pct},
+                as_of=record.as_of,
+            )
         return record
 
     def get_outlet_detail(self, *, claims: AccessTokenClaims, outlet_id: str) -> dict[str, Any]:
@@ -881,6 +888,7 @@ class OutletReadService:
             credit_outstanding_paise=record.credit_outstanding_paise,
             latitude=float(record.lat) if record.lat is not None else None,
             longitude=float(record.lng) if record.lng is not None else None,
+            business_profiler_pct=record.business_profiler_pct,
             as_of=record.as_of,
         ).model_dump(mode="json")
 
@@ -1107,6 +1115,51 @@ class OutletReadService:
             outlet_esi_id=outlet_esi_id,
             url=url,
         ).model_dump(mode="json")
+
+    def get_business_profiler(self, *, tenant_id: str, outlet_ids: list[str]) -> list[dict[str, Any]]:
+        """Live business profiler % per outlet, falling back to the last known value when Humbee does not
+        answer. An outlet with neither is omitted. The caller must not hold a read transaction: this
+        makes one Humbee call and then writes the live values in its own transaction."""
+
+        refs = list(dict.fromkeys(outlet_ids))
+        if not refs:
+            return []
+
+        live: dict[str, int] = {}
+        live_as_of = None
+        try:
+            batch = self._outlets().fetch_business_profiler(tenant_id=tenant_id, outlet_ids=refs)
+        except (ApiError, OutletMasterUnavailable) as exc:
+            logger.warning("outlet_business_profiler_unavailable", error=str(exc))
+        else:
+            live, live_as_of = batch.pct_by_outlet, batch.as_of
+            with transaction(self._session):
+                repository.record_business_profiler(
+                    self._session, tenant_id=tenant_id, pct_by_outlet=live, as_of=live_as_of
+                )
+
+        stored = {
+            row.humbee_outlet_id: row
+            for row in repository.get_projected(
+                self._session, tenant_id=tenant_id, outlet_ids=[ref for ref in refs if ref not in live]
+            )
+            if row.business_profiler_pct is not None
+        }
+        items = []
+        for ref in refs:
+            if ref in live:
+                items.append({"outlet_ref": ref, "business_profiler_pct": live[ref], "as_of": live_as_of, "is_live": True})
+            elif ref in stored:
+                row = stored[ref]
+                items.append(
+                    {
+                        "outlet_ref": ref,
+                        "business_profiler_pct": row.business_profiler_pct,
+                        "as_of": row.business_profiler_as_of,
+                        "is_live": False,
+                    }
+                )
+        return items
 
 
 # ---------------------------------------------------------------------------

@@ -118,6 +118,7 @@ class OutletDetailResponse(BaseModel):
     credit_outstanding_paise: int | None
     latitude: float | None
     longitude: float | None
+    business_profiler_pct: int | None = None
     as_of: datetime
 
 
