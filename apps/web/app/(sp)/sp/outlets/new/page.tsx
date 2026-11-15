@@ -1065,6 +1065,7 @@ export default function Page() {
                     color: "var(--color-text-primary)",
                     display: "block",
                     font: "inherit",
+                    fontSize: "var(--text-form-input-size)",
                     marginTop: "var(--space-xs)",
                     minHeight: "var(--space-xl)",
                     padding: "var(--space-sm) var(--space-md)",
