@@ -136,9 +136,9 @@ class Settings(BaseSettings):
     db_password: str | None = None
     db_sslmode: str | None = None
     day_boundary_hour_ist: int = Field(default=0, ge=0, le=23)
-    leave_default_yearly_privileged_days: int = Field(default=12, ge=0)
-    leave_default_yearly_casual_days: int = Field(default=6, ge=0)
-    leave_default_yearly_sick_days: int = Field(default=6, ge=0)
+    leave_default_yearly_privileged_days: int = Field(default=21, ge=0)
+    leave_default_yearly_casual_days: int = Field(default=2, ge=0)
+    leave_default_yearly_sick_days: int = Field(default=2, ge=0)
     tenant_id: str
     otp_length: int = Field(ge=4, le=8)
     otp_ttl_seconds: int = Field(ge=30)
