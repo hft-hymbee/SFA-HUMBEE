@@ -5,7 +5,7 @@ Handlers translate HTTP only; transaction ownership and business rules are the s
 
 from __future__ import annotations
 
-import hmac
+import secrets
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Response
@@ -317,13 +317,14 @@ def get_candidate(
 
 
 def require_humbee_caller(
-    api_key: Annotated[str | None, Header(alias="X-Humbee-Api-Key")] = None,
+    api_key: Annotated[str | None, Header(alias="api-key", max_length=512)] = None,
 ) -> None:
-    """Humbee's service-to-service calls carry a shared secret, not an employee token."""
+    """Humbee calls with the SFA vendor key (its `vendor_api_keys` row for SFA) — the same key SFA
+    holds as `HUMBEE_API_KEY` to call Humbee — not an employee token."""
 
-    expected = get_settings().humbee_inbound_api_key
-    if not expected or not api_key or not hmac.compare_digest(api_key.encode(), expected.encode()):
-        raise ApiError(401, "unauthorized", "Missing or invalid Humbee API key.")
+    expected = get_settings().humbee_api_key
+    if not expected or not api_key or not secrets.compare_digest(api_key, expected):
+        raise ApiError(401, "invalid_api_key", "Invalid API key.")
 
 
 @humbee_push_router.post(

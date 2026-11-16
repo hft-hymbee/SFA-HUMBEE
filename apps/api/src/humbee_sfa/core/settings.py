@@ -198,8 +198,6 @@ class Settings(BaseSettings):
     # Never sourced from YAML or a committed file — bare env var, no HUMBEE_SFA_ prefix.
     # validation_alias makes pydantic-settings read it verbatim, bypassing env_prefix.
     humbee_api_key: str | None = Field(default=None, validation_alias="HUMBEE_API_KEY")
-    # Shared secret Humbee sends on its business-profiler push. Unset disables the endpoint (401).
-    humbee_inbound_api_key: str | None = Field(default=None, validation_alias="HUMBEE_INBOUND_API_KEY")
 
     @classmethod
     def settings_customise_sources(

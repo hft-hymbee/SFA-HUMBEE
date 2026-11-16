@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, timedelta
 
-import pytest
 import time_machine
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
@@ -26,20 +25,16 @@ from humbee_sfa.modules.routes.service import RouteService
 from humbee_sfa.platform.models import SweepRun
 
 DAY = date(2026, 10, 19)  # NOW is 10:00 IST on DAY; the day ends 2026-10-19T18:30Z.
-PUSH_KEY = "push-secret"
 PUSH = "/api/v1/integrations/humbee/business-profiler"
 
 
-@pytest.fixture(autouse=True)
-def push_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_settings(), "humbee_inbound_api_key", PUSH_KEY)
-
-
-def _push(client: TestClient, outlet_id: str, pct: int | None, changed_at: datetime, key: str = PUSH_KEY) -> int:
+def _push(
+    client: TestClient, outlet_id: str, pct: int | None, changed_at: datetime, key: str | None = None
+) -> int:
     response = client.post(
         PUSH,
         json={"outlets": [{"outlet_id": outlet_id, "business_profiler_pct": pct, "changed_at": changed_at.isoformat()}]},
-        headers={"X-Humbee-Api-Key": key},
+        headers={"api-key": key or get_settings().humbee_api_key},
     )
     return response.status_code
 
@@ -58,7 +53,7 @@ def _bp(body: dict, window: str = "today") -> tuple[int, int]:
 
 def test_push_auth(api_client: TestClient) -> None:
     assert _push(api_client, "O-1", 90, NOW, key="wrong") == 401
-    assert api_client.post(PUSH, json={"outlets": []}, headers={"X-Humbee-Api-Key": PUSH_KEY}).status_code == 422
+    assert api_client.post(PUSH, json={"outlets": []}, headers={"api-key": get_settings().humbee_api_key}).status_code == 422
 
 
 def test_live_today_then_frozen_day(
