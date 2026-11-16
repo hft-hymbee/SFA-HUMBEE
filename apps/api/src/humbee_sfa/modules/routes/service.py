@@ -1328,6 +1328,27 @@ class RouteService:
             business_date=business_date,
         )
 
+    def visited_outlets_by_employee(
+        self, *, tenant_id: str, business_date: date, employee_ids: list[str] | None = None
+    ) -> dict[str, set[str]]:
+        """Distinct outlets each employee visited on `business_date`. No scope check: callers are
+        reporting reads that already resolved scope, and the day-close job."""
+
+        return repository.visited_outlets(
+            self._session, tenant_id=tenant_id, business_date=business_date, employee_ids=employee_ids
+        )
+
+    def visit_stats_by_employee_day(
+        self, *, tenant_id: str, employee_ids: list[str], from_date: date, to_date: date
+    ) -> dict[tuple[str, date], repository.VisitStats]:
+        return repository.visit_stats(
+            self._session,
+            tenant_id=tenant_id,
+            employee_ids=employee_ids,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
     def coverage_team(
         self, *, claims: AccessTokenClaims, business_date: date, only_sales_person: bool = False,
     ) -> dict[str, Any]:

@@ -37,6 +37,15 @@ OPEN_PLAN_STATES = ("scheduled", "in_progress")
 
 
 @dataclass(frozen=True)
+class VisitStats:
+    total: int
+    physical: int
+    telephonic: int
+    productive: int
+    missed: int
+
+
+@dataclass(frozen=True)
 class DayTotals:
     planned: int
     planned_visited: int
@@ -501,6 +510,71 @@ def day_totals(
             *visits_by_employee.get(employee_id, (0, 0, 0)),
         )
         for employee_id in employee_ids
+    }
+
+
+def visited_outlets(
+    session: Session, *, tenant_id: str, business_date: date, employee_ids: list[str] | None
+) -> dict[str, set[str]]:
+    """Distinct outlets each employee visited on `business_date` (visited states only)."""
+
+    stmt = (
+        select(RouteVisit.employee_id, RouteVisit.humbee_outlet_id)
+        .where(
+            RouteVisit.tenant_id == tenant_id,
+            RouteVisit.business_date == business_date,
+            RouteVisit.is_active.is_(True),
+            RouteVisit.state.in_(VISITED_STATES),
+        )
+        .distinct()
+    )
+    if employee_ids is not None:
+        if not employee_ids:
+            return {}
+        stmt = stmt.where(RouteVisit.employee_id.in_(employee_ids))
+    result: dict[str, set[str]] = {}
+    for employee_id, outlet_id in session.execute(stmt).all():
+        result.setdefault(employee_id, set()).add(outlet_id)
+    return result
+
+
+def visit_stats(
+    session: Session, *, tenant_id: str, employee_ids: list[str], from_date: date, to_date: date
+) -> dict[tuple[str, date], VisitStats]:
+    """Per employee-day visit counts straight from the route tables, so they are exact for any
+    day, including today and missed visits."""
+
+    if not employee_ids:
+        return {}
+    visited = RouteVisit.state.in_(VISITED_STATES)
+    stmt = (
+        select(
+            RouteVisit.employee_id,
+            RouteVisit.business_date,
+            func.sum(case((visited, 1), else_=0)),
+            func.sum(case((and_(visited, RouteVisit.visit_type == "telephonic"), 1), else_=0)),
+            func.sum(case((RouteVisit.state == "visited_with_order", 1), else_=0)),
+            func.sum(case((RouteVisit.state == "missed", 1), else_=0)),
+        )
+        .where(
+            RouteVisit.tenant_id == tenant_id,
+            RouteVisit.employee_id.in_(employee_ids),
+            RouteVisit.business_date.between(from_date, to_date),
+            RouteVisit.is_active.is_(True),
+        )
+        .group_by(RouteVisit.employee_id, RouteVisit.business_date)
+    )
+    return {
+        (employee_id, business_date): VisitStats(
+            total=int(total),
+            physical=int(total) - int(telephonic),
+            telephonic=int(telephonic),
+            productive=int(productive),
+            missed=int(missed),
+        )
+        for employee_id, business_date, total, telephonic, productive, missed in session.execute(
+            stmt
+        ).all()
     }
 
 
