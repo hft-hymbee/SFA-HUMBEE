@@ -1309,6 +1309,13 @@ button.exception {
   letter-spacing: 0.02em;
 }
 
+.bpLine {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption-size);
+  margin: var(--space-xs) 0 0;
+  text-align: center;
+}
+
 .coverageNodeCard {
   background: var(--color-primary-surface);
   border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
