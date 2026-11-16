@@ -141,7 +141,7 @@ export function Select({
                   border: "1px solid var(--color-border)",
                   borderRadius: "var(--radius-sm)",
                   padding: "6px 8px",
-                  fontSize: "var(--text-body-size)",
+                  fontSize: "var(--text-form-input-size)",
                   color: "var(--color-text-primary)",
                   outline: "none",
                   boxSizing: "border-box",

@@ -55,8 +55,8 @@ LEAVE_REJECTED = "leave_rejected"
 LEAVE_WITHDRAWN = "leave_withdrawn"
 
 TYPE_LABELS: dict[LeaveType, str] = {
-    LeaveType.CASUAL: "Casual leave",
-    LeaveType.SICK: "Sick leave",
+    LeaveType.CASUAL: "Optional leave",
+    LeaveType.SICK: "Family leave",
     LeaveType.PRIVILEGED: "Privileged leave",
 }
 

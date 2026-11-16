@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Any
 
 import structlog
@@ -71,7 +71,7 @@ def current_business_date(clock: Clock, *, settings: Settings | None = None) -> 
 
 def _prorated_entitlement(*, annual_days: Decimal, remaining_months_inclusive: int) -> Decimal:
     prorated = (annual_days * Decimal(remaining_months_inclusive)) / Decimal(12)
-    return prorated.quantize(WHOLE_DAY, rounding=ROUND_HALF_UP)
+    return prorated.quantize(WHOLE_DAY, rounding=ROUND_CEILING)
 
 
 def _yearly_default_days(settings: Settings) -> dict[LeaveType, Decimal]:
@@ -97,7 +97,7 @@ def provision_employee_join_year_balances(
     """Create the join-year leave ledger rows if absent.
 
     Entitlements provided at employee creation are yearly values and are prorated for the join
-    year, rounded to whole days. Missing values use yearly defaults, prorated by the same rule
+    year, rounded up to whole days. Missing values use yearly defaults, prorated by the same rule
     (remaining months in the join year, inclusive). Every later year opens at the full yearly
     default — see `LeaveService._ensure_balance`.
     """
