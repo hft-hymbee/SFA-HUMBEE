@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -1160,6 +1160,77 @@ class OutletReadService:
                     }
                 )
         return items
+
+
+    def record_business_profiler_push(self, *, items: list[tuple[str, int | None, datetime]]) -> None:
+        with transaction(self._session):
+            record_pushed_business_profiler(
+                self._session, tenant_id=self._settings.tenant_id, items=items
+            )
+
+    def pull_business_profiler_for_day(
+        self, *, tenant_id: str, outlet_ids: list[str], business_date: date
+    ) -> int:
+        """The day-close pull: fetch every outlet visited on `business_date` and record it as that
+        day's frozen evidence. An outlet Humbee does not return is recorded as having no %. Raises if
+        Humbee does not answer, so the job fails and is retried. Never commits."""
+
+        refs = list(dict.fromkeys(outlet_ids))
+        for start in range(0, len(refs), _DAY_CLOSE_BATCH_SIZE):
+            chunk = refs[start : start + _DAY_CLOSE_BATCH_SIZE]
+            batch = self._outlets().fetch_business_profiler(
+                tenant_id=tenant_id, outlet_ids=chunk, timeout_s=_DAY_CLOSE_TIMEOUT_S
+            )
+            repository.record_business_profiler(
+                self._session,
+                tenant_id=tenant_id,
+                pct_by_outlet={ref: batch.pct_by_outlet.get(ref) for ref in chunk},
+                as_of=batch.as_of,
+                source="day_close",
+                for_business_date=business_date,
+            )
+        return len(refs)
+
+
+_DAY_CLOSE_BATCH_SIZE = 1000
+_DAY_CLOSE_TIMEOUT_S = 30.0
+
+
+def record_pushed_business_profiler(
+    session: Session, *, tenant_id: str, items: list[tuple[str, int | None, datetime]]
+) -> None:
+    """Record Humbee's push: `(outlet_id, pct, changed_at)` per outlet. A replayed or out-of-order
+    push is harmless — history is keyed by `changed_at` and the projection keeps the newest value.
+    Never commits."""
+
+    for outlet_id, pct, changed_at in items:
+        repository.record_business_profiler(
+            session,
+            tenant_id=tenant_id,
+            pct_by_outlet={outlet_id: pct},
+            as_of=changed_at,
+            source="push",
+        )
+
+
+def business_profiler_as_of(
+    session: Session,
+    *,
+    tenant_id: str,
+    outlet_ids: list[str],
+    business_date: date,
+    day_boundary_hour_ist: int,
+) -> dict[str, int | None]:
+    """Each outlet's % at the end of `business_date`; see `repository.business_profiler_as_of`."""
+
+    _, day_end_utc = business_date_bounds_utc(business_date, day_boundary_hour_ist)
+    return repository.business_profiler_as_of(
+        session,
+        tenant_id=tenant_id,
+        outlet_ids=outlet_ids,
+        business_date=business_date,
+        day_end_utc=day_end_utc,
+    )
 
 
 # ---------------------------------------------------------------------------

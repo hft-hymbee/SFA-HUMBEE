@@ -102,6 +102,9 @@ class FactEmployeeDay(Base):
     )
 
     leads_captured_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Distinct visited outlets whose business profiler was filled at the end of the day. Null until
+    # the day-close job freezes the day; readers then compute it live.
+    business_profiler_filled_outlet_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     outlets_onboarded_submitted_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )

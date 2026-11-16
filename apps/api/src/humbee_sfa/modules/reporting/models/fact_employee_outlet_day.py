@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from humbee_sfa.core.db import Base
@@ -51,5 +51,9 @@ class FactEmployeeOutletDay(Base):
     orders_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     net_value_paise: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     lines_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Business profiler % as of the end of `business_date`, and whether it met the filled threshold
+    # then. Null until the day-close job freezes the day (see `reporting.business_profiler`).
+    business_profiler_pct: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    business_profiler_filled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -259,9 +259,12 @@ class HumbeeOutletMasterProvider:
                 f"unexpected outlet detail response shape: {exc}"
             ) from exc
 
-    def fetch_business_profiler(self, *, tenant_id: str, outlet_ids: list[str]) -> BusinessProfilerBatch:
-        """One batch call for a whole route day. Short timeout and no retry: callers fall back to the
-        last known values rather than make a sales person wait."""
+    def fetch_business_profiler(
+        self, *, tenant_id: str, outlet_ids: list[str], timeout_s: float = 3.0
+    ) -> BusinessProfilerBatch:
+        """One batch call for a whole route day. Short timeout and no retry by default: callers fall
+        back to the last known values rather than make a sales person wait. The day-close job passes
+        a longer timeout, since nobody waits on it."""
 
         del tenant_id
         try:
@@ -271,7 +274,7 @@ class HumbeeOutletMasterProvider:
                 "/sfa/v1/outlets/business-profiler",
                 route="/outlets/business-profiler",
                 json_body={"outlet_ids": outlet_ids},
-                timeout_s=3.0,
+                timeout_s=timeout_s,
                 max_retries=0,
             )
         except HumbeeError as exc:
