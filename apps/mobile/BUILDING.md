@@ -155,7 +155,7 @@ pnpm mobile:ipa:prod:file
 ```
 
 - **Version** (`CFBundleShortVersionString`) is `NEXT_PUBLIC_APP_VERSION` from the env file.
-- **Build number** (`CFBundleVersion`) is `<APP_BUILD_NUMBER>.<yyMMdd>.<HHmm>`, e.g. `36.261104.1530`. QA and prod upload
+- **Build number** (`CFBundleVersion`) is `<APP_BUILD_NUMBER>.<yyMMdd>.<HHmm>`, e.g. `37.261117.1530`. QA and prod upload
   to the same App Store Connect app, and every upload needs a new build number, so the time is part of it.
 - QA and prod share the bundle id `com.humbee.sfa`. In TestFlight, tell builds apart with the *What to Test* note and
   separate tester groups.
