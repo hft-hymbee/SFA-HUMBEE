@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import calendar
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import Response
@@ -34,8 +34,9 @@ from humbee_sfa.modules.org.geography_service import (
 from humbee_sfa.modules.org.scope import OrgResource, Scope, ScopeResolver
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.modules.outlets.service import OutletReadService
-from humbee_sfa.modules.reporting import repository
+from humbee_sfa.modules.reporting import business_profiler, repository
 from humbee_sfa.modules.reporting.service import _LEVEL_BY_DESIGNATION
+from humbee_sfa.modules.routes.service import RouteService
 
 _MAX_ATTENDANCE_RANGE_MONTHS = 4
 _XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -445,6 +446,39 @@ class AdminReportsService:
 
     # -- 6. Attendance -----------------------------------------------------------
 
+    def _bp_filled_by_employee_day(
+        self,
+        *,
+        tenant_id: str,
+        fact_days: dict[tuple[str, date], Any],
+        from_date: date,
+        to_date: date,
+    ) -> dict[tuple[str, date], int]:
+        """Distinct visited outlets with a filled business profiler, per employee-day: the frozen
+        `fact_employee_day` count where the day-close job has run, live for every other day."""
+
+        frozen = business_profiler.frozen_dates(
+            self._session, tenant_id=tenant_id, from_date=from_date, to_date=to_date
+        )
+        result = {
+            key: fact.business_profiler_filled_outlet_count
+            for key, fact in fact_days.items()
+            if key[1] in frozen and fact.business_profiler_filled_outlet_count is not None
+        }
+        day = from_date
+        while day <= to_date:
+            if day not in frozen:
+                for employee_id, outlets in business_profiler.live_day_statuses(
+                    self._session,
+                    settings=self._settings,
+                    tenant_id=tenant_id,
+                    business_date=day,
+                    employee_ids=None,
+                ).items():
+                    result[(employee_id, day)] = sum(1 for filled in outlets.values() if filled)
+            day += timedelta(days=1)
+        return result
+
     def attendance_report(self, *, claims: AccessTokenClaims, from_date: date, to_date: date) -> Response:
         self._require_admin(claims)
         if to_date < from_date:
@@ -464,6 +498,17 @@ class AdminReportsService:
             from_date=from_date,
             to_date=to_date,
         )
+        visit_stats = RouteService(
+            self._session, settings=self._settings, clock=self._clock
+        ).visit_stats_by_employee_day(
+            tenant_id=claims.tenant_id,
+            employee_ids=list(directory),
+            from_date=from_date,
+            to_date=to_date,
+        )
+        bp_filled = self._bp_filled_by_employee_day(
+            tenant_id=claims.tenant_id, fact_days=fact_days, from_date=from_date, to_date=to_date
+        )
 
         rows = []
         for record in records:
@@ -477,6 +522,8 @@ class AdminReportsService:
             else:
                 working_hours = ""
             mock_gps = bool(record["punch_in_is_mock"]) or bool(record["punch_out_is_mock"])
+            day_key = (record["employee_id"], record["business_date"])
+            stats = visit_stats.get(day_key)
             rows.append(
                 [
                     person.get("employee_code", record["employee_id"]),
@@ -496,7 +543,12 @@ class AdminReportsService:
                     record["late_by_minutes"] if record["late_by_minutes"] is not None else "",
                     working_hours,
                     round(fact.distance_metres / 1000, 2) if fact else "",
-                    fact.visits_total if fact else "",
+                    stats.total if stats else 0,
+                    stats.physical if stats else 0,
+                    stats.telephonic if stats else 0,
+                    stats.productive if stats else 0,
+                    stats.missed if stats else 0,
+                    bp_filled.get(day_key, 0),
                     fact.orders_submitted_count if fact else "",
                     _yes_no(mock_gps) if (record["punch_in_is_mock"] is not None or record["punch_out_is_mock"] is not None) else "",
                 ]
@@ -506,8 +558,9 @@ class AdminReportsService:
             headers=[
                 "Employee Code", "Name", "Phone", "Designation", "Manager", "Date", "Day", "Status",
                 "Leave Type", "Punch In", "Punch In Location", "Punch Out", "Punch Out Location",
-                "Late", "Late By (Mins)", "Working Hours", "Distance (km)", "Visits", "Orders",
-                "Mock GPS",
+                "Late", "Late By (Mins)", "Working Hours", "Distance (km)", "Total Visits",
+                "Physical Visits", "Telephonic Visits", "Productive Visits", "Missed Visits",
+                "BP Filled Outlets", "Orders", "Mock GPS",
             ],
             rows=rows,
             filename=f"attendance-report-{from_date.isoformat()}-to-{to_date.isoformat()}.xlsx",
