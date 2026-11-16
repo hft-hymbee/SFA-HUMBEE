@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -255,5 +256,6 @@ class FakeHumbee:
                 for outlet_id in dict.fromkeys(call.json["outlet_ids"])
                 if outlet_id in self.outlets
             ],
-            "as_of": AS_OF,
+            # Humbee computes the % on read, so the batch is stamped with the time of the call.
+            "as_of": datetime.now(UTC).isoformat(),
         }

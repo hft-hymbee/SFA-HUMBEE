@@ -69,7 +69,7 @@ def _facts(db: Session, employee: Employee) -> dict[str, object]:
 
 
 def _totals(body: dict, window: str) -> dict[str, int]:
-    return body[window]["totals"]
+    return {key: body[window]["totals"][key] for key in ("tc", "pc", "sc", "utc")}
 
 
 def _start_beat(sp: Authed, beat_id: str) -> dict[str, str]:
