@@ -147,7 +147,9 @@ class Settings(BaseSettings):
     otp_rate_limit_per_phone_per_hour: int = Field(ge=1)
     otp_rate_limit_per_ip_per_hour: int = Field(ge=1)
     otp_verify_rate_limit_per_challenge: int = Field(default=10, ge=1)
+    # sbx/test only: no SMS is sent and every OTP challenge uses otp_skip_verification_code.
     otp_skip_verification: bool = False
+    otp_skip_verification_code: str | None = Field(default=None, pattern=r"^\d{4,8}$")
     local_otp_override: str | None = Field(default=None, pattern=r"^\d{4,8}$")
     # One phone whose OTP is always `otp_fixed_code`, in every environment including prd.
     # Sourced from secrets only; set both or neither. The SMS is still sent so the owner of the
@@ -280,6 +282,14 @@ class Settings(BaseSettings):
     def validate_otp_skip_verification(self) -> Self:
         if self.otp_skip_verification and self.environment not in {"sbx", "test"}:
             raise ValueError("otp_skip_verification is allowed only in sbx or test environments")
+        if not self.otp_skip_verification:
+            return self
+        if self.otp_skip_verification_code is None:
+            raise ValueError(
+                "otp_skip_verification_code must be set when otp_skip_verification is true"
+            )
+        if len(self.otp_skip_verification_code) != self.otp_length:
+            raise ValueError("otp_skip_verification_code length must match otp_length")
         return self
 
     @model_validator(mode="after")
