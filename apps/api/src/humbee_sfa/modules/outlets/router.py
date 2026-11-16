@@ -5,6 +5,7 @@ Handlers translate HTTP only; transaction ownership and business rules are the s
 
 from __future__ import annotations
 
+import hmac
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Response
@@ -14,6 +15,8 @@ from sqlalchemy.orm import Session
 
 from humbee_sfa.core.db import get_db_session
 from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims
+from humbee_sfa.core.errors.handlers import ApiError
+from humbee_sfa.core.settings import get_settings
 from humbee_sfa.modules.outlets import schemas
 from humbee_sfa.modules.outlets.service import OutletOnboardingService, OutletReadService
 from humbee_sfa.platform.telemetry.middleware import get_request_id
@@ -21,6 +24,7 @@ from humbee_sfa.platform.telemetry.middleware import get_request_id
 router = APIRouter(tags=["Outlets"])
 onboarding_router = APIRouter(prefix="/api/v1/outlets/onboarding", tags=["Outlets"])
 read_router = APIRouter(prefix="/api/v1/outlets", tags=["Outlets"])
+humbee_push_router = APIRouter(prefix="/api/v1/integrations/humbee", tags=["Integrations"])
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", max_length=128)]
 OutletId = Annotated[str, Path(min_length=1, max_length=64)]
@@ -312,5 +316,35 @@ def get_candidate(
     )
 
 
+def require_humbee_caller(
+    api_key: Annotated[str | None, Header(alias="X-Humbee-Api-Key")] = None,
+) -> None:
+    """Humbee's service-to-service calls carry a shared secret, not an employee token."""
+
+    expected = get_settings().humbee_inbound_api_key
+    if not expected or not api_key or not hmac.compare_digest(api_key.encode(), expected.encode()):
+        raise ApiError(401, "unauthorized", "Missing or invalid Humbee API key.")
+
+
+@humbee_push_router.post(
+    "/business-profiler",
+    status_code=204,
+    response_class=Response,
+    dependencies=[Depends(require_humbee_caller)],
+)
+def receive_business_profiler_push(
+    body: schemas.BusinessProfilerPushBody,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> Response:
+    """Humbee pushes each outlet's new business profiler % after a profiler save, so today's
+    reporting counts stay live without a visit."""
+
+    OutletReadService(session).record_business_profiler_push(
+        items=[(item.outlet_id, item.business_profiler_pct, item.changed_at) for item in body.outlets]
+    )
+    return Response(status_code=204)
+
+
 router.include_router(read_router)
+router.include_router(humbee_push_router)
 router.include_router(onboarding_router)
