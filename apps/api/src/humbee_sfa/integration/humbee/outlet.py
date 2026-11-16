@@ -14,6 +14,8 @@ from humbee_sfa.core.settings import Settings
 from humbee_sfa.integration.humbee.client import HumbeeError, HumbeeNotFoundError, get_humbee_client
 
 _SEARCH_PAGE_SIZE = 100
+# Humbee's cap on `limit` for /sfa/v1/outlets, confirmed 2026-11-10. Bulk validation pages at this.
+MAX_SEARCH_PAGE_SIZE = 10_000
 
 
 @dataclass(frozen=True)
@@ -138,7 +140,13 @@ class HumbeeOutletMasterProvider:
         self._client = get_humbee_client(settings)
 
     def search(
-        self, *, tenant_id: str, district_ids: list[str], category_ids: list[str], query: str | None
+        self,
+        *,
+        tenant_id: str,
+        district_ids: list[str],
+        category_ids: list[str],
+        query: str | None,
+        page_size: int | None = None,
     ) -> list[OutletRecord]:
         """Every page of the search, for the validation paths that must see the whole scope.
 
@@ -154,7 +162,7 @@ class HumbeeOutletMasterProvider:
                 category_ids=category_ids,
                 query=query,
                 cursor=cursor,
-                limit=_SEARCH_PAGE_SIZE,
+                limit=page_size or _SEARCH_PAGE_SIZE,
             )
             records.extend(page.records)
             if not page.next_cursor:

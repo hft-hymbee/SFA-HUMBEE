@@ -167,3 +167,20 @@ class AdminUpdateBeatBody(BaseModel):
     geo_scope: GeoScope | None = None
     frequency: Frequency | None = None
     outlet_refs: list[str] | None = None
+
+
+class BeatImportRow(BaseModel):
+    """One "Beat Configuration" row; `row` is the sheet line number (the header is line 1). `id`
+    is null on a dry run."""
+
+    row: int
+    id: str | None
+    name: str
+    owner_employee_code: str
+    outlet_count: int
+
+
+class BeatImportResponse(BaseModel):
+    dry_run: bool
+    beat_count: int
+    beats: list[BeatImportRow]
