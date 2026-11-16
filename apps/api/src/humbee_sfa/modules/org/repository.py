@@ -64,6 +64,17 @@ def get_by_phone_hmac(
     return session.execute(stmt).scalar_one_or_none()
 
 
+def list_by_employee_codes(
+    session: Session, *, scope: ScopeContext, employee_codes: Sequence[str]
+) -> list[Employee]:
+    """Includes deactivated employees, so a caller can tell "inactive" from "unknown"."""
+
+    if not employee_codes:
+        return []
+    stmt = _scoped_employees(scope).where(Employee.employee_code.in_(employee_codes))
+    return list(session.execute(stmt).scalars().all())
+
+
 def get_active_by_id(
     session: Session, *, scope: ScopeContext, employee_id: str
 ) -> Employee | None:

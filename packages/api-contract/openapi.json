@@ -1097,6 +1097,73 @@
         "title": "BeatDetailResponse",
         "type": "object"
       },
+      "BeatImportResponse": {
+        "properties": {
+          "beat_count": {
+            "title": "Beat Count",
+            "type": "integer"
+          },
+          "beats": {
+            "items": {
+              "$ref": "#/components/schemas/BeatImportRow"
+            },
+            "title": "Beats",
+            "type": "array"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dry_run",
+          "beat_count",
+          "beats"
+        ],
+        "title": "BeatImportResponse",
+        "type": "object"
+      },
+      "BeatImportRow": {
+        "description": "One \"Beat Configuration\" row; `row` is the sheet line number (the header is line 1). `id`\nis null on a dry run.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outlet_count": {
+            "title": "Outlet Count",
+            "type": "integer"
+          },
+          "owner_employee_code": {
+            "title": "Owner Employee Code",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "id",
+          "name",
+          "owner_employee_code",
+          "outlet_count"
+        ],
+        "title": "BeatImportRow",
+        "type": "object"
+      },
       "BeatListItem": {
         "properties": {
           "activation_state": {
@@ -1269,6 +1336,21 @@
           "sequence_hint"
         ],
         "title": "BeatOutletItem",
+        "type": "object"
+      },
+      "Body_import_beats_api_v1_beats_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "xlsx; see GET /beats/import/template",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_beats_api_v1_beats_import_post",
         "type": "object"
       },
       "BranchEditResponse": {
@@ -3085,7 +3167,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3135,7 +3216,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3151,7 +3231,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3296,7 +3375,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3362,7 +3440,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3383,7 +3460,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -12525,6 +12601,104 @@
           }
         },
         "summary": "Create Beat",
+        "tags": [
+          "Beats"
+        ]
+      }
+    },
+    "/api/v1/beats/import": {
+      "post": {
+        "description": "Admin bulk create of approved beats from a two-sheet workbook. All-or-nothing; every row\nerror comes back at once as `422 xlsx_validation_failed`.",
+        "operationId": "import_beats_api_v1_beats_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_beats_api_v1_beats_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeatImportResponse"
+                }
+              }
+            },
+            "description": "Dry-run preview"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeatImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Beats",
+        "tags": [
+          "Beats"
+        ]
+      }
+    },
+    "/api/v1/beats/import/template": {
+      "get": {
+        "operationId": "beat_import_template_api_v1_beats_import_template_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Beat Import Template",
         "tags": [
           "Beats"
         ]
