@@ -608,6 +608,53 @@ export type BeatDetailResponse = {
 };
 
 /**
+ * BeatImportResponse
+ */
+export type BeatImportResponse = {
+    /**
+     * Beat Count
+     */
+    beat_count: number;
+    /**
+     * Beats
+     */
+    beats: Array<BeatImportRow>;
+    /**
+     * Dry Run
+     */
+    dry_run: boolean;
+};
+
+/**
+ * BeatImportRow
+ *
+ * One "Beat Configuration" row; `row` is the sheet line number (the header is line 1). `id`
+ * is null on a dry run.
+ */
+export type BeatImportRow = {
+    /**
+     * Id
+     */
+    id: string | null;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Outlet Count
+     */
+    outlet_count: number;
+    /**
+     * Owner Employee Code
+     */
+    owner_employee_code: string;
+    /**
+     * Row
+     */
+    row: number;
+};
+
+/**
  * BeatListItem
  */
 export type BeatListItem = {
@@ -708,6 +755,18 @@ export type BeatOutletItem = {
      * Sequence Hint
      */
     sequence_hint: number | null;
+};
+
+/**
+ * Body_import_beats_api_v1_beats_import_post
+ */
+export type BodyImportBeatsApiV1BeatsImportPost = {
+    /**
+     * File
+     *
+     * xlsx; see GET /beats/import/template
+     */
+    file: Blob | File;
 };
 
 /**
@@ -7101,6 +7160,60 @@ export type CreateBeatApiV1BeatsPostResponses = {
 };
 
 export type CreateBeatApiV1BeatsPostResponse = CreateBeatApiV1BeatsPostResponses[keyof CreateBeatApiV1BeatsPostResponses];
+
+export type ImportBeatsApiV1BeatsImportPostData = {
+    body: BodyImportBeatsApiV1BeatsImportPost;
+    headers?: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Dry Run
+         */
+        dry_run?: boolean;
+    };
+    url: '/api/v1/beats/import';
+};
+
+export type ImportBeatsApiV1BeatsImportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportBeatsApiV1BeatsImportPostError = ImportBeatsApiV1BeatsImportPostErrors[keyof ImportBeatsApiV1BeatsImportPostErrors];
+
+export type ImportBeatsApiV1BeatsImportPostResponses = {
+    /**
+     * Dry-run preview
+     */
+    200: BeatImportResponse;
+    /**
+     * Successful Response
+     */
+    201: BeatImportResponse;
+};
+
+export type ImportBeatsApiV1BeatsImportPostResponse = ImportBeatsApiV1BeatsImportPostResponses[keyof ImportBeatsApiV1BeatsImportPostResponses];
+
+export type BeatImportTemplateApiV1BeatsImportTemplateGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/beats/import/template';
+};
+
+export type BeatImportTemplateApiV1BeatsImportTemplateGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ListShopCategoriesApiV1BeatsShopCategoriesGetData = {
     body?: never;
