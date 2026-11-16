@@ -2,7 +2,7 @@
 
 Only the leave screens' surface is modelled: apply (balances, preview, submit), own history and
 team. Display strings the client can compose from these fields — the
-`"Casual · 22–23 Jul"` title, the `"Applied 2h ago"` relative label, the status chip — are not sent
+`"Optional · 22–23 Jul"` title, the `"Applied 2h ago"` relative label, the status chip — are not sent
 (they are client formatters, and the status→label map is a shared client
 mapper). Day counts are `float`: the column is `numeric(4,1)`, so a JSON number is lossless and the
 client does arithmetic on it.

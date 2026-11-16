@@ -9,10 +9,18 @@ from tests.fixtures.auth import Authed, login
 from tests.fixtures.flows import error_code, team
 
 
-def _casual(user: Authed) -> dict[str, Any]:
+def _balance(user: Authed, leave_type: str) -> dict[str, Any]:
     response = user.get("/api/v1/leave/balances/me")
     assert response.status_code == 200, response.text
-    return next(item for item in response.json()["items"] if item["leave_type"] == "casual")
+    return next(item for item in response.json()["items"] if item["leave_type"] == leave_type)
+
+
+def _privileged(user: Authed) -> dict[str, Any]:
+    return _balance(user, "privileged")
+
+
+def _casual(user: Authed) -> dict[str, Any]:
+    return _balance(user, "casual")
 
 
 def _file(user: Authed, leave_type: str, from_date: str, to_date: str) -> dict[str, Any]:
@@ -36,23 +44,23 @@ def test_balance_lifecycle_through_approve_reject_withdraw(api_client: TestClien
     balances = sp.get("/api/v1/leave/balances/me").json()
     assert balances["period_year"] == 2026
     assert {item["leave_type"]: item["available_days"] for item in balances["items"]} == {
-        "privileged": 12,
-        "casual": 6,
-        "sick": 6,
+        "privileged": 21,
+        "casual": 2,
+        "sick": 2,
     }
 
-    preview = sp.get("/api/v1/leave/preview", leave_type="casual", from_date="2026-10-21", to_date="2026-10-23")
+    preview = sp.get("/api/v1/leave/preview", leave_type="privileged", from_date="2026-10-21", to_date="2026-10-23")
     assert preview.status_code == 200, preview.text
-    assert (preview.json()["day_count"], preview.json()["balance_after"]) == (3, 3)
+    assert (preview.json()["day_count"], preview.json()["balance_after"]) == (3, 18)
 
-    first = _file(sp, "casual", "2026-10-21", "2026-10-23")
+    first = _file(sp, "privileged", "2026-10-21", "2026-10-23")
     assert (first["status"], first["day_count"]) == ("pending", 3)
-    casual = _casual(sp)
-    assert (casual["pending_days"], casual["available_days"]) == (3, 3)
+    privileged = _privileged(sp)
+    assert (privileged["pending_days"], privileged["available_days"]) == (3, 18)
 
     assert _decide(boss, first["approval_request_id"], "approve")["status"] == "approved"
-    casual = _casual(sp)
-    assert (casual["consumed_days"], casual["pending_days"], casual["available_days"]) == (3, 0, 3)
+    privileged = _privileged(sp)
+    assert (privileged["consumed_days"], privileged["pending_days"], privileged["available_days"]) == (3, 0, 18)
 
     overlapping = sp.post(
         "/api/v1/leave/requests", {"leave_type": "sick", "from_date": "2026-10-23", "to_date": "2026-10-23"}
@@ -60,24 +68,24 @@ def test_balance_lifecycle_through_approve_reject_withdraw(api_client: TestClien
     assert overlapping.status_code == 409
     assert error_code(overlapping) == "overlapping_leave"
 
-    weekend = _file(sp, "casual", "2026-10-24", "2026-10-25")
+    weekend = _file(sp, "privileged", "2026-10-24", "2026-10-25")
     assert weekend["day_count"] == 2
-    assert _casual(sp)["available_days"] == 1
+    assert _privileged(sp)["available_days"] == 16
     assert _decide(boss, weekend["approval_request_id"], "reject", {"reason": "Stock count"})["status"] == "rejected"
-    casual = _casual(sp)
-    assert (casual["pending_days"], casual["available_days"]) == (0, 3)
+    privileged = _privileged(sp)
+    assert (privileged["pending_days"], privileged["available_days"]) == (0, 18)
 
-    third = _file(sp, "casual", "2026-10-26", "2026-10-26")
-    assert _casual(sp)["pending_days"] == 1
+    third = _file(sp, "privileged", "2026-10-26", "2026-10-26")
+    assert _privileged(sp)["pending_days"] == 1
     assert _decide(sp, third["approval_request_id"], "withdraw")["status"] == "withdrawn"
-    casual = _casual(sp)
-    assert (casual["consumed_days"], casual["pending_days"], casual["available_days"]) == (3, 0, 3)
+    privileged = _privileged(sp)
+    assert (privileged["consumed_days"], privileged["pending_days"], privileged["available_days"]) == (3, 0, 18)
 
     mine = sp.get("/api/v1/leave/requests/mine").json()["items"]
     assert sorted(item["status"] for item in mine) == ["approved", "rejected", "withdrawn"]
 
     inverted = sp.post(
-        "/api/v1/leave/requests", {"leave_type": "casual", "from_date": "2026-10-30", "to_date": "2026-10-29"}
+        "/api/v1/leave/requests", {"leave_type": "privileged", "from_date": "2026-10-30", "to_date": "2026-10-29"}
     )
     assert inverted.status_code == 422
     assert error_code(inverted) == "invalid_date_range"
@@ -89,14 +97,14 @@ def test_over_balance_is_advisory(api_client: TestClient, db_session: Session) -
     preview = sp.get("/api/v1/leave/preview", leave_type="casual", from_date="2026-10-21", to_date="2026-10-28")
     assert preview.status_code == 200, preview.text
     assert preview.json()["day_count"] == 8
-    assert preview.json()["balance_after"] == -2
+    assert preview.json()["balance_after"] == -6
     assert preview.json()["exceeds_balance"] is True
 
     request = _file(sp, "casual", "2026-10-21", "2026-10-28")
     assert request["status"] == "pending"
-    assert request["balance_after_projected"] == -2
+    assert request["balance_after_projected"] == -6
     casual = _casual(sp)
-    assert (casual["pending_days"], casual["available_days"]) == (8, -2)
+    assert (casual["pending_days"], casual["available_days"]) == (8, -6)
 
 
 def test_top_of_hierarchy_leave_is_auto_approved(api_client: TestClient, db_session: Session) -> None:
@@ -107,7 +115,7 @@ def test_top_of_hierarchy_leave_is_auto_approved(api_client: TestClient, db_sess
     sick = next(
         item for item in top.get("/api/v1/leave/balances/me").json()["items"] if item["leave_type"] == "sick"
     )
-    assert (sick["consumed_days"], sick["pending_days"], sick["available_days"]) == (2, 0, 4)
+    assert (sick["consumed_days"], sick["pending_days"], sick["available_days"]) == (2, 0, 0)
     assert top.get("/api/v1/approvals/summary").json()["pending_total"] == 0
 
 
