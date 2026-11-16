@@ -729,6 +729,36 @@ export type BranchEditResponse = {
 };
 
 /**
+ * BusinessProfilerPushBody
+ *
+ * Humbee's push after a profiler save: the new % of every outlet the change touched.
+ */
+export type BusinessProfilerPushBody = {
+    /**
+     * Outlets
+     */
+    outlets: Array<BusinessProfilerPushItem>;
+};
+
+/**
+ * BusinessProfilerPushItem
+ */
+export type BusinessProfilerPushItem = {
+    /**
+     * Business Profiler Pct
+     */
+    business_profiler_pct?: number | null;
+    /**
+     * Changed At
+     */
+    changed_at: string;
+    /**
+     * Outlet Id
+     */
+    outlet_id: string;
+};
+
+/**
  * CallsKpiNodeOut
  */
 export type CallsKpiNodeOut = {
@@ -767,6 +797,14 @@ export type CallsKpiResponse = {
  * CallsKpiRowOut
  */
 export type CallsKpiRowOut = {
+    /**
+     * Bp Filled
+     */
+    bp_filled?: number;
+    /**
+     * Bp Not Filled
+     */
+    bp_not_filled?: number;
     /**
      * Designation Code
      */
@@ -813,6 +851,14 @@ export type CallsKpiRowOut = {
  * CallsKpiTotalsOut
  */
 export type CallsKpiTotalsOut = {
+    /**
+     * Bp Filled
+     */
+    bp_filled?: number;
+    /**
+     * Bp Not Filled
+     */
+    bp_not_filled?: number;
     /**
      * Pc
      */
@@ -5317,6 +5363,14 @@ export type SpDashboardKpisResponse = {
  */
 export type SpDashboardMetricsOut = {
     /**
+     * Bp Filled
+     */
+    bp_filled?: number;
+    /**
+     * Bp Not Filled
+     */
+    bp_not_filled?: number;
+    /**
      * Coverage Pct
      */
     coverage_pct?: number | null;
@@ -7869,6 +7923,37 @@ export type GetTodayApiV1HomeTodayGetResponses = {
 };
 
 export type GetTodayApiV1HomeTodayGetResponse = GetTodayApiV1HomeTodayGetResponses[keyof GetTodayApiV1HomeTodayGetResponses];
+
+export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostData = {
+    body: BusinessProfilerPushBody;
+    headers?: {
+        /**
+         * X-Humbee-Api-Key
+         */
+        'X-Humbee-Api-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations/humbee/business-profiler';
+};
+
+export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostError = ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostErrors[keyof ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostErrors];
+
+export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponse = ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponses[keyof ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponses];
 
 export type CaptureLeadApiV1LeadsPostData = {
     body: CaptureLeadBody;

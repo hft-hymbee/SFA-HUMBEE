@@ -1294,6 +1294,59 @@
         "title": "BranchEditResponse",
         "type": "object"
       },
+      "BusinessProfilerPushBody": {
+        "description": "Humbee's push after a profiler save: the new % of every outlet the change touched.",
+        "properties": {
+          "outlets": {
+            "items": {
+              "$ref": "#/components/schemas/BusinessProfilerPushItem"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Outlets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outlets"
+        ],
+        "title": "BusinessProfilerPushBody",
+        "type": "object"
+      },
+      "BusinessProfilerPushItem": {
+        "properties": {
+          "business_profiler_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Profiler Pct"
+          },
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          },
+          "outlet_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Outlet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outlet_id",
+          "changed_at"
+        ],
+        "title": "BusinessProfilerPushItem",
+        "type": "object"
+      },
       "CallsKpiNodeOut": {
         "properties": {
           "designation_code": {
@@ -1350,6 +1403,16 @@
       },
       "CallsKpiRowOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "designation_code": {
             "title": "Designation Code",
             "type": "string"
@@ -1408,6 +1471,16 @@
       },
       "CallsKpiTotalsOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "pc": {
             "title": "Pc",
             "type": "integer"
@@ -9388,6 +9461,16 @@
       },
       "SpDashboardMetricsOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "coverage_pct": {
             "anyOf": [
               {
@@ -13806,6 +13889,60 @@
         "summary": "Get Today",
         "tags": [
           "Routes & Visits"
+        ]
+      }
+    },
+    "/api/v1/integrations/humbee/business-profiler": {
+      "post": {
+        "description": "Humbee pushes each outlet's new business profiler % after a profiler save, so today's\nreporting counts stay live without a visit.",
+        "operationId": "receive_business_profiler_push_api_v1_integrations_humbee_business_profiler_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Humbee-Api-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Humbee-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessProfilerPushBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Receive Business Profiler Push",
+        "tags": [
+          "Outlets",
+          "Integrations"
         ]
       }
     },
