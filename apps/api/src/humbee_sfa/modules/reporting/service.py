@@ -35,7 +35,7 @@ from humbee_sfa.modules.org.scope import (
 )
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.modules.outlets.service import OutletReadService
-from humbee_sfa.modules.reporting import repository, schemas
+from humbee_sfa.modules.reporting import business_profiler, repository, schemas
 from humbee_sfa.modules.reporting.models import FactEmployeeDay
 from humbee_sfa.modules.routes.service import RouteService
 from humbee_sfa.modules.targets.service import TargetService
@@ -1715,6 +1715,17 @@ class ReportingService:
                 scope, windows.metrics_from, windows.metrics_to, None
             ),
         )
+        bp_counts = business_profiler.count(
+            business_profiler.outlet_statuses(
+                self._session,
+                settings=self._settings,
+                tenant_id=claims.tenant_id,
+                employee_ids=[claims.employee_id],
+                from_date=windows.metrics_from,
+                to_date=windows.metrics_to,
+            ),
+            [claims.employee_id],
+        )
 
         return schemas.SpDashboardKpisResponse(
             period=period,
@@ -1736,6 +1747,8 @@ class ReportingService:
                 coverage_pct=coverage_pct if planned_visits > 0 else None,
                 productivity_pct=_productivity_pct(productive_visits, visits_total),
                 outlets_ordered=outlets_ordered,
+                bp_filled=bp_counts.filled,
+                bp_not_filled=bp_counts.not_filled,
             ),
             degraded=self._degraded_out(),
         ).model_dump(mode="json")
@@ -2173,6 +2186,16 @@ class ReportingService:
         today_facts, today_outlets = facts(as_of_date)
         mtd_facts, mtd_outlets = facts(month_start)
 
+        def bp(from_date: date) -> business_profiler.OutletStatuses:
+            return business_profiler.outlet_statuses(
+                self._session,
+                settings=self._settings,
+                tenant_id=scope.tenant_id,
+                employee_ids=all_leaf_ids,
+                from_date=from_date,
+                to_date=as_of_date,
+            )
+
         live: dict[str, tuple[int | None, int | None, int | None]] = {}
         if scope.scope is Scope.SELF and all_leaf_ids:
             planned, visited, productive, _pct = self._sp_planned_coverage(
@@ -2209,10 +2232,10 @@ class ReportingService:
             view=view,
             business_date=as_of_date,
             today=self._build_calls_window(
-                children, leaf_sets, root_leaves, today_facts, today_outlets, live,
+                children, leaf_sets, root_leaves, today_facts, today_outlets, live, bp(as_of_date),
             ),
             mtd=self._build_calls_window(
-                children, leaf_sets, root_leaves, mtd_facts, mtd_outlets, {},
+                children, leaf_sets, root_leaves, mtd_facts, mtd_outlets, {}, bp(month_start),
             ),
         ).model_dump(mode="json")
 
@@ -2289,6 +2312,7 @@ class ReportingService:
         facts: dict[str, dict[str, int]],
         outlets: dict[str, set[str]],
         live: dict[str, tuple[int | None, int | None, int | None]],
+        bp: business_profiler.OutletStatuses,
     ) -> schemas.CallsKpiWindowOut:
         def aggregate(leaf_ids: list[str]) -> schemas.CallsKpiTotalsOut:
             tc = pc = sc = 0
@@ -2300,7 +2324,15 @@ class ReportingService:
                 pc += productive if productive is not None else fact["pc"]
                 sc += planned if planned is not None else fact["sc"]
                 covered |= outlets.get(leaf_id) or set()
-            return schemas.CallsKpiTotalsOut(tc=tc, pc=pc, sc=sc, utc=len(covered))
+            bp_counts = business_profiler.count(bp, leaf_ids)
+            return schemas.CallsKpiTotalsOut(
+                tc=tc,
+                pc=pc,
+                sc=sc,
+                utc=len(covered),
+                bp_filled=bp_counts.filled,
+                bp_not_filled=bp_counts.not_filled,
+            )
 
         items = []
         for child in children:
@@ -2318,6 +2350,8 @@ class ReportingService:
                     pc=values.pc,
                     sc=values.sc,
                     utc=values.utc,
+                    bp_filled=values.bp_filled,
+                    bp_not_filled=values.bp_not_filled,
                 )
             )
         return schemas.CallsKpiWindowOut(items=items, totals=aggregate(root_leaves))

@@ -178,6 +178,10 @@ class SpDashboardMetricsOut(BaseModel):
     coverage_pct: int | None = None
     productivity_pct: int = 0
     outlets_ordered: int = 0
+    # Distinct visited outlets in the period whose business profiler was filled (>= threshold) at
+    # the end of the outlet's last visited day, and the rest. Today is live.
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class SpDashboardKpisResponse(BaseModel):
@@ -319,6 +323,10 @@ class CallsKpiRowOut(BaseModel):
     pc: int
     sc: int
     utc: int
+    # Distinct visited outlets whose business profiler was filled (>= threshold) at the end of the
+    # outlet's last visited day in the window, and the rest. Today's values are live.
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class CallsKpiTotalsOut(BaseModel):
@@ -326,6 +334,8 @@ class CallsKpiTotalsOut(BaseModel):
     pc: int
     sc: int
     utc: int
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class CallsKpiWindowOut(BaseModel):
