@@ -59,7 +59,7 @@
   --text-control-sm-size: var(--text-body-sm-size);
   --text-control-sm-line: var(--text-body-sm-line);
   --text-control-sm-weight: 700;
-  --text-form-input-size: var(--text-body-size);
+  --text-form-input-size: 16px;
   --text-form-input-line: var(--text-body-line);
   --text-form-input-weight: var(--text-body-weight);
   --text-form-label-size: var(--text-label-sm-size);

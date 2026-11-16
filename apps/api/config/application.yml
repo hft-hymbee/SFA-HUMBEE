@@ -32,6 +32,6 @@ attendance_late_threshold_hour_ist: 9
 route_sweep_grace_minutes: 5
 reporting_projector_interval_seconds: 21600
 reporting_projector_lateness_window_days: 30
-leave_default_yearly_privileged_days: 12
-leave_default_yearly_casual_days: 6
-leave_default_yearly_sick_days: 6
+leave_default_yearly_privileged_days: 21
+leave_default_yearly_casual_days: 2
+leave_default_yearly_sick_days: 2

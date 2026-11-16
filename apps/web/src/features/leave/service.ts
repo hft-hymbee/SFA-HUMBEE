@@ -28,8 +28,8 @@ export const LEAVE_TYPES: Array<{
   tone: LeaveTypeTone;
   value: LeaveType;
 }> = [
-  { abbr: "CL", label: "Casual leave", shortLabel: "Casual", tone: "info", value: "casual" },
-  { abbr: "SL", label: "Sick leave", shortLabel: "Sick", tone: "error", value: "sick" },
+  { abbr: "OL", label: "Optional leave", shortLabel: "Optional", tone: "info", value: "casual" },
+  { abbr: "FL", label: "Family leave", shortLabel: "Family", tone: "error", value: "sick" },
   { abbr: "PL", label: "Privileged leave", shortLabel: "Privileged", tone: "success", value: "privileged" },
 ];
 
