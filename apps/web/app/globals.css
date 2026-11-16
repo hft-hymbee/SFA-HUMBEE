@@ -27,6 +27,13 @@ html,
 body {
   margin: 0;
   padding: 0;
+  touch-action: manipulation;
+}
+
+input,
+textarea,
+select {
+  font-size: var(--text-form-input-size);
 }
 
 body {
@@ -2980,11 +2987,11 @@ button.hb-bottom-nav__item:not(:disabled):active {
   border: 0;
   color: var(--color-text-primary);
   font: inherit;
-  font-size: var(--text-body-sm-size);
+  font-size: var(--text-form-input-size);
   min-width: 24px;
   outline: none;
   text-align: center;
-  width: 30px;
+  width: 3ch;
 }
 
 .sp-icon-action {

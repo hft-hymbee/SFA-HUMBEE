@@ -32,7 +32,7 @@ export function QuantityHandler({
     }}>
       {iconBtn("Minus", onDecrease, disabled || parseFloat(num || "0") <= min)}
       <input value={num} disabled={disabled} onChange={onChange}
-        style={{ border: "none", outline: "none", textAlign: "center", width: `${Math.max(2, num.length) * (small ? 8 : 10)}px`, font: "inherit", fontSize: small ? 13 : 16, color: "#333", background: "transparent" }} />
+        style={{ border: "none", outline: "none", textAlign: "center", width: `${Math.max(2, num.length)}ch`, font: "inherit", fontSize: "var(--text-form-input-size)", color: "#333", background: "transparent" }} />
       {iconBtn("Add", onIncrease, disabled || increaseDisabled)}
     </div>
   );

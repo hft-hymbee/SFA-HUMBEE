@@ -63,7 +63,7 @@ export function DatePicker({
           border: `1px solid ${border}`,
           borderRadius: "var(--radius-md)",
           fontFamily: "inherit",
-          fontSize: "var(--text-body-size)",
+          fontSize: "var(--text-form-input-size)",
           fontWeight: 400,
           lineHeight: "var(--text-body-line)",
           color: "var(--color-text-primary)",

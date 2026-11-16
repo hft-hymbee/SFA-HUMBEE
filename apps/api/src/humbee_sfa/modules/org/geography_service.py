@@ -187,6 +187,25 @@ def district_geography_labels(session: Session, *, tenant_id: str) -> dict[str, 
     return labels
 
 
+def get_assigned_geography(
+    session: Session, *, tenant_id: str, employee_ids: list[str]
+) -> dict[str, dict[str, set[str]]]:
+    """`{employee_id: {"zones", "states", "districts"}}` assigned ids, in one query. Employees with
+    no assignment are absent."""
+
+    rows = geography_repository.list_assignments_for_employees(
+        session, scope=internal_routing_scope(tenant_id), employee_ids=employee_ids
+    )
+    return {
+        row.employee_id: {
+            "zones": set(row.zone_cluster_ids or []),
+            "states": set(row.state_cluster_ids or []),
+            "districts": set(row.district_cluster_ids or []),
+        }
+        for row in rows
+    }
+
+
 # Named here rather than in `events.py` because geography is the only publisher.
 GEO_SCOPE_ASSIGNED = "geo_scope_assigned"
 
@@ -296,6 +315,26 @@ class GeographyService:
                 "geography_master_unavailable",
                 "Geography districts are not available right now.",
             ) from exc
+
+    def master_index(
+        self, *, tenant_id: str, zone_ids: list[str], state_ids: list[str]
+    ) -> tuple[dict[str, ZoneOption], dict[str, StateOption], dict[str, DistrictOption]]:
+        """Every zone, plus the states under `zone_ids` and the districts under `state_ids`, by id
+        — three Humbee calls however many rows a bulk import checks against them. Empty parent ids
+        give an empty level rather than Humbee's unfiltered nationwide list."""
+
+        zones = {z.external_id: z for z in self._fetch_zones(tenant_id)}
+        states = (
+            {s.external_id: s for s in self._fetch_states(tenant_id, _dedupe(zone_ids))}
+            if zone_ids
+            else {}
+        )
+        districts = (
+            {d.external_id: d for d in self._fetch_districts(tenant_id, _dedupe(state_ids))}
+            if state_ids
+            else {}
+        )
+        return zones, states, districts
 
     # -- assignment reads --------------------------------------------------
 

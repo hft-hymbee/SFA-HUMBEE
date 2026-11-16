@@ -95,11 +95,13 @@ class OutletOnboardingCandidate(Base, ConventionsMixin):
             "'rejected','withdrawn')",
             name="outlets_candidates_status_chk",
         ),
+        # Names ending `_9081` / `_f317` are the deployed (hash-truncated) forms: the full names would
+        # exceed Postgres's 63-char limit once `ck_<table>_` is prepended. Keep them as-is.
         # A firm is identified by a GSTIN or a PAN, same rule the outlet projection
         # holds. An influencer (no company_name) onboards as themself with no document.
         CheckConstraint(
             "company_name IS NULL OR company_gstin IS NOT NULL OR pancard_no IS NOT NULL",
-            name="outlets_candidates_document_chk",
+            name="outlets_candidates_doc_9081",
         ),
         # `onboard-firm` falls back to `fullname` when `company_name` is absent — that is how an influencer,
         # a person rather than a firm, is onboarded.
@@ -112,7 +114,7 @@ class OutletOnboardingCandidate(Base, ConventionsMixin):
         # `orders`' no-DP-order-without-proof check.
         CheckConstraint(
             "status <> 'submitted' OR humbee_company_id IS NOT NULL",
-            name="outlets_candidates_submitted_chk",
+            name="outlets_candidates_sub_f317",
         ),
         # The same Humbee firm must never be reconciled onto two candidates.
         Index(

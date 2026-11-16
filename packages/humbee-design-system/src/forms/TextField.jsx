@@ -27,7 +27,7 @@ export function TextField({
   const fieldBase = {
     display: "flex", alignItems: "center", gap: "var(--space-sm)",
     fontFamily: "var(--font-family-base, Lato, sans-serif)",
-    fontSize: "var(--text-body-size)", fontWeight: 400, lineHeight: "var(--text-body-line)", color: "var(--color-text-primary)",
+    fontSize: "var(--text-form-input-size)", fontWeight: 400, lineHeight: "var(--text-body-line)", color: "var(--color-text-primary)",
     padding: "var(--space-sm)", minHeight: multiline ? 88 : 44, boxSizing: "border-box",
     background: disabled ? "var(--surface-muted)" : "var(--hb-surface-raised, var(--surface-card))",
     boxShadow: focus && !disabled ? "0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent)" : "var(--hb-shadow-raised, none)",

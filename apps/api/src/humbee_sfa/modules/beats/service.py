@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Literal, NoReturn
 
 from sqlalchemy.exc import IntegrityError
@@ -23,11 +23,15 @@ from humbee_sfa.core.db import end_read_transaction, transaction
 from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.settings import Settings, get_settings
-from humbee_sfa.integration.humbee.outlet import HumbeeOutletMasterProvider
+from humbee_sfa.integration.humbee.outlet import (
+    MAX_SEARCH_PAGE_SIZE,
+    HumbeeOutletMasterProvider,
+    OutletRecord,
+)
 from humbee_sfa.modules.approvals import repository as approvals_repository
 from humbee_sfa.modules.approvals import service as approvals_service
 from humbee_sfa.modules.approvals.contracts import ApprovalStatus, DecisionAction, SubjectEvent
-from humbee_sfa.modules.beats import repository, schemas
+from humbee_sfa.modules.beats import beat_import, repository, schemas
 from humbee_sfa.modules.beats.adapter import (
     _frequency_label,
     apply_create_approved,
@@ -35,14 +39,16 @@ from humbee_sfa.modules.beats.adapter import (
 )
 from humbee_sfa.modules.beats.models.beat import Beat
 from humbee_sfa.modules.beats.models.beat_version import BeatVersion
-from humbee_sfa.modules.org.geography_service import GeographyService
+from humbee_sfa.modules.org.geography_service import GeographyService, get_assigned_geography
 from humbee_sfa.modules.org.scope import OrgResource, Role, ScopeContext, ScopeResolver
+from humbee_sfa.modules.org.service import find_employees_by_codes
 from humbee_sfa.modules.outlets.service import OutletReadService, ProjectedOutlet
 from humbee_sfa.platform.audit import AuditLogService
 from humbee_sfa.platform.domain_events import DomainEventPublisher
 from humbee_sfa.platform.idempotency import IdempotencyService
 
 AUDIT_ENTITY = "beats_beat"
+_IMPORT_ENDPOINT = "/api/v1/beats/import"
 
 
 # A beat row exists from the wizard's first step, two screens before the sales person names it,
@@ -93,6 +99,44 @@ def _validate_version_for_submit(version: BeatVersion) -> None:
     freq = version.frequency
     _require_frequency_complete(
         freq.get("frequency"), freq.get("visit_days") or [], freq.get("week_cycle") or []
+    )
+
+
+def _import_payload(
+    *, dry_run: bool, beats: list[beat_import.ParsedBeat], created: dict[int, str]
+) -> dict[str, Any]:
+    return schemas.BeatImportResponse(
+        dry_run=dry_run,
+        beat_count=len(beats),
+        beats=[
+            schemas.BeatImportRow(
+                row=beat.row,
+                id=created.get(beat.row),
+                name=beat.name,
+                owner_employee_code=beat.employee_code,
+                outlet_count=len(beat.outlet_refs),
+            )
+            for beat in beats
+        ],
+    ).model_dump(mode="json")
+
+
+def _raise_import_errors(
+    errors: list[beat_import.RowError], *, beats: list[beat_import.ParsedBeat], outlet_row_count: int
+) -> None:
+    if not errors:
+        return
+    sheets = (beat_import.CONFIG_SHEET, beat_import.OUTLETS_SHEET)
+    ordered = sorted(errors, key=lambda error: (sheets.index(error.sheet), error.row))
+    raise ApiError(
+        422,
+        "xlsx_validation_failed",
+        "The workbook has invalid rows; no beats were created.",
+        details={
+            "beat_count": len(beats),
+            "outlet_row_count": outlet_row_count,
+            "errors": [error.as_dict() for error in ordered],
+        },
     )
 
 
@@ -1867,6 +1911,432 @@ class BeatService:
                     status_code=200, payload=payload, scope=scope,
                 )
         return payload
+
+
+    # -- bulk import ----------------------------------------------------------
+
+    def import_template(self, *, claims: AccessTokenClaims) -> bytes:
+        self._require_admin(self._scope(claims))
+        return beat_import.template_xlsx()
+
+    def import_beats(
+        self,
+        *,
+        claims: AccessTokenClaims,
+        xlsx_bytes: bytes,
+        dry_run: bool,
+        idempotency_key: str | None,
+        request_id: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        """All-or-nothing bulk create of approved beats: every row is validated (owners, geography,
+        outlet scope, taken outlets) before any is written, and one transaction writes them all, so
+        a bad row creates nothing.
+
+        Stricter than the wizard on purpose: a beat's geography must sit inside its owner's
+        assignment, because one file can hand out hundreds of territories at once.
+        """
+
+        scope = self._scope(claims)
+        self._require_admin(scope)
+        if not dry_run and idempotency_key is None:
+            raise ApiError(
+                422, "idempotency_key_required", "An Idempotency-Key header is required to import."
+            )
+        if idempotency_key is not None and not dry_run:
+            # Before validation: on a replay the beats already exist and would fail as taken.
+            replay = self._check_idempotency(
+                endpoint=_IMPORT_ENDPOINT,
+                idempotency_key=idempotency_key,
+                raw_body=xlsx_bytes,
+                tenant_id=scope.tenant_id,
+            )
+            end_read_transaction(self._session)
+            if replay is not None:
+                return replay
+
+        beats, outlet_row_count, errors = beat_import.parse_workbook(xlsx_bytes)
+        owners, assigned = self._check_import_owners(scope, beats, errors)
+        geo_scopes = self._check_import_geography(scope, beats, owners, assigned, errors)
+        taken = repository.names_taken(
+            self._session, tenant_id=scope.tenant_id, names=[beat.name for beat in beats if beat.name]
+        )
+        for beat in beats:
+            if beat.name.lower() in taken:
+                errors.append(
+                    beat_import.RowError(
+                        beat_import.CONFIG_SHEET, beat.row, beat_import.CONFIG_COLUMNS["name"],
+                        "beat_name_taken", "An existing beat already uses this name.",
+                    )
+                )
+            if beat.frequency is not None:
+                try:
+                    _validate_frequency(beat.frequency)
+                except ApiError as exc:
+                    errors.append(
+                        beat_import.RowError(
+                            beat_import.CONFIG_SHEET, beat.row,
+                            beat_import.CONFIG_COLUMNS["frequency"], exc.code, exc.detail,
+                        )
+                    )
+        end_read_transaction(self._session)
+        self._check_import_outlet_scope(scope, beats, geo_scopes, errors)
+        # Unlocked here so the admin sees every problem at once; re-checked under lock below.
+        errors.extend(self._import_outlet_clashes(scope, beats)[1])
+        _raise_import_errors(errors, beats=beats, outlet_row_count=outlet_row_count)
+        if dry_run:
+            return 200, _import_payload(dry_run=True, beats=beats, created={})
+
+        assert idempotency_key is not None
+        all_refs = [ref for beat in beats for ref in beat.outlet_refs]
+        created: dict[int, str] = {}  # config row -> beat id
+        try:
+            with transaction(self._session):
+                replay = self._check_idempotency(
+                    endpoint=_IMPORT_ENDPOINT,
+                    idempotency_key=idempotency_key,
+                    raw_body=xlsx_bytes,
+                    tenant_id=scope.tenant_id,
+                )
+                if replay is not None:
+                    return replay
+                # One sorted lock set for the whole file, so a concurrent wizard submit or a
+                # second import claiming the same outlet waits instead of racing past the check.
+                repository.lock_outlet_claims(
+                    self._session, tenant_id=scope.tenant_id, outlet_refs=all_refs
+                )
+                projected, errors = self._import_outlet_clashes(scope, beats)
+                taken = repository.names_taken(
+                    self._session, tenant_id=scope.tenant_id, names=[beat.name for beat in beats]
+                )
+                errors.extend(
+                    beat_import.RowError(
+                        beat_import.CONFIG_SHEET, beat.row, beat_import.CONFIG_COLUMNS["name"],
+                        "beat_name_taken", "An existing beat already uses this name.",
+                    )
+                    for beat in beats
+                    if beat.name.lower() in taken
+                )
+                _raise_import_errors(errors, beats=beats, outlet_row_count=outlet_row_count)
+
+                now = self._clock.now_utc()
+                for beat in beats:
+                    created[beat.row] = self._insert_imported_beat(
+                        claims,
+                        beat,
+                        owner_employee_id=owners[beat.employee_code],
+                        geo_scope=geo_scopes[beat.row],
+                        outlet_ids=[projected[ref].local_id for ref in beat.outlet_refs],
+                        now=now,
+                        request_id=request_id,
+                    )
+                payload = _import_payload(dry_run=False, beats=beats, created=created)
+                self._store_idempotency(
+                    endpoint=_IMPORT_ENDPOINT,
+                    idempotency_key=idempotency_key,
+                    raw_body=xlsx_bytes,
+                    status_code=201,
+                    payload=payload,
+                    scope=scope,
+                )
+        except IntegrityError as exc:
+            if "uq_beats_tenant_code" not in str(getattr(exc, "orig", exc)):
+                raise
+            raise ApiError(
+                409, "beat_name_taken", "Another beat took one of these names; nothing was created."
+            ) from exc
+        return 201, payload
+
+    def _import_outlet_clashes(
+        self, scope: ScopeContext, beats: list[beat_import.ParsedBeat]
+    ) -> tuple[dict[str, ProjectedOutlet], list[beat_import.RowError]]:
+        """The file's projected outlets, and an error for each one another live beat holds."""
+
+        projected = self._projected_by_outlet_ref(
+            tenant_id=scope.tenant_id,
+            outlet_refs=[ref for beat in beats for ref in beat.outlet_refs],
+        )
+        holders = self._outlet_claims(
+            tenant_id=scope.tenant_id, exclude_beat_id="", projected_by_ref=projected
+        )
+        errors = [
+            beat_import.RowError(
+                beat_import.OUTLETS_SHEET, beat.outlet_rows[ref],
+                beat_import.OUTLET_COLUMNS["outlet_ref"], "outlet_already_on_beat",
+                f'{projected[ref].record.name} is already on beat "{holders[ref]}".',
+            )
+            for beat in beats
+            for ref in beat.outlet_refs
+            if ref in holders
+        ]
+        return projected, errors
+
+    def _check_import_owners(
+        self,
+        scope: ScopeContext,
+        beats: list[beat_import.ParsedBeat],
+        errors: list[beat_import.RowError],
+    ) -> tuple[dict[str, str], dict[str, dict[str, set[str]]]]:
+        """Owner employee_code -> employee id for every usable owner, plus their assigned ids."""
+
+        employees = find_employees_by_codes(
+            self._session,
+            tenant_id=scope.tenant_id,
+            employee_codes=sorted({beat.employee_code for beat in beats if beat.employee_code}),
+        )
+        assigned = get_assigned_geography(
+            self._session,
+            tenant_id=scope.tenant_id,
+            employee_ids=[employee.id for employee in employees.values()],
+        )
+        owners: dict[str, str] = {}
+        for beat in beats:
+            if not beat.employee_code:
+                continue
+            employee = employees.get(beat.employee_code)
+            if employee is None:
+                problem = ("employee_not_found", "No employee has this code.")
+            elif not employee.is_active:
+                problem = ("employee_inactive", "This employee is deactivated.")
+            elif employee.role_code != Role.SALES_PERSON:
+                problem = ("owner_not_sales_person", "Beats can only be assigned to a sales person.")
+            elif employee.id not in assigned:
+                problem = ("geo_scope_not_assigned", "This employee has no assigned geography.")
+            else:
+                owners[beat.employee_code] = employee.id
+                continue
+            errors.append(
+                beat_import.RowError(
+                    beat_import.CONFIG_SHEET, beat.row,
+                    beat_import.CONFIG_COLUMNS["employee_code"], *problem,
+                )
+            )
+        return owners, assigned
+
+    def _check_import_geography(
+        self,
+        scope: ScopeContext,
+        beats: list[beat_import.ParsedBeat],
+        owners: dict[str, str],
+        assigned: dict[str, dict[str, set[str]]],
+        errors: list[beat_import.RowError],
+    ) -> dict[int, dict[str, Any]]:
+        """Config row -> the beat's `geo_scope`, for every row whose ids exist, nest
+        (district -> state -> zone, within the row) and sit inside the owner's assignment."""
+
+        checkable = [
+            beat
+            for beat in beats
+            if beat.employee_code in owners and beat.zones and beat.states and beat.districts
+        ]
+        if not checkable:
+            return {}
+        zones_by_id, states_by_id, districts_by_id = GeographyService(
+            self._session, settings=self._settings, clock=self._clock
+        ).master_index(
+            tenant_id=scope.tenant_id,
+            zone_ids=sorted({zone for beat in checkable for zone in beat.zones}),
+            state_ids=sorted({state for beat in checkable for state in beat.states}),
+        )
+        geo_scopes: dict[int, dict[str, Any]] = {}
+        for beat in checkable:
+            mine = assigned[owners[beat.employee_code]]
+            row_errors: list[tuple[str, str, str]] = []
+            for zone in beat.zones:
+                if zone not in zones_by_id:
+                    row_errors.append(("zones", "unknown_zone", f"Zone {zone} does not exist."))
+                elif zone not in mine["zones"]:
+                    row_errors.append(
+                        ("zones", "zone_not_assigned", f"Zone {zone} is not assigned to this owner.")
+                    )
+            for state in beat.states:
+                state_option = states_by_id.get(state)
+                if state_option is None:
+                    row_errors.append(
+                        ("states", "unknown_state", f"State {state} is not under any zone in the file.")
+                    )
+                elif state_option.zone_external_id not in beat.zones:
+                    row_errors.append(
+                        ("states", "state_not_in_zone", f"State {state} is not under this row's zones.")
+                    )
+                elif state not in mine["states"]:
+                    row_errors.append(
+                        ("states", "state_not_assigned", f"State {state} is not assigned to this owner.")
+                    )
+            for district in beat.districts:
+                district_option = districts_by_id.get(district)
+                if district_option is None:
+                    row_errors.append(
+                        (
+                            "districts",
+                            "unknown_district",
+                            f"District {district} is not under any state in the file.",
+                        )
+                    )
+                elif district_option.state_external_id not in beat.states:
+                    row_errors.append(
+                        (
+                            "districts",
+                            "district_not_in_state",
+                            f"District {district} is not under this row's states.",
+                        )
+                    )
+                elif district not in mine["districts"]:
+                    row_errors.append(
+                        (
+                            "districts",
+                            "district_not_assigned",
+                            f"District {district} is not assigned to this owner.",
+                        )
+                    )
+            if row_errors:
+                errors.extend(
+                    beat_import.RowError(
+                        beat_import.CONFIG_SHEET, beat.row, beat_import.CONFIG_COLUMNS[key],
+                        code, message,
+                    )
+                    for key, code, message in row_errors
+                )
+                continue
+            geo_scope = repository.build_geo_scope_json(
+                zones=beat.zones, states=beat.states, districts=beat.districts, cats=beat.cats,
+                as_of=self._clock.now_utc(),
+            )
+            geo_scope["labels"] = {
+                "zones": [{"id": z, "name": zones_by_id[z].name} for z in beat.zones],
+                "states": [{"id": s, "name": states_by_id[s].name} for s in beat.states],
+                "districts": [
+                    {
+                        "id": d,
+                        "name": districts_by_id[d].name,
+                        "state_id": districts_by_id[d].state_external_id,
+                        "state_name": states_by_id[districts_by_id[d].state_external_id].name,
+                    }
+                    for d in beat.districts
+                ],
+            }
+            geo_scopes[beat.row] = geo_scope
+        return geo_scopes
+
+    def _check_import_outlet_scope(
+        self,
+        scope: ScopeContext,
+        beats: list[beat_import.ParsedBeat],
+        geo_scopes: dict[int, dict[str, Any]],
+        errors: list[beat_import.RowError],
+    ) -> None:
+        """The live Humbee search `_refresh_and_validate_outlets` runs, done once for the whole
+        file rather than per beat: one search over the union of every beat's districts with no
+        category filter, then each beat's district and category rule checked locally from the
+        records' own `district_external_id` / `category`. Reports rather than raises.
+
+        Each district batch's projection refresh commits on its own: it is a cache of Humbee, not
+        import state, and holding its row locks across the next Humbee round trip would block
+        every other outlet write for the length of the file.
+
+        ponytail: downloads every outlet in the file's districts (10,000 per page); a file spanning
+        many dense districts pays for all of them. Search by outlet id if Humbee ever offers it.
+        """
+
+        checked = [beat for beat in beats if beat.row in geo_scopes and beat.outlet_refs]
+        districts = list(dict.fromkeys(d for beat in checked for d in beat.districts))
+        refs = {ref for beat in checked for ref in beat.outlet_refs}
+        # Bounded `district_ids` query strings, the same batching the outlet module uses.
+        batch_size = OutletReadService._HUMBEE_OUTLET_SEARCH_DISTRICT_BATCH
+        records: dict[str, OutletRecord] = {}
+        for start in range(0, len(districts), batch_size):
+            with transaction(self._session):
+                for record in self._outlets().search_outlets(
+                    tenant_id=scope.tenant_id,
+                    district_ids=districts[start : start + batch_size],
+                    category_ids=[],
+                    query=None,
+                    actor_employee_id=scope.actor_employee_id,
+                    upsert_refs=refs,
+                    page_size=MAX_SEARCH_PAGE_SIZE,
+                ):
+                    records[record.external_id] = record
+
+        for beat in checked:
+            where = "districts and categories" if beat.cats else "districts"
+            for ref in beat.outlet_refs:
+                record = records.get(ref)
+                if (
+                    record is not None
+                    and record.district_external_id in beat.districts
+                    and (not beat.cats or record.category in beat.cats)
+                ):
+                    continue
+                errors.append(
+                    beat_import.RowError(
+                        beat_import.OUTLETS_SHEET, beat.outlet_rows[ref],
+                        beat_import.OUTLET_COLUMNS["outlet_ref"], "outlet_out_of_scope",
+                        f'Outlet {ref} is not in beat "{beat.name}"\'s {where}.',
+                    )
+                )
+
+    def _insert_imported_beat(
+        self,
+        claims: AccessTokenClaims,
+        beat: beat_import.ParsedBeat,
+        *,
+        owner_employee_id: str,
+        geo_scope: dict[str, Any],
+        outlet_ids: list[str],
+        now: datetime,
+        request_id: str | None,
+    ) -> str:
+        """What the wizard's create, autosave, outlet pick and admin submit write, in one go."""
+
+        assert beat.frequency is not None
+        tenant_id = claims.tenant_id
+        row, version = repository.insert_beat_with_draft(
+            self._session,
+            beat_id=None,
+            tenant_id=tenant_id,
+            code=beat.name,
+            display_name=beat.name,
+            owner_employee_id=owner_employee_id,
+            created_by_employee_id=claims.employee_id,
+            now=now,
+        )
+        count = repository.replace_outlets(
+            self._session,
+            tenant_id=tenant_id,
+            version_id=version.id,
+            outlet_ids=outlet_ids,
+            created_by_employee_id=claims.employee_id,
+            now=now,
+        )
+        repository.update_draft_version(
+            self._session,
+            version=version,
+            geo_scope=geo_scope,
+            frequency=_validate_frequency(beat.frequency),
+            outlet_count=count,
+        )
+        self._audit.record_transition(
+            tenant_id=tenant_id, entity_type=AUDIT_ENTITY, entity_id=row.id,
+            from_state=None, to_state="draft", actor_employee_id=claims.employee_id,
+            request_id=request_id,
+            change_payload={"transition": "beat_created", "source": "bulk_import"},
+        )
+        event = apply_create_approved(
+            self._session,
+            tenant_id=tenant_id,
+            beat_id=row.id,
+            approved_at=now,
+            approved_by_id=claims.employee_id,
+        )
+        self._audit.record_transition(
+            tenant_id=tenant_id, entity_type=AUDIT_ENTITY, entity_id=row.id,
+            from_state="draft", to_state="approved", actor_employee_id=claims.employee_id,
+            request_id=request_id,
+            change_payload={
+                "transition": "beat_submitted", "version_id": version.id, "source": "bulk_import",
+            },
+        )
+        self._publish_applied(claims, event)
+        return row.id
 
 
 __all__ = ["BeatService", "display_status"]

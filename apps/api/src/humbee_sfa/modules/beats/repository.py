@@ -190,6 +190,19 @@ def code_taken(session: Session, *, tenant_id: str, code: str, exclude_beat_id: 
     return session.execute(stmt).first() is not None
 
 
+def names_taken(session: Session, *, tenant_id: str, names: list[str]) -> set[str]:
+    """The lower-cased `names` an active beat already uses as its code or display name."""
+
+    if not names:
+        return set()
+    wanted = [name.lower() for name in names]
+    stmt = select(func.lower(Beat.code), func.lower(Beat.display_name)).where(
+        Beat.tenant_id == tenant_id,
+        Beat.is_active.is_(True),
+        func.lower(Beat.code).in_(wanted) | func.lower(Beat.display_name).in_(wanted),
+    )
+    found = {value for row in session.execute(stmt).all() for value in row}
+    return found & set(wanted)
 
 
 def member_outlet_ids(
