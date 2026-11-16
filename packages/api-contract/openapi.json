@@ -13899,18 +13899,19 @@
         "parameters": [
           {
             "in": "header",
-            "name": "X-Humbee-Api-Key",
+            "name": "api-key",
             "required": false,
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 512,
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "X-Humbee-Api-Key"
+              "title": "Api-Key"
             }
           }
         ],

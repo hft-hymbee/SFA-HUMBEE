@@ -7928,9 +7928,9 @@ export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPo
     body: BusinessProfilerPushBody;
     headers?: {
         /**
-         * X-Humbee-Api-Key
+         * Api-Key
          */
-        'X-Humbee-Api-Key'?: string | null;
+        'api-key'?: string | null;
     };
     path?: never;
     query?: never;
