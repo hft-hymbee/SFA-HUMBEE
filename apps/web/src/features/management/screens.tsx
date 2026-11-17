@@ -2820,20 +2820,6 @@ function CallsMetricStrip({
   );
 }
 
-/** Business profiler: of the distinct outlets visited, how many have a filled profile (>= threshold). */
-function BpLine({ values }: { values: CallsKpiTotalsOut }) {
-  const filled = values.bp_filled ?? 0;
-  const notFilled = values.bp_not_filled ?? 0;
-  return (
-    <p className={styles.bpLine}>
-      Business profiler: <strong style={{ color: "var(--color-success)" }}>{filled} filled</strong>
-      {" · "}
-      <strong style={{ color: "var(--color-warning)" }}>{notFilled} not filled</strong>
-      {" "}of {filled + notFilled} visited
-    </p>
-  );
-}
-
 function CoverageDrillRow({
   row,
   subtitle,
@@ -2861,7 +2847,6 @@ function CoverageDrillRow({
         {onClick ? <Icon name="KeyboardArrowRight" size={20} color="var(--color-text-placeholder)" /> : null}
       </span>
       <CallsMetricStrip values={row} labels="code" />
-      <BpLine values={row} />
     </>
   );
   return onClick ? (
@@ -2972,7 +2957,6 @@ function Coverage() {
             {totals ? (
               <div className={styles.coverageNodeCard}>
                 <CallsMetricStrip values={totals} labels="full" />
-                <BpLine values={totals} />
               </div>
             ) : null}
             <Section label={rows.length ? `${rows.length} direct reportee${rows.length === 1 ? "" : "s"}` : "Direct reportees"}>

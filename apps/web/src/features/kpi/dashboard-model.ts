@@ -35,9 +35,6 @@ export type VisitModel = {
   pc: string | null;
   utc: string | null;
   zo: string | null;
-  /** Business profiler filled / not filled over the distinct visited outlets (sales person only). */
-  bpFilled: string | null;
-  bpNotFilled: string | null;
   unique: string | null;
   unplanned: number | null;
   visited: number | null;
@@ -263,8 +260,6 @@ function emptyVisitModel(): VisitModel {
     pc: null,
     utc: null,
     zo: null,
-    bpFilled: null,
-    bpNotFilled: null,
     unique: null,
     unplanned: null,
     visited: null,
@@ -307,8 +302,6 @@ export function visitModelFromMetrics(
     pc: toInNumber(metrics.productive_visits),
     utc: "utc" in metrics ? toInNumber(metrics.utc) : null,
     zo: "zo" in metrics ? toInNumber(metrics.zo) : null,
-    bpFilled: "bp_filled" in metrics && metrics.bp_filled != null ? toInNumber(metrics.bp_filled) : null,
-    bpNotFilled: "bp_not_filled" in metrics && metrics.bp_not_filled != null ? toInNumber(metrics.bp_not_filled) : null,
     unique,
     unplanned: "unplanned_visits" in metrics ? metrics.unplanned_visits : null,
     visited: metrics.visits_total,

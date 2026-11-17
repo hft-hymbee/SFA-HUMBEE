@@ -530,12 +530,6 @@ function VisitCard({
               </>
             )}
           </div>
-          {model.bpFilled !== null && model.bpNotFilled !== null ? (
-            <div className={styles.chipRow}>
-              <span className={styles.chip}>BP filled <b>{model.bpFilled}</b></span>
-              <span className={styles.chip}>BP not filled <b>{model.bpNotFilled}</b></span>
-            </div>
-          ) : null}
         </>
       ) : (
         <ChartUnavailable title="Visit split unavailable" message="Planned, visited and productive counts were not returned for this window." />
