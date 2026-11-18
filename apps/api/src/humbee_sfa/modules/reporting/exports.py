@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import calendar
 import io
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import Response
@@ -446,38 +446,26 @@ class AdminReportsService:
 
     # -- 6. Attendance -----------------------------------------------------------
 
-    def _bp_filled_by_employee_day(
-        self,
-        *,
-        tenant_id: str,
-        fact_days: dict[tuple[str, date], Any],
-        from_date: date,
-        to_date: date,
-    ) -> dict[tuple[str, date], int]:
-        """Distinct visited outlets with a filled business profiler, per employee-day: the frozen
-        `fact_employee_day` count where the day-close job has run, live for every other day."""
+    def _bp_counts_by_employee_day(
+        self, *, tenant_id: str, from_date: date, to_date: date
+    ) -> dict[tuple[str, date], business_profiler.BpCounts]:
+        """Per employee-day, the distinct outlets visited that day split by their current BP status.
+        May end the read transaction (Humbee fallback), so call it before loading ORM rows."""
 
-        frozen = business_profiler.frozen_dates(
-            self._session, tenant_id=tenant_id, from_date=from_date, to_date=to_date
+        visited = business_profiler.visited_by_employee_day(
+            self._session, tenant_id=tenant_id, employee_ids=None, from_date=from_date, to_date=to_date
         )
-        result = {
-            key: fact.business_profiler_filled_outlet_count
-            for key, fact in fact_days.items()
-            if key[1] in frozen and fact.business_profiler_filled_outlet_count is not None
+        filled = business_profiler.filled_by_outlet(
+            self._session,
+            settings=self._settings,
+            tenant_id=tenant_id,
+            outlet_ids=business_profiler.outlets_of(visited),
+            timeout_s=business_profiler.REPORT_TIMEOUT_S,
+        )
+        return {
+            key: business_profiler.count({key: outlets}, filled, [key[0]])
+            for key, outlets in visited.items()
         }
-        day = from_date
-        while day <= to_date:
-            if day not in frozen:
-                for employee_id, outlets in business_profiler.live_day_statuses(
-                    self._session,
-                    settings=self._settings,
-                    tenant_id=tenant_id,
-                    business_date=day,
-                    employee_ids=None,
-                ).items():
-                    result[(employee_id, day)] = sum(1 for filled in outlets.values() if filled)
-            day += timedelta(days=1)
-        return result
 
     def attendance_report(self, *, claims: AccessTokenClaims, from_date: date, to_date: date) -> Response:
         self._require_admin(claims)
@@ -487,6 +475,9 @@ class AdminReportsService:
             raise ApiError(
                 400, "range_too_large", f"Date range must not exceed {_MAX_ATTENDANCE_RANGE_MONTHS} months."
             )
+        bp_counts = self._bp_counts_by_employee_day(
+            tenant_id=claims.tenant_id, from_date=from_date, to_date=to_date
+        )
         directory = self._directory(claims)
         records = AttendanceService(
             self._session, settings=self._settings, clock=self._clock
@@ -506,9 +497,6 @@ class AdminReportsService:
             from_date=from_date,
             to_date=to_date,
         )
-        bp_filled = self._bp_filled_by_employee_day(
-            tenant_id=claims.tenant_id, fact_days=fact_days, from_date=from_date, to_date=to_date
-        )
 
         rows = []
         for record in records:
@@ -524,6 +512,7 @@ class AdminReportsService:
             mock_gps = bool(record["punch_in_is_mock"]) or bool(record["punch_out_is_mock"])
             day_key = (record["employee_id"], record["business_date"])
             stats = visit_stats.get(day_key)
+            bp = bp_counts.get(day_key)
             rows.append(
                 [
                     person.get("employee_code", record["employee_id"]),
@@ -548,7 +537,8 @@ class AdminReportsService:
                     stats.telephonic if stats else 0,
                     stats.productive if stats else 0,
                     stats.missed if stats else 0,
-                    bp_filled.get(day_key, 0),
+                    bp.filled if bp else 0,
+                    bp.not_filled if bp else 0,
                     fact.orders_submitted_count if fact else "",
                     _yes_no(mock_gps) if (record["punch_in_is_mock"] is not None or record["punch_out_is_mock"] is not None) else "",
                 ]
@@ -560,7 +550,7 @@ class AdminReportsService:
                 "Leave Type", "Punch In", "Punch In Location", "Punch Out", "Punch Out Location",
                 "Late", "Late By (Mins)", "Working Hours", "Distance (km)", "Total Visits",
                 "Physical Visits", "Telephonic Visits", "Productive Visits", "Missed Visits",
-                "BP Filled Outlets", "Orders", "Mock GPS",
+                "BP Filled Outlets", "BP Not Filled Outlets", "Orders", "Mock GPS",
             ],
             rows=rows,
             filename=f"attendance-report-{from_date.isoformat()}-to-{to_date.isoformat()}.xlsx",

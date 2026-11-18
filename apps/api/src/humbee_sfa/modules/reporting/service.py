@@ -1715,14 +1715,21 @@ class ReportingService:
                 scope, windows.metrics_from, windows.metrics_to, None
             ),
         )
+        bp_visited = business_profiler.visited_by_employee_day(
+            self._session,
+            tenant_id=claims.tenant_id,
+            employee_ids=[claims.employee_id],
+            from_date=windows.metrics_from,
+            to_date=windows.metrics_to,
+        )
         bp_counts = business_profiler.count(
-            business_profiler.outlet_statuses(
+            bp_visited,
+            business_profiler.filled_by_outlet(
                 self._session,
                 settings=self._settings,
                 tenant_id=claims.tenant_id,
-                employee_ids=[claims.employee_id],
-                from_date=windows.metrics_from,
-                to_date=windows.metrics_to,
+                outlet_ids=business_profiler.outlets_of(bp_visited),
+                timeout_s=business_profiler.SCREEN_TIMEOUT_S,
             ),
             [claims.employee_id],
         )
@@ -2186,15 +2193,23 @@ class ReportingService:
         today_facts, today_outlets = facts(as_of_date)
         mtd_facts, mtd_outlets = facts(month_start)
 
-        def bp(from_date: date) -> business_profiler.OutletStatuses:
-            return business_profiler.outlet_statuses(
-                self._session,
-                settings=self._settings,
-                tenant_id=scope.tenant_id,
-                employee_ids=all_leaf_ids,
-                from_date=from_date,
-                to_date=as_of_date,
-            )
+        # BP: the outlets visited in each window, each classified by its current % (one lookup
+        # over the month, which contains the day).
+        bp_mtd = business_profiler.visited_by_employee_day(
+            self._session,
+            tenant_id=scope.tenant_id,
+            employee_ids=all_leaf_ids,
+            from_date=month_start,
+            to_date=as_of_date,
+        ) if all_leaf_ids else {}
+        bp_today = {key: outlets for key, outlets in bp_mtd.items() if key[1] == as_of_date}
+        bp_filled = business_profiler.filled_by_outlet(
+            self._session,
+            settings=self._settings,
+            tenant_id=scope.tenant_id,
+            outlet_ids=business_profiler.outlets_of(bp_mtd),
+            timeout_s=business_profiler.SCREEN_TIMEOUT_S,
+        )
 
         live: dict[str, tuple[int | None, int | None, int | None]] = {}
         if scope.scope is Scope.SELF and all_leaf_ids:
@@ -2232,10 +2247,10 @@ class ReportingService:
             view=view,
             business_date=as_of_date,
             today=self._build_calls_window(
-                children, leaf_sets, root_leaves, today_facts, today_outlets, live, bp(as_of_date),
+                children, leaf_sets, root_leaves, today_facts, today_outlets, live, (bp_today, bp_filled),
             ),
             mtd=self._build_calls_window(
-                children, leaf_sets, root_leaves, mtd_facts, mtd_outlets, {}, bp(month_start),
+                children, leaf_sets, root_leaves, mtd_facts, mtd_outlets, {}, (bp_mtd, bp_filled),
             ),
         ).model_dump(mode="json")
 
@@ -2312,7 +2327,7 @@ class ReportingService:
         facts: dict[str, dict[str, int]],
         outlets: dict[str, set[str]],
         live: dict[str, tuple[int | None, int | None, int | None]],
-        bp: business_profiler.OutletStatuses,
+        bp: tuple[business_profiler.VisitedOutlets, dict[str, bool]],
     ) -> schemas.CallsKpiWindowOut:
         def aggregate(leaf_ids: list[str]) -> schemas.CallsKpiTotalsOut:
             tc = pc = sc = 0
@@ -2324,7 +2339,7 @@ class ReportingService:
                 pc += productive if productive is not None else fact["pc"]
                 sc += planned if planned is not None else fact["sc"]
                 covered |= outlets.get(leaf_id) or set()
-            bp_counts = business_profiler.count(bp, leaf_ids)
+            bp_counts = business_profiler.count(*bp, leaf_ids)
             return schemas.CallsKpiTotalsOut(
                 tc=tc,
                 pc=pc,
