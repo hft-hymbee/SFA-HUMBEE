@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 import time_machine
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from tests.conftest import NOW
 from tests.fakes.humbee import FakeHumbee
@@ -17,6 +18,10 @@ from tests.fixtures.flows import check_in, punch_in
 
 from humbee_sfa.core.db import transaction
 from humbee_sfa.core.settings import get_settings
+from humbee_sfa.modules.outlets.models.business_profiler_history import (
+    OutletBusinessProfilerHistory,
+)
+from humbee_sfa.modules.outlets.service import OutletReadService
 from humbee_sfa.modules.reporting.business_profiler import DAY_CLOSE_JOB_NAME
 from humbee_sfa.modules.reporting.business_profiler_close import run_business_profiler_day_close
 from humbee_sfa.modules.reporting.models import FactEmployeeDay, FactEmployeeOutletDay
@@ -26,6 +31,7 @@ from humbee_sfa.platform.models import SweepRun
 
 DAY = date(2026, 10, 19)  # NOW is 10:00 IST on DAY; the day ends 2026-10-19T18:30Z.
 PUSH = "/api/v1/integrations/humbee/business-profiler"
+BP_FETCH = "/sfa/v1/outlets/business-profiler"
 
 
 def _push(
@@ -56,7 +62,7 @@ def test_push_auth(api_client: TestClient) -> None:
     assert api_client.post(PUSH, json={"outlets": []}, headers={"api-key": get_settings().humbee_api_key}).status_code == 422
 
 
-def test_live_today_then_frozen_day(
+def test_counts_use_each_outlets_current_pct(
     api_client: TestClient,
     db_session: Session,
     humbee: FakeHumbee,
@@ -127,8 +133,8 @@ def test_live_today_then_frozen_day(
     db_session.flush()
     db_session.expire_all()
 
-    # Frozen at the day's end: O-1 = 50 (the pull repaired the lost push), O-2 = 95 (the post-midnight
-    # change does not leak back into the day).
+    # The sweep still freezes the day's end: O-1 = 50 (the pull repaired the lost push), O-2 = 95 (the
+    # post-midnight change does not leak back into the day). No count reads these facts.
     fact = db_session.get(FactEmployeeDay, (seed.tenant_id(), sp_row.id, DAY))
     assert fact is not None and fact.business_profiler_filled_outlet_count == 1
     outlets = {
@@ -137,7 +143,8 @@ def test_live_today_then_frozen_day(
         if (row := db_session.get(FactEmployeeOutletDay, (seed.tenant_id(), sp_row.id, DAY, ref)))
     }
     assert outlets == {"O-1": (50, False), "O-2": (95, True)}
-    assert _bp(team_calls(business_date=DAY.isoformat())) == (1, 1)
+    # The day's count uses each outlet's current %: O-1 = 50, O-2 = 30.
+    assert _bp(team_calls(business_date=DAY.isoformat())) == (0, 2)
 
     # A later projector replay of the frozen day keeps the same answer.
     run_reporting_projector(db_session.connection())
@@ -155,7 +162,7 @@ def test_live_today_then_frozen_day(
         key: record[key]
         for key in (
             "Total Visits", "Physical Visits", "Telephonic Visits", "Productive Visits", "Missed Visits",
-            "BP Filled Outlets",
+            "BP Filled Outlets", "BP Not Filled Outlets",
         )
     } == {
         "Total Visits": 2,
@@ -163,5 +170,39 @@ def test_live_today_then_frozen_day(
         "Telephonic Visits": 0,
         "Productive Visits": 0,
         "Missed Visits": 1,
-        "BP Filled Outlets": 1,
+        "BP Filled Outlets": 0,
+        "BP Not Filled Outlets": 2,
     }
+
+    # The next day O-1 is filled again: the past day's count and month-to-date move with it.
+    assert _push(api_client, "O-1", 95, datetime(2026, 10, 20, 6, 0, tzinfo=NOW.tzinfo)) == 204
+    travel.move_to(datetime(2026, 10, 20, 6, 30, tzinfo=NOW.tzinfo))
+    assert _bp(team_calls(business_date=DAY.isoformat())) == (1, 1)
+    assert _bp(team_calls(), "mtd") == (1, 1)
+    sp_mtd = login(api_client, sp_row).get("/api/v1/reporting/dashboards/sales-person", period="mtd").json()["metrics"]
+    assert (sp_mtd["bp_filled"], sp_mtd["bp_not_filled"]) == (1, 1)
+
+
+def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: FakeHumbee) -> None:
+    humbee.add_outlet("N-1", business_profiler_pct=90)  # N-2 is unknown to Humbee
+    service = OutletReadService(db_session)
+    fetches = lambda: len(humbee.calls_to("POST", BP_FETCH))
+
+    # Humbee down: the outlets are absent (counted not filled) and nothing is recorded.
+    humbee.fail("POST", BP_FETCH, "999")
+    assert service.current_business_profiler(tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], timeout_s=3) == {}
+    assert db_session.scalars(select(OutletBusinessProfilerHistory)).all() == []
+
+    # Humbee answers: N-1 is recorded as fetched, N-2 (left out) as having no %.
+    assert service.current_business_profiler(
+        tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], timeout_s=3
+    ) == {"N-1": 90, "N-2": None}
+    recorded = {row.humbee_outlet_id: (row.pct, row.source) for row in db_session.scalars(select(OutletBusinessProfilerHistory))}
+    assert recorded == {"N-1": (90, "fetch"), "N-2": (None, "fetch")}
+
+    # Later reads use the history: no further Humbee call.
+    calls = fetches()
+    assert service.current_business_profiler(
+        tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], timeout_s=3
+    ) == {"N-1": 90, "N-2": None}
+    assert fetches() == calls == 2
