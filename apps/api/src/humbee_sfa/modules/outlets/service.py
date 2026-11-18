@@ -1164,6 +1164,39 @@ class OutletReadService:
         return items
 
 
+    def current_business_profiler(
+        self, *, tenant_id: str, outlet_ids: list[str], timeout_s: float
+    ) -> dict[str, int | None]:
+        """Each outlet's latest recorded %. An outlet with no history is fetched from Humbee and
+        recorded as `fetch` (one Humbee leaves out is recorded as having no %), so later reads need
+        no call. When Humbee does not answer, that chunk's outlets are absent from the result and
+        nothing is recorded, so the next read retries. Ends the caller's read transaction before
+        calling Humbee."""
+
+        result = repository.current_business_profiler(
+            self._session, tenant_id=tenant_id, outlet_ids=outlet_ids
+        )
+        missing = [ref for ref in dict.fromkeys(outlet_ids) if ref not in result]
+        if not missing:
+            return result
+        end_read_transaction(self._session)
+        for start in range(0, len(missing), _BP_BATCH_SIZE):
+            chunk = missing[start : start + _BP_BATCH_SIZE]
+            try:
+                batch = self._outlets().fetch_business_profiler(
+                    tenant_id=tenant_id, outlet_ids=chunk, timeout_s=timeout_s
+                )
+            except (ApiError, OutletMasterUnavailable) as exc:
+                logger.warning("outlet_business_profiler_unavailable", error=str(exc), outlets=len(chunk))
+                continue
+            fetched = {ref: batch.pct_by_outlet.get(ref) for ref in chunk}
+            with transaction(self._session):
+                repository.record_business_profiler(
+                    self._session, tenant_id=tenant_id, pct_by_outlet=fetched, as_of=batch.as_of
+                )
+            result.update(fetched)
+        return result
+
     def record_business_profiler_push(self, *, items: list[tuple[str, int | None, datetime]]) -> None:
         with transaction(self._session):
             record_pushed_business_profiler(
@@ -1178,8 +1211,8 @@ class OutletReadService:
         Humbee does not answer, so the job fails and is retried. Never commits."""
 
         refs = list(dict.fromkeys(outlet_ids))
-        for start in range(0, len(refs), _DAY_CLOSE_BATCH_SIZE):
-            chunk = refs[start : start + _DAY_CLOSE_BATCH_SIZE]
+        for start in range(0, len(refs), _BP_BATCH_SIZE):
+            chunk = refs[start : start + _BP_BATCH_SIZE]
             batch = self._outlets().fetch_business_profiler(
                 tenant_id=tenant_id, outlet_ids=chunk, timeout_s=_DAY_CLOSE_TIMEOUT_S
             )
@@ -1194,7 +1227,7 @@ class OutletReadService:
         return len(refs)
 
 
-_DAY_CLOSE_BATCH_SIZE = 1000
+_BP_BATCH_SIZE = 1000
 _DAY_CLOSE_TIMEOUT_S = 30.0
 
 

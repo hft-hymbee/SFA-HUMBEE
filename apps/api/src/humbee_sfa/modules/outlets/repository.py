@@ -280,11 +280,13 @@ def business_profiler_as_of(
 def current_business_profiler(
     session: Session, *, tenant_id: str, outlet_ids: list[str]
 ) -> dict[str, int | None]:
-    """The latest known % per outlet (`None` when none is known)."""
+    """The latest recorded % per outlet that has any history (the % may be `None`: recorded as
+    having none). An outlet with no history row is absent, so callers can tell it apart."""
 
-    refs = list(dict.fromkeys(outlet_ids))
-    rows = _latest_history(session, tenant_id=tenant_id, outlet_ids=refs, at_or_before=None)
-    return {ref: (rows[ref].pct if ref in rows else None) for ref in refs}
+    rows = _latest_history(
+        session, tenant_id=tenant_id, outlet_ids=list(dict.fromkeys(outlet_ids)), at_or_before=None
+    )
+    return {ref: row.pct for ref, row in rows.items()}
 
 
 def create_challenge(
