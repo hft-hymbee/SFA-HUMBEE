@@ -3,7 +3,7 @@
 
 # Store build number for both platforms: the Android versionCode and the first part of the iOS build number.
 # Play rejects a versionCode it already has, so raise this before every Play upload.
-APP_BUILD_NUMBER=36
+APP_BUILD_NUMBER=38
 
 MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
