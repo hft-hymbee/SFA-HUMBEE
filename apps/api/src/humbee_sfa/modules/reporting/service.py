@@ -2143,7 +2143,10 @@ class ReportingService:
         reporting nodes, not field-execution nodes, so their own field activity is excluded.
         UTC unions outlet sets rather than summing distinct counts, which keeps a parent's
         number equal to the roll-up of the children the caller is about to drill into.
-        The live activity timeline stays on the coverage endpoints.
+        `mtd` runs from the 1st of the business date's month to the business date; its SC/TC/PC
+        take the business date's share from the same live values as `today`. BP counts distinct
+        visited outlets in each window by their current %. The live activity timeline stays on the
+        coverage endpoints.
         """
         scope = ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
         expected_path = {Scope.SELF: "self", Scope.OWN_TREE: "team", Scope.ORG: "org"}.get(
@@ -2229,6 +2232,15 @@ class ReportingService:
                     _to_int(item.get("visited")),
                     None,
                 )
+
+        # MTD = the earlier days from facts + the selected day as `today` shows it (live where known),
+        # so MTD never trails the day while the projector catches up.
+        for leaf_id, (planned, visited, productive) in live.items():
+            today_fact = today_facts.get(leaf_id) or {"tc": 0, "pc": 0, "sc": 0}
+            mtd = mtd_facts.setdefault(leaf_id, {"tc": 0, "pc": 0, "sc": 0})
+            for key, value in (("sc", planned), ("tc", visited), ("pc", productive)):
+                if value is not None:
+                    mtd[key] += value - today_fact[key]
 
         view = schemas.CallsKpiViewOut(
             scope=scope_path,
