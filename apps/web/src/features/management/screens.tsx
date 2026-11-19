@@ -96,6 +96,7 @@ import {
   readSessionSync,
   subscribeToSession,
 } from "@/src/shared/auth/session";
+import { BpCounts } from "@/src/features/outlets/business-profiler";
 import { BeatBulkUpload, BulkUploadHub } from "./bulk-upload";
 import { ManagementOutletInsights } from "./outlet-insights";
 import { downloadAdminReport } from "./download-report";
@@ -128,6 +129,7 @@ import {
   useCombinedVisit,
   useCombinedVisitMutations,
   useCombinedVisits,
+  useRouteBusinessProfiler,
   useRouteDay,
   useTeamCoverage,
 } from "@/src/features/routes/service";
@@ -1504,6 +1506,7 @@ function TeamDay() {
     setBusinessDate(isIsoBusinessDate(requestedDate) ? requestedDate : istDateISO());
   }
   const route = useRouteDay(businessDate, { enabled: Boolean(employeeId) }, employeeId);
+  const bpPct = useRouteBusinessProfiler(businessDate, employeeId, { enabled: Boolean(employeeId) });
   const retryRoute = () => { void route.refetch(); };
   const footer = !isAdmin
     ? <Button variant="filled" color="primary" label="Schedule combined visit" onClick={() => router.push(startCombinedVisitPath(employeeId || undefined))} />
@@ -1531,6 +1534,7 @@ function TeamDay() {
             punchInSubtitle={punchInSubtitle}
             punchOutSubtitle={punchOutSubtitle}
             outletInsightsPath="/mgmt/outlet-insights"
+            businessProfilerPct={bpPct}
           />
         )}
       </div>
@@ -2825,6 +2829,13 @@ function CallsMetricStrip({
   );
 }
 
+/** BP filled counts for a calls-KPI total or row, when the API returns them. */
+function CallsBpCounts({ values, align }: { values: CallsKpiTotalsOut; align?: "start" | "center" }) {
+  return values.bp_filled !== undefined && values.bp_not_filled !== undefined
+    ? <BpCounts filled={values.bp_filled} notFilled={values.bp_not_filled} align={align} />
+    : null;
+}
+
 function CoverageDrillRow({
   row,
   subtitle,
@@ -2852,6 +2863,7 @@ function CoverageDrillRow({
         {onClick ? <Icon name="KeyboardArrowRight" size={20} color="var(--color-text-placeholder)" /> : null}
       </span>
       <CallsMetricStrip values={row} labels="code" />
+      <CallsBpCounts values={row} />
     </>
   );
   return onClick ? (
@@ -2962,6 +2974,9 @@ function Coverage() {
             {totals ? (
               <div className={styles.coverageNodeCard}>
                 <CallsMetricStrip values={totals} labels="full" />
+                <div className={styles.coverageNodeBp}>
+                  <CallsBpCounts values={totals} align="center" />
+                </div>
               </div>
             ) : null}
             <Section label={rows.length ? `${rows.length} direct reportee${rows.length === 1 ? "" : "s"}` : "Direct reportees"}>

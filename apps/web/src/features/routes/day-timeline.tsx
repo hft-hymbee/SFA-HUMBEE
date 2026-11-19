@@ -14,6 +14,7 @@ import {
   type TeamDayActivity,
 } from "@/src/features/management/activity-timeline";
 import type { LivePositionMarker } from "@/src/features/management/live-positions-map";
+import { BpBadge } from "@/src/features/outlets/business-profiler";
 import { outletInsightsHref } from "@/src/features/outlets/service";
 import { SpCard, SpSectionLabel } from "@/src/features/shell/components";
 import { getCurrentLocationLabel } from "@/src/shared/capabilities";
@@ -82,6 +83,8 @@ export interface RouteDayTimelineProps {
   emptyTimelineMessage?: string;
   /** Route of the role's outlet insights screen; adds an "Open full outlet insights" action to each outlet stop. */
   outletInsightsPath?: string;
+  /** Business profiler % by outlet ref (see `useRouteBusinessProfiler`); shown on each outlet stop. */
+  businessProfilerPct?: (outletRef: string) => number | null;
 }
 
 export function RouteDayTimeline({
@@ -93,6 +96,7 @@ export function RouteDayTimeline({
   punchOutSubtitle,
   emptyTimelineMessage = "No activity on this day",
   outletInsightsPath,
+  businessProfilerPct,
 }: RouteDayTimelineProps) {
   const router = useRouter();
   const stops = useMemo(() => routePlanStops(routeDay).map(mapRouteStop), [routeDay]);
@@ -144,6 +148,7 @@ export function RouteDayTimeline({
     }
     stops.forEach((stop) => {
       const status = routeStopStatus(stop);
+      const bpPct = stop.outletRef ? businessProfilerPct?.(stop.outletRef) ?? null : null;
       const locationLabel = stop.area.trim()
         ? stop.area
         : (resolvedLocationByStopId.get(stop.id) ?? (stop.checkinGps ? "Resolving location..." : "Location unavailable"));
@@ -155,6 +160,7 @@ export function RouteDayTimeline({
         subtitle: stopTimelineSubtitle(stop, locationLabel),
         chipLabel: status.label,
         statusKey: status.statusKey,
+        metaBadge: bpPct !== null ? <BpBadge pct={bpPct} /> : undefined,
         details: [
           ...(stop.checkedInAt ? [`Check-in ${formatDateTime(stop.checkedInAt)}`] : []),
           ...(stop.checkedOutAt ? [`Check-out ${formatDateTime(stop.checkedOutAt)}`] : []),
@@ -191,7 +197,7 @@ export function RouteDayTimeline({
       });
     }
     return activities.sort(compareTeamDayActivities);
-  }, [outletInsightsPath, punchInSubtitle, punchOutSubtitle, resolvedLocationByStopId, routeDay, router, stops]);
+  }, [businessProfilerPct, outletInsightsPath, punchInSubtitle, punchOutSubtitle, resolvedLocationByStopId, routeDay, router, stops]);
   const mapMarkers = useMemo(() => stopMapMarkers(stops), [stops]);
   const mapPath = useMemo<Array<[number, number]>>(
     () => mapMarkers.map((marker) => [marker.lng, marker.lat]),

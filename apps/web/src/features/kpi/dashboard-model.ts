@@ -38,6 +38,9 @@ export type VisitModel = {
   unique: string | null;
   unplanned: number | null;
   visited: number | null;
+  /** Visited outlets with a filled / not filled business profiler; null when not returned. */
+  bpFilled: number | null;
+  bpNotFilled: number | null;
 };
 
 export type ManufacturerRow = {
@@ -263,6 +266,8 @@ function emptyVisitModel(): VisitModel {
     unique: null,
     unplanned: null,
     visited: null,
+    bpFilled: null,
+    bpNotFilled: null,
   };
 }
 
@@ -274,6 +279,10 @@ export function visitModelFromMetrics(
 
   const plannedVisits = "planned_visits" in metrics ? metrics.planned_visits : undefined;
   const metres = "distance_metres" in metrics ? metrics.distance_metres : null;
+  // Manager and admin metrics do not carry these yet; read them whenever the API returns them.
+  const bp = "bp_filled" in metrics && "bp_not_filled" in metrics
+    ? { bp_filled: metrics.bp_filled, bp_not_filled: metrics.bp_not_filled }
+    : null;
   const unique = "utc" in metrics
     ? toInNumber(metrics.utc)
     : "unique_outlets" in metrics && metrics.unique_outlets != null
@@ -305,6 +314,8 @@ export function visitModelFromMetrics(
     unique,
     unplanned: "unplanned_visits" in metrics ? metrics.unplanned_visits : null,
     visited: metrics.visits_total,
+    bpFilled: bp?.bp_filled ?? null,
+    bpNotFilled: bp?.bp_not_filled ?? null,
   });
 }
 

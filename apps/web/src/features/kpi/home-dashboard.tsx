@@ -12,6 +12,7 @@ import {
   submittedRelativeLabel,
 } from "@/src/features/approvals/service";
 import { istBusinessDate } from "@/src/features/attendance/service";
+import { BpCounts } from "@/src/features/outlets/business-profiler";
 import { useManagementRouter } from "@/src/features/management/role-context";
 import { ManagementScreen } from "@/src/features/management/ui";
 import { useTeamCoverage } from "@/src/features/routes/service";
@@ -530,6 +531,9 @@ function VisitCard({
               </>
             )}
           </div>
+          {model.bpFilled !== null && model.bpNotFilled !== null ? (
+            <BpCounts filled={model.bpFilled} notFilled={model.bpNotFilled} />
+          ) : null}
         </>
       ) : (
         <ChartUnavailable title="Visit split unavailable" message="Planned, visited and productive counts were not returned for this window." />

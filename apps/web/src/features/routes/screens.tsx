@@ -56,6 +56,7 @@ import {
   routePlanStops,
   useApprovedBeatChoices,
   useLastOutletVisit,
+  useRouteBusinessProfiler,
   useRouteDay,
   useMissedVisits,
   useOutletSnapshot,
@@ -65,6 +66,7 @@ import {
   useVisitOutcome,
 } from "./service";
 import { partnerIcon } from "@/src/features/orders/service";
+import { BpBadge } from "@/src/features/outlets/business-profiler";
 import { outletInsightsHref } from "@/src/features/outlets/service";
 
 interface RouteView {
@@ -329,6 +331,7 @@ function RouteActionGate({
 export function RouteScreen({ state = "running" }: { state?: "running" | "empty" | "error" | "locked" }) {
   const router = useRouter();
   const current = useRouteDay();
+  const bpPct = useRouteBusinessProfiler();
   const duty = useAttendanceToday();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [outletQuery, setOutletQuery] = useState("");
@@ -479,6 +482,7 @@ export function RouteScreen({ state = "running" }: { state?: "running" | "empty"
                 <div className="sp-list">
                   {route.stops.map((stop) => {
                     const visitActive = isRouteStopVisitInProgress(stop);
+                    const stopBpPct = bpPct(stop.outletRef);
                     return (
                       <div
                         key={stop.id}
@@ -489,6 +493,7 @@ export function RouteScreen({ state = "running" }: { state?: "running" | "empty"
                         <ListRow
                           leading={<RouteStopMark stop={stop} />}
                           title={stop.outletName}
+                          meta={stopBpPct !== null ? <BpBadge pct={stopBpPct} /> : undefined}
                           trailing={visitActive ? (
                             <>
                               <StatusChip status="pending" label="In progress" type="outlined" />
@@ -768,6 +773,7 @@ function OutletVisitSummaryCard({
             <span className="sp-visit-summary-head__meta-item">{stop.planned ? "Planned visit" : "Unplanned visit"}</span>
             <span className="sp-visit-summary-head__meta-item">{visitType}</span>
             {visitCompleted ? <span className="sp-visit-summary-head__meta-item">{visitOutcomeLabel(stop)}</span> : null}
+            {data && data.businessProfilerPct !== null ? <span className="sp-visit-summary-head__meta-item"><BpBadge pct={data.businessProfilerPct} /></span> : null}
           </div>
         </div>
         <span className="sp-visit-summary-head__stage">

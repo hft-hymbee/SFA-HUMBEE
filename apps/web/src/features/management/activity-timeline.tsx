@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Icon } from "humbee-design-system";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "./management.module.css";
 
 export interface TeamDayActivity {
@@ -14,6 +14,8 @@ export interface TeamDayActivity {
   /** Picks the icon when chipLabel is free text (e.g. a no-order reason); defaults to chipLabel. */
   statusKey?: string;
   details: string[];
+  /** Shown after chipLabel on the summary line, e.g. an outlet's business profiler %. */
+  metaBadge?: ReactNode;
   /** Shown in the expanded panel, e.g. opening an outlet's insights. */
   action?: { label: string; icon: string; onClick: () => void };
 }
@@ -189,7 +191,12 @@ function ActivityTimelineStep({
                 <Icon name="KeyboardArrowRight" size={20} color="var(--color-text-secondary)" />
               </span>
             </span>
-            {activity.chipLabel ? <span className={styles.activityTimelineMeta}>{activity.chipLabel}</span> : null}
+            {activity.chipLabel || activity.metaBadge ? (
+              <span className={styles.activityTimelineMeta}>
+                {activity.chipLabel}
+                {activity.metaBadge ? <>{activity.chipLabel ? " · " : null}{activity.metaBadge}</> : null}
+              </span>
+            ) : null}
           </button>
         ) : (
           <div className={styles.activityTimelineSummary}>
@@ -206,7 +213,12 @@ function ActivityTimelineStep({
               ) : null}
               <span>{activity.title}</span>
             </div>
-            {activity.chipLabel ? <div className={styles.activityTimelineMeta}>{activity.chipLabel}</div> : null}
+            {activity.chipLabel || activity.metaBadge ? (
+              <div className={styles.activityTimelineMeta}>
+                {activity.chipLabel}
+                {activity.metaBadge ? <>{activity.chipLabel ? " · " : null}{activity.metaBadge}</> : null}
+              </div>
+            ) : null}
           </div>
         )}
         {expandable ? (

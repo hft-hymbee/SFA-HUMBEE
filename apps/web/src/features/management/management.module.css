@@ -2487,3 +2487,7 @@ button.treeNode {
   justify-content: center;
   background: var(--surface-card);
 }
+
+.coverageNodeBp:not(:empty) {
+  margin-top: var(--space-sm);
+}

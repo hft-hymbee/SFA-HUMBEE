@@ -5,7 +5,7 @@ import { useState } from "react";
 import { istBusinessDate } from "@/src/features/attendance/service";
 import { SpScreen } from "@/src/features/shell/components";
 import { RouteDayTimeline, RouteDayTimelineLoading } from "./day-timeline";
-import { useRouteDay } from "./service";
+import { useRouteBusinessProfiler, useRouteDay } from "./service";
 
 function formatBusinessDate(iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -20,6 +20,7 @@ export function MyDayScreen() {
   const today = istBusinessDate();
   const [businessDate, setBusinessDate] = useState(today);
   const route = useRouteDay(businessDate);
+  const bpPct = useRouteBusinessProfiler(businessDate);
   const retryRoute = () => { void route.refetch(); };
 
   return (
@@ -41,6 +42,7 @@ export function MyDayScreen() {
         ) : (
           <RouteDayTimeline
             outletInsightsPath="/sp/route/insights"
+            businessProfilerPct={bpPct}
             routeDay={route.data}
             locationQueryScope="my-day"
             mapLabelWithMarkers="Your check-ins"

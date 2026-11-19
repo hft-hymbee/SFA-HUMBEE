@@ -4,6 +4,7 @@ import {
   coverageTeamApiV1CoverageTeamGet,
   createCombinedVisitApiV1CombinedVisitsPost,
   getCombinedVisitApiV1CombinedVisitsCombinedVisitIdGet,
+  getCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGet,
   getCurrentRoutePlanApiV1RoutePlansCurrentGet,
   getLastOutletVisitApiV1OutletsOutletRefLastVisitGet,
   getOutletDetailApiV1OutletsOutletIdGet,
@@ -33,9 +34,11 @@ import {
   type VisitOutcomeDetail,
 } from "@humbee/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { ulid } from "ulid";
 import { createIdempotencyKey, getBrowserApiClient, idempotencyHeaders } from "@/src/shared/api";
 import { readSessionSync } from "@/src/shared/auth/session";
+import { formatBpPct, isBpFilled } from "@/src/shared/business-profiler";
 import { createActorQueryKeys } from "@/src/shared/state/query-keys";
 import { istBusinessDate } from "@/src/features/attendance/service";
 import { formatPaiseToInr } from "@/src/shared/formatting";
@@ -94,6 +97,8 @@ export interface OutletSnapshot {
     latitude: number;
     longitude: number;
   } | null;
+  /** Current business profiler %, null when the outlet has none. */
+  businessProfilerPct: number | null;
   facts: Array<{ label: string; value: string }>;
   lastOrderDate: string;
   lastOrderStatus: "pending" | "approved" | "verified" | "cancelled" | "default" | "partially-completed" | "not-verified" | "completed" | "success";
@@ -260,6 +265,7 @@ export function mapOutletSnapshot(outlet: OutletDetailResponse): OutletSnapshot 
   const location = outlet.latitude !== null && outlet.longitude !== null
     ? { latitude: outlet.latitude, longitude: outlet.longitude }
     : null;
+  const businessProfilerPct = outlet.business_profiler_pct ?? null;
   const facts = [
     { label: "Status", value: outlet.is_active === false ? "Inactive" : "Active" },
     { label: "District", value: outlet.district_name },
@@ -273,6 +279,9 @@ export function mapOutletSnapshot(outlet: OutletDetailResponse): OutletSnapshot 
     location
       ? { label: "Saved GPS", value: "Location captured" }
       : { label: "Saved GPS", value: "Not saved" },
+    businessProfilerPct !== null
+      ? { label: "Business profiler", value: `${formatBpPct(businessProfilerPct)} · ${isBpFilled(businessProfilerPct) ? "Filled" : "Not filled"}` }
+      : null,
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
 
   return {
@@ -283,6 +292,7 @@ export function mapOutletSnapshot(outlet: OutletDetailResponse): OutletSnapshot 
     mobileTel: outlet.contact_mobile?.trim() ? mobileTel(outlet.contact_mobile) : "",
     name: outlet.name,
     location,
+    businessProfilerPct,
     facts,
     lastOrderDate: "Order history unavailable",
     lastOrderStatus: "default",
@@ -388,6 +398,34 @@ export function useRouteDay(businessDate?: string, options: CurrentRouteOptions 
     retry: false,
     refetchOnWindowFocus: options.refetchOnWindowFocus ?? true,
   });
+}
+
+/**
+ * Live business profiler % for the outlets of a day's route (same `business_date` / `employee_id`
+ * rules as `useRouteDay`). Returns a lookup by outlet ref; null when unknown or the call fails.
+ */
+export function useRouteBusinessProfiler(businessDate?: string, employeeId?: string, options: { enabled?: boolean } = {}) {
+  const actor = actorId();
+  const dateKey = businessDate ?? "server-today";
+  const query = useQuery({
+    queryKey: [...routeKeys.byBusinessDate(actor, dateKey), employeeId ?? "self", "business-profiler"],
+    queryFn: async () => unwrap(await getCurrentRouteBusinessProfilerApiV1RoutePlansCurrentBusinessProfilerGet({
+      client: getBrowserApiClient(),
+      query: {
+        ...(businessDate ? { business_date: businessDate } : {}),
+        ...(employeeId ? { employee_id: employeeId } : {}),
+      },
+      throwOnError: true,
+    })),
+    enabled: (options.enabled ?? true) && Boolean(actor),
+    retry: false,
+    select: (data) => new Map(data.outlets.map((item) => [item.outlet_ref, item.business_profiler_pct])),
+  });
+  const pctByOutlet = query.data;
+  return useCallback(
+    (outletRef: string): number | null => pctByOutlet?.get(outletRef) ?? null,
+    [pctByOutlet],
+  );
 }
 
 export function useApprovedBeatChoices() {
