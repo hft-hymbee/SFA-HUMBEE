@@ -212,14 +212,17 @@ def test_counts_use_each_outlets_current_pct(
     assert (sp_mtd["bp_filled"], sp_mtd["bp_not_filled"]) == (1, 1)
 
 
-def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: FakeHumbee) -> None:
+def test_current_pct_falls_back_to_humbee_once(
+    db_session: Session, humbee: FakeHumbee, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(outlets_service, "_OMITTED_UNTIL", {})
     humbee.add_outlet("N-1", business_profiler_pct=90)
     humbee.add_outlet("N-3", business_profiler_pct=None)  # a null % must not fail the batch
     service = OutletReadService(db_session)
     refs = ["N-1", "N-2", "N-3"]  # N-2 is unknown to Humbee
     fetches = lambda: len(humbee.calls_to("POST", BP_FETCH))
 
-    def current() -> dict[str, int | None]:
+    def current() -> tuple[dict[str, int | None], int]:
         return service.current_business_profiler(
             tenant_id=seed.tenant_id(), outlet_ids=refs, budget_s=3
         )
@@ -228,19 +231,19 @@ def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: Fake
         rows = db_session.scalars(select(OutletBusinessProfilerHistory))
         return {row.humbee_outlet_id: (row.pct, row.source) for row in rows}
 
-    # Humbee down: the outlets are absent (counted not filled) and nothing is recorded.
+    # Humbee down: the outlets are absent (counted not filled), unanswered, and nothing is recorded.
     humbee.fail("POST", BP_FETCH, "999")
-    assert current() == {}
+    assert current() == ({}, 3)
     assert recorded() == {}
 
-    # Humbee answers: N-1 and N-3 are recorded as fetched; N-2 (left out) is not recorded.
-    assert current() == {"N-1": 90, "N-3": None}
+    # Humbee answers: N-1 and N-3 are recorded as fetched; N-2 (left out) is not recorded, and an
+    # omission is not "unanswered".
+    assert current() == ({"N-1": 90, "N-3": None}, 0)
     assert recorded() == {"N-1": (90, "fetch"), "N-3": (None, "fetch")}
 
-    # Later reads use the history; only the left-out N-2 is asked about again.
-    assert current() == {"N-1": 90, "N-3": None}
-    assert fetches() == 3
-    assert humbee.calls_to("POST", BP_FETCH)[-1].json["outlet_ids"] == ["N-2"]
+    # Later reads use the history, and the left-out N-2 is skipped for an hour: no further call.
+    assert current() == ({"N-1": 90, "N-3": None}, 0)
+    assert fetches() == 2
 
 
 def test_fallback_wait_is_capped_per_request(

@@ -78,18 +78,19 @@ def filled_by_outlet(
     outlet_ids: Iterable[str],
     budget_s: float,
 ) -> tuple[dict[str, bool], bool]:
-    """Each outlet's current filled status, and whether every outlet's % was known. May end the
-    caller's read transaction (Humbee fallback); an outlet Humbee could not answer for (or that it
-    left out) counts as not filled and makes the result incomplete."""
+    """Each outlet's current filled status, and whether Humbee answered for every outlet it was
+    asked about. May end the caller's read transaction (Humbee fallback). An outlet with no known %
+    counts as not filled; only one Humbee did not answer for (failure, time limit) makes the result
+    incomplete — one it answered for but left out does not."""
 
     refs = sorted(set(outlet_ids))
     if not refs:
         return {}, True
-    pct = OutletReadService(session, settings=settings).current_business_profiler(
+    pct, unanswered = OutletReadService(session, settings=settings).current_business_profiler(
         tenant_id=tenant_id, outlet_ids=refs, budget_s=budget_s
     )
     threshold = settings.business_profiler_filled_threshold_pct
-    return {ref: is_filled(pct.get(ref), threshold) for ref in refs}, len(pct) == len(refs)
+    return {ref: is_filled(pct.get(ref), threshold) for ref in refs}, unanswered == 0
 
 
 def outlets_of(visited: VisitedOutlets) -> set[str]:

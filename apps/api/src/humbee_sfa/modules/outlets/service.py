@@ -1175,47 +1175,63 @@ class OutletReadService:
 
     def current_business_profiler(
         self, *, tenant_id: str, outlet_ids: list[str], budget_s: float
-    ) -> dict[str, int | None]:
-        """Each outlet's latest recorded %. An outlet with no history is fetched from Humbee and
-        recorded as `fetch`, so later reads need no call. An outlet Humbee leaves out is not
-        recorded (absent: not filled, asked again on the next read). When Humbee does not answer, that chunk's outlets are absent from the result and
-        nothing is recorded, so the next read retries. `budget_s` caps the total Humbee wait across
-        chunks; outlets not reached in time are absent the same way. Ends the caller's read
-        transaction before calling Humbee."""
+    ) -> tuple[dict[str, int | None], int]:
+        """Each outlet's latest recorded %, and how many outlets Humbee did not answer for.
+
+        An outlet with no history is fetched from Humbee and recorded as `fetch`, so later reads
+        need no call. An outlet Humbee answers for but leaves out (deleted or unknown) is not
+        recorded and is not asked about again for an hour; it is absent (not filled) but does not
+        count as unanswered. When a chunk fails, or `budget_s` (the total Humbee wait across chunks)
+        runs out, those outlets are absent, counted as unanswered, and nothing is recorded, so the
+        next read retries. Ends the caller's read transaction before calling Humbee."""
 
         result = repository.current_business_profiler(
             self._session, tenant_id=tenant_id, outlet_ids=outlet_ids
         )
-        missing = [ref for ref in dict.fromkeys(outlet_ids) if ref not in result]
+        now = time.monotonic()
+        missing = [
+            ref
+            for ref in dict.fromkeys(outlet_ids)
+            if ref not in result and _OMITTED_UNTIL.get((tenant_id, ref), 0.0) <= now
+        ]
         if not missing:
-            return result
+            return result, 0
         end_read_transaction(self._session)
-        deadline = time.monotonic() + budget_s
+        deadline = now + budget_s
+        unanswered = 0
         for start in range(0, len(missing), _BP_BATCH_SIZE):
+            chunk = missing[start : start + _BP_BATCH_SIZE]
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                unanswered += len(missing) - start
                 logger.warning(
                     "outlet_business_profiler_budget_exhausted", outlets=len(missing) - start
                 )
                 break
-            chunk = missing[start : start + _BP_BATCH_SIZE]
             try:
                 batch = self._outlets().fetch_business_profiler(
                     tenant_id=tenant_id, outlet_ids=chunk, timeout_s=remaining
                 )
             except (ApiError, OutletMasterUnavailable) as exc:
-                logger.warning("outlet_business_profiler_unavailable", error=str(exc), outlets=len(chunk))
+                unanswered += len(chunk)
+                logger.warning(
+                    "outlet_business_profiler_unavailable", error=str(exc), outlets=len(chunk)
+                )
                 continue
             # Only what Humbee returned: an outlet it leaves out (deleted, or a Humbee-side error that
             # still answers 200) is not recorded, so a known % is never wiped by an omission.
             got = batch.pct_by_outlet
             fetched = {ref: got[ref] for ref in chunk if ref in got}
+            skip_until = time.monotonic() + _OMITTED_SKIP_S
+            for ref in chunk:
+                if ref not in got:
+                    _OMITTED_UNTIL[(tenant_id, ref)] = skip_until
             with transaction(self._session):
                 repository.record_business_profiler(
                     self._session, tenant_id=tenant_id, pct_by_outlet=fetched, as_of=batch.as_of
                 )
             result.update(fetched)
-        return result
+        return result, unanswered
 
     def record_business_profiler_push(self, *, items: list[tuple[str, int | None, datetime]]) -> None:
         with transaction(self._session):
@@ -1258,6 +1274,10 @@ class OutletReadService:
 
 
 _BP_BATCH_SIZE = 1000
+# Outlets Humbee answered for but left out, skipped until the stored monotonic deadline.
+# ponytail: per-process and lost on restart; a stored "omitted at" marker if repeat calls matter.
+_OMITTED_UNTIL: dict[tuple[str, str], float] = {}
+_OMITTED_SKIP_S = 3600.0
 _DAY_CLOSE_TIMEOUT_S = 30.0
 
 
