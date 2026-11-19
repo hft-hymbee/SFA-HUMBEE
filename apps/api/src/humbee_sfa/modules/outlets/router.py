@@ -5,7 +5,6 @@ Handlers translate HTTP only; transaction ownership and business rules are the s
 
 from __future__ import annotations
 
-import secrets
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Response
@@ -14,9 +13,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.db import get_db_session
-from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims
-from humbee_sfa.core.errors.handlers import ApiError
-from humbee_sfa.core.settings import get_settings
+from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims, require_humbee_caller
 from humbee_sfa.modules.outlets import schemas
 from humbee_sfa.modules.outlets.service import OutletOnboardingService, OutletReadService
 from humbee_sfa.platform.telemetry.middleware import get_request_id
@@ -314,17 +311,6 @@ def get_candidate(
     return OutletOnboardingService(session).get_candidate(
         claims=claims, candidate_id=candidate_id
     )
-
-
-def require_humbee_caller(
-    api_key: Annotated[str | None, Header(alias="api-key", max_length=512)] = None,
-) -> None:
-    """Humbee calls with the SFA vendor key (its `vendor_api_keys` row for SFA) — the same key SFA
-    holds as `HUMBEE_API_KEY` to call Humbee — not an employee token."""
-
-    expected = get_settings().humbee_api_key
-    if not expected or not api_key or not secrets.compare_digest(api_key, expected):
-        raise ApiError(401, "invalid_api_key", "Invalid API key.")
 
 
 @humbee_push_router.post(

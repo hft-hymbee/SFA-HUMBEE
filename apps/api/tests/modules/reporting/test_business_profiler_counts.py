@@ -62,6 +62,8 @@ def _bp(body: dict, window: str = "today") -> tuple[int, int]:
 
 def test_push_auth(api_client: TestClient) -> None:
     assert _push(api_client, "O-1", 90, NOW, key="wrong") == 401
+    non_ascii = api_client.post(PUSH, json={"outlets": []}, headers={"api-key": "kéy".encode()})
+    assert non_ascii.status_code == 401
     assert api_client.post(PUSH, json={"outlets": []}, headers={"api-key": get_settings().humbee_api_key}).status_code == 422
 
 
