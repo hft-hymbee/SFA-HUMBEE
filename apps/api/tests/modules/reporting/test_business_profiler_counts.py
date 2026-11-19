@@ -124,7 +124,9 @@ def test_counts_use_each_outlets_current_pct(
     run_reporting_projector(db_session.connection())
     with transaction(db_session):
         RouteService(db_session).close_day(tenant_id=seed.tenant_id(), business_date=DAY, now=datetime.now(NOW.tzinfo))
-    run_business_profiler_day_close(db_session.connection(), "bp", tenant_id=seed.tenant_id(), business_date=DAY)
+    run_business_profiler_day_close(
+        db_session.connection(), "bp", tenant_id=seed.tenant_id(), business_date=DAY, read_bind=db_session.connection()
+    )
     db_session.add(
         SweepRun(
             tenant_id=seed.tenant_id(),

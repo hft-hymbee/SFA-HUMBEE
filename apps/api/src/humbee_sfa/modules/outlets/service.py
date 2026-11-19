@@ -50,6 +50,7 @@ from humbee_sfa.integration.humbee.onboarding import (
     RoleEntry,
 )
 from humbee_sfa.integration.humbee.outlet import (
+    BusinessProfilerBatch,
     HumbeeOutletMasterProvider,
     OutletMasterUnavailable,
     OutletRecord,
@@ -1215,28 +1216,38 @@ class OutletReadService:
                 self._session, tenant_id=self._settings.tenant_id, items=items
             )
 
-    def pull_business_profiler_for_day(
-        self, *, tenant_id: str, outlet_ids: list[str], business_date: date
-    ) -> int:
-        """The day-close pull: fetch every outlet visited on `business_date` and record it as that
-        day's frozen evidence. An outlet Humbee does not return is not recorded. Raises if
-        Humbee does not answer, so the job fails and is retried. Never commits."""
+    def fetch_business_profiler_for_day(
+        self, *, tenant_id: str, outlet_ids: list[str]
+    ) -> list[BusinessProfilerBatch]:
+        """The day-close pull's network half: every outlet's live % from Humbee, in chunks. No DB
+        access, so the caller holds no transaction while waiting. Raises if Humbee does not answer,
+        so the job fails and is retried."""
 
         refs = list(dict.fromkeys(outlet_ids))
-        for start in range(0, len(refs), _BP_BATCH_SIZE):
-            chunk = refs[start : start + _BP_BATCH_SIZE]
-            batch = self._outlets().fetch_business_profiler(
-                tenant_id=tenant_id, outlet_ids=chunk, timeout_s=_DAY_CLOSE_TIMEOUT_S
+        return [
+            self._outlets().fetch_business_profiler(
+                tenant_id=tenant_id,
+                outlet_ids=refs[start : start + _BP_BATCH_SIZE],
+                timeout_s=_DAY_CLOSE_TIMEOUT_S,
             )
+            for start in range(0, len(refs), _BP_BATCH_SIZE)
+        ]
+
+    def record_day_close(
+        self, *, tenant_id: str, batches: list[BusinessProfilerBatch], business_date: date
+    ) -> None:
+        """Record the day-close pull as `business_date`'s frozen evidence. Only what Humbee returned
+        is recorded; an outlet it left out keeps its last value. Never commits."""
+
+        for batch in batches:
             repository.record_business_profiler(
                 self._session,
                 tenant_id=tenant_id,
-                pct_by_outlet={ref: batch.pct_by_outlet[ref] for ref in chunk if ref in batch.pct_by_outlet},
+                pct_by_outlet=batch.pct_by_outlet,
                 as_of=batch.as_of,
                 source="day_close",
                 for_business_date=business_date,
             )
-        return len(refs)
 
 
 _BP_BATCH_SIZE = 1000
