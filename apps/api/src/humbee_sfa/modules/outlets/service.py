@@ -1261,11 +1261,15 @@ def record_pushed_business_profiler(
     push is harmless — history is keyed by `changed_at` and the projection keeps the newest value.
     Never commits."""
 
+    # One batched record per `changed_at` (a push normally shares one), not one per outlet.
+    by_changed_at: dict[datetime, dict[str, int | None]] = {}
     for outlet_id, pct, changed_at in items:
+        by_changed_at.setdefault(changed_at, {})[outlet_id] = pct
+    for changed_at, pct_by_outlet in by_changed_at.items():
         repository.record_business_profiler(
             session,
             tenant_id=tenant_id,
-            pct_by_outlet={outlet_id: pct},
+            pct_by_outlet=pct_by_outlet,
             as_of=changed_at,
             source="push",
         )

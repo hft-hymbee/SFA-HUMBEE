@@ -65,6 +65,23 @@ def test_push_auth(api_client: TestClient) -> None:
     assert api_client.post(PUSH, json={"outlets": []}, headers={"api-key": get_settings().humbee_api_key}).status_code == 422
 
 
+def test_push_records_every_outlet_once(api_client: TestClient, db_session: Session) -> None:
+    body = {
+        "outlets": [
+            {"outlet_id": ref, "business_profiler_pct": pct, "changed_at": NOW.isoformat()}
+            for ref, pct in (("P-1", 90), ("P-2", 40))
+        ]
+    }
+    headers = {"api-key": get_settings().humbee_api_key}
+    for _ in range(2):  # the replay adds nothing
+        assert api_client.post(PUSH, json=body, headers=headers).status_code == 204
+    rows = db_session.scalars(select(OutletBusinessProfilerHistory)).all()
+    assert sorted((row.humbee_outlet_id, row.pct, row.source) for row in rows) == [
+        ("P-1", 90, "push"),
+        ("P-2", 40, "push"),
+    ]
+
+
 def test_counts_use_each_outlets_current_pct(
     api_client: TestClient,
     db_session: Session,
