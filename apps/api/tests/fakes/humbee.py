@@ -70,7 +70,7 @@ class Outlet:
     contact_mobile: str | None = "+919000000001"
     gstin: str | None = None
     pan: str | None = None
-    business_profiler_pct: int = 0
+    business_profiler_pct: int | None = 0
 
 
 @dataclass

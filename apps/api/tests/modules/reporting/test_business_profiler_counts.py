@@ -184,25 +184,28 @@ def test_counts_use_each_outlets_current_pct(
 
 
 def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: FakeHumbee) -> None:
-    humbee.add_outlet("N-1", business_profiler_pct=90)  # N-2 is unknown to Humbee
+    humbee.add_outlet("N-1", business_profiler_pct=90)
+    humbee.add_outlet("N-3", business_profiler_pct=None)  # a null % must not fail the batch
     service = OutletReadService(db_session)
+    refs = ["N-1", "N-2", "N-3"]  # N-2 is unknown to Humbee
     fetches = lambda: len(humbee.calls_to("POST", BP_FETCH))
+
+    def current() -> dict[str, int | None]:
+        return service.current_business_profiler(tenant_id=seed.tenant_id(), outlet_ids=refs, timeout_s=3)
+
+    def recorded() -> dict[str, tuple[int | None, str]]:
+        return {row.humbee_outlet_id: (row.pct, row.source) for row in db_session.scalars(select(OutletBusinessProfilerHistory))}
 
     # Humbee down: the outlets are absent (counted not filled) and nothing is recorded.
     humbee.fail("POST", BP_FETCH, "999")
-    assert service.current_business_profiler(tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], timeout_s=3) == {}
-    assert db_session.scalars(select(OutletBusinessProfilerHistory)).all() == []
+    assert current() == {}
+    assert recorded() == {}
 
-    # Humbee answers: N-1 is recorded as fetched, N-2 (left out) as having no %.
-    assert service.current_business_profiler(
-        tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], timeout_s=3
-    ) == {"N-1": 90, "N-2": None}
-    recorded = {row.humbee_outlet_id: (row.pct, row.source) for row in db_session.scalars(select(OutletBusinessProfilerHistory))}
-    assert recorded == {"N-1": (90, "fetch"), "N-2": (None, "fetch")}
+    # Humbee answers: N-1 and N-3 are recorded as fetched; N-2 (left out) is not recorded.
+    assert current() == {"N-1": 90, "N-3": None}
+    assert recorded() == {"N-1": (90, "fetch"), "N-3": (None, "fetch")}
 
-    # Later reads use the history: no further Humbee call.
-    calls = fetches()
-    assert service.current_business_profiler(
-        tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], timeout_s=3
-    ) == {"N-1": 90, "N-2": None}
-    assert fetches() == calls == 2
+    # Later reads use the history; only the left-out N-2 is asked about again.
+    assert current() == {"N-1": 90, "N-3": None}
+    assert fetches() == 3
+    assert humbee.calls_to("POST", BP_FETCH)[-1].json["outlet_ids"] == ["N-2"]

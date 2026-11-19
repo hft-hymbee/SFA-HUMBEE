@@ -43,9 +43,10 @@ class OutletRecord:
 
 @dataclass(frozen=True)
 class BusinessProfilerBatch:
-    """Live business profiler % by outlet id. Outlets Humbee does not know are absent, never 0."""
+    """Live business profiler % by outlet id (`None`: no %). Outlets Humbee does not return
+    (unknown, deleted) are absent, never 0."""
 
-    pct_by_outlet: dict[str, int]
+    pct_by_outlet: dict[str, int | None]
     as_of: datetime
 
 
@@ -290,7 +291,7 @@ class HumbeeOutletMasterProvider:
         try:
             return BusinessProfilerBatch(
                 pct_by_outlet={
-                    str(item["outlet_id"]): int(item["business_profiler_pct"])
+                    str(item["outlet_id"]): _int(item.get("business_profiler_pct"))
                     for item in data.get("outlets") or []
                 },
                 as_of=_datetime(data.get("as_of")),

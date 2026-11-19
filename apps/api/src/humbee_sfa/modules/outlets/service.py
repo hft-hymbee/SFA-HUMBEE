@@ -1134,11 +1134,12 @@ class OutletReadService:
         except (ApiError, OutletMasterUnavailable) as exc:
             logger.warning("outlet_business_profiler_unavailable", error=str(exc))
         else:
-            live, live_as_of = batch.pct_by_outlet, batch.as_of
+            live_as_of = batch.as_of
             with transaction(self._session):
                 repository.record_business_profiler(
-                    self._session, tenant_id=tenant_id, pct_by_outlet=live, as_of=live_as_of
+                    self._session, tenant_id=tenant_id, pct_by_outlet=batch.pct_by_outlet, as_of=live_as_of
                 )
+            live = {ref: pct for ref, pct in batch.pct_by_outlet.items() if pct is not None}
 
         stored = {
             row.humbee_outlet_id: row
@@ -1168,8 +1169,8 @@ class OutletReadService:
         self, *, tenant_id: str, outlet_ids: list[str], timeout_s: float
     ) -> dict[str, int | None]:
         """Each outlet's latest recorded %. An outlet with no history is fetched from Humbee and
-        recorded as `fetch` (one Humbee leaves out is recorded as having no %), so later reads need
-        no call. When Humbee does not answer, that chunk's outlets are absent from the result and
+        recorded as `fetch`, so later reads need no call. An outlet Humbee leaves out is not
+        recorded (absent: not filled, asked again on the next read). When Humbee does not answer, that chunk's outlets are absent from the result and
         nothing is recorded, so the next read retries. Ends the caller's read transaction before
         calling Humbee."""
 
@@ -1189,7 +1190,9 @@ class OutletReadService:
             except (ApiError, OutletMasterUnavailable) as exc:
                 logger.warning("outlet_business_profiler_unavailable", error=str(exc), outlets=len(chunk))
                 continue
-            fetched = {ref: batch.pct_by_outlet.get(ref) for ref in chunk}
+            # Only what Humbee returned: an outlet it leaves out (deleted, or a Humbee-side error that
+            # still answers 200) is not recorded, so a known % is never wiped by an omission.
+            fetched = {ref: batch.pct_by_outlet[ref] for ref in chunk if ref in batch.pct_by_outlet}
             with transaction(self._session):
                 repository.record_business_profiler(
                     self._session, tenant_id=tenant_id, pct_by_outlet=fetched, as_of=batch.as_of
@@ -1207,7 +1210,7 @@ class OutletReadService:
         self, *, tenant_id: str, outlet_ids: list[str], business_date: date
     ) -> int:
         """The day-close pull: fetch every outlet visited on `business_date` and record it as that
-        day's frozen evidence. An outlet Humbee does not return is recorded as having no %. Raises if
+        day's frozen evidence. An outlet Humbee does not return is not recorded. Raises if
         Humbee does not answer, so the job fails and is retried. Never commits."""
 
         refs = list(dict.fromkeys(outlet_ids))
@@ -1219,7 +1222,7 @@ class OutletReadService:
             repository.record_business_profiler(
                 self._session,
                 tenant_id=tenant_id,
-                pct_by_outlet={ref: batch.pct_by_outlet.get(ref) for ref in chunk},
+                pct_by_outlet={ref: batch.pct_by_outlet[ref] for ref in chunk if ref in batch.pct_by_outlet},
                 as_of=batch.as_of,
                 source="day_close",
                 for_business_date=business_date,
