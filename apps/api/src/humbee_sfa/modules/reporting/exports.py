@@ -12,6 +12,7 @@ import io
 from datetime import date, datetime
 from typing import Any
 
+import structlog
 from fastapi import Response
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -40,6 +41,8 @@ from humbee_sfa.modules.routes.service import RouteService
 
 _MAX_ATTENDANCE_RANGE_MONTHS = 4
 _XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+logger = structlog.get_logger(__name__)
 
 
 def _add_months(value: date, months: int) -> date:
@@ -455,13 +458,22 @@ class AdminReportsService:
         visited = business_profiler.visited_by_employee_day(
             self._session, tenant_id=tenant_id, employee_ids=None, from_date=from_date, to_date=to_date
         )
-        filled, _complete = business_profiler.filled_by_outlet(  # the xlsx has no degraded channel
+        outlet_ids = business_profiler.outlets_of(visited)
+        filled, complete = business_profiler.filled_by_outlet(
             self._session,
             settings=self._settings,
             tenant_id=tenant_id,
-            outlet_ids=business_profiler.outlets_of(visited),
+            outlet_ids=outlet_ids,
             budget_s=business_profiler.REPORT_BUDGET_S,
         )
+        if not complete:
+            # The xlsx has no degraded channel: outlets Humbee did not answer for count as not filled.
+            logger.warning(
+                "attendance_report_business_profiler_incomplete",
+                from_date=from_date.isoformat(),
+                to_date=to_date.isoformat(),
+                outlets=len(outlet_ids),
+            )
         return {
             key: business_profiler.count({key: outlets}, filled, [key[0]])
             for key, outlets in visited.items()
