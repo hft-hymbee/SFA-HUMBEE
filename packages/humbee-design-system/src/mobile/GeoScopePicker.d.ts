@@ -58,6 +58,8 @@ export interface GeoScopePickerProps {
   onChange?: (selection: GeoScopeSelection) => void;
   getOutletCount?: (scope: GeoScopeValue, data: GeoScopeData) => number;
   cascadeChildren?: boolean;
+  /** Preselect a zone, state or district when it is the only option available. */
+  autoSelectSingle?: boolean;
   readOnly?: boolean;
   disabled?: boolean;
   showScopeSummary?: boolean;

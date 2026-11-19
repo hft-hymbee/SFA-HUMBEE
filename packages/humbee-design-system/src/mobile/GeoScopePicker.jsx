@@ -526,6 +526,7 @@ export function GeoScopePicker({
   onChange,
   getOutletCount = defaultOutletCount,
   cascadeChildren = true,
+  autoSelectSingle = false,
   readOnly = false,
   disabled = false,
   showScopeSummary = true,
@@ -597,6 +598,21 @@ export function GeoScopePicker({
     commit(next);
     setActiveLevel(null);
   };
+
+  // Fill an empty zone, state or district when exactly one option is available for it.
+  const autoSelectKey = autoSelectSingle && !readOnly && !disabled
+    ? JSON.stringify([scope, options.zones.map((option) => option.id), states.map((option) => option.id), districts.map((option) => option.id)])
+    : "";
+  useEffect(() => {
+    if (!autoSelectKey) return;
+    const next = { ...scope };
+    if (!next.zones.length && options.zones.length === 1) next.zones = [options.zones[0].id];
+    const stateOptions = states.filter((state) => next.zones.includes(state.zoneId) && includesAssigned(assigned, "states", state.id));
+    if (!next.states.length && stateOptions.length === 1) next.states = [stateOptions[0].id];
+    const districtOptions = districts.filter((district) => next.states.includes(district.stateId) && includesAssigned(assigned, "districts", district.id));
+    if (!next.districts.length && districtOptions.length === 1) next.districts = [districtOptions[0].id];
+    if (!scopesEqual(scope, next)) commit(next);
+  }, [autoSelectKey]); // autoSelectKey captures every input this effect reads.
 
   const showShopCategories = shopCategories.length > 0;
   const levels = showShopCategories

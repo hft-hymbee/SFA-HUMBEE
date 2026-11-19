@@ -31,6 +31,9 @@ export interface GeographyMasterResponse {
   } | null;
 }
 
+// Shop categories are not defined yet; beat screens hide them until this is turned on.
+export const SHOP_CATEGORIES_ENABLED = false;
+
 function unwrap<T>(result: { data: T }): T {
   return result.data;
 }

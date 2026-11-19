@@ -116,8 +116,9 @@ import {
 } from "./service";
 import { mutationErrorMessage, useDebouncedSearchQuery, useInfiniteScrollTrigger } from "@/src/shared/state";
 import { ApiClientError, createIdempotencyKey, getBrowserApiClient } from "@/src/shared/api";
-import { shopCategoryLabel } from "@/src/shared/geography-master";
-import { filterOutletsByQuery, sortOutletsTakenLast } from "@/src/shared/outlet-list";
+import { SHOP_CATEGORIES_ENABLED, shopCategoryLabel } from "@/src/shared/geography-master";
+import { filterOutletsByQuery, outletIdentity, sortOutletsTakenLast } from "@/src/shared/outlet-list";
+import { outletSubtitle } from "@/src/features/beats/outlet-identity";
 import { SpProcessProgress, StatusHistory } from "@/src/features/shell/components";
 import type { StatusHistoryStep } from "@/src/features/shell/components";
 import { SpInlineSkeleton } from "@/src/features/shell/loading";
@@ -984,10 +985,11 @@ function BeatApprovalSubjectDetails({ beatId, canEditOutlets, onOutletSavePendin
     name: outlet.name,
     location: outlet.locality?.trim() || "",
     category: outlet.category ? shopCategoryLabel(outlet.category) : "",
+    ...outletIdentity(outlet),
   }));
   const scopeChoices = scopeOutlets.data?.map(mapOutlet) ?? [];
   const scopeComplete = Boolean(canEditOutlets) && scopeOutletsComplete(scopeOutlets);
-  const availableOutlets: Array<Pick<OutletChoice, "id" | "name" | "location" | "category" | "takenBy">> = scopeOutlets.data ? scopeChoices : currentOutlets;
+  const availableOutlets: Array<Pick<OutletChoice, "id" | "name" | "location" | "category" | "takenBy" | "gstinPan" | "district" | "manufacturers">> = scopeOutlets.data ? scopeChoices : currentOutlets;
   const sortedOutlets = useMemo(() => sortOutletsTakenLast(availableOutlets, "location_then_name"), [availableOutlets]);
   const filteredOutlets = useMemo(() => filterOutletsByQuery(sortedOutlets, outletQuery), [outletQuery, sortedOutlets]);
 
@@ -1038,7 +1040,7 @@ function BeatApprovalSubjectDetails({ beatId, canEditOutlets, onOutletSavePendin
           <EmployeeDetailRow expandable label="Zones" value={beatGeoLabels(detail.geo_scope, "zones", zones)} />
           <EmployeeDetailRow expandable label="States" value={beatGeoLabels(detail.geo_scope, "states", states)} />
           <EmployeeDetailRow expandable label="Districts" value={beatGeoLabels(detail.geo_scope, "districts", districts)} />
-          <EmployeeDetailRow expandable label="Shop categories" value={categoryLabels(categories)} />
+          {SHOP_CATEGORIES_ENABLED ? <EmployeeDetailRow expandable label="Shop categories" value={categoryLabels(categories)} /> : null}
         </div>
       </Section>
       <Section label={`Outlets in this beat · ${detail.outlets.length}`}>
@@ -1079,7 +1081,7 @@ function BeatApprovalSubjectDetails({ beatId, canEditOutlets, onOutletSavePendin
                     ? <Checkbox checked={savableOutletIds.includes(outlet.id)} disabled={Boolean(outlet.takenBy)} onChange={(event) => { event.stopPropagation(); toggleOutlet(outlet); }} />
                     : <Icon name="LocationMarker" size={22} color="var(--color-primary)" />}
                   title={outlet.name}
-                  subtitle={outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location || undefined}
+                  subtitle={outletSubtitle(outlet, outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location)}
                   meta={outlet.category || undefined}
                   disabled={Boolean(canEditOutlets && outlet.takenBy)}
                   onClick={canEditOutlets && !outlet.takenBy ? () => toggleOutlet(outlet) : undefined}
@@ -3268,6 +3270,7 @@ function Beats() {
         name: outlet.name,
         location: outlet.locality?.trim() || "",
         category: outlet.category ? shopCategoryLabel(outlet.category) : "",
+        ...outletIdentity(outlet),
       })),
       "location_then_name",
     ),
@@ -3287,7 +3290,7 @@ function Beats() {
       name: outlet.name,
       zone: "",
       state: "",
-      district: "",
+      ...outletIdentity(outlet),
       location: outlet.locality?.trim() || "",
       category: outlet.category ? shopCategoryLabel(outlet.category) : "",
       selected: true,
@@ -3491,7 +3494,8 @@ function Beats() {
                   zones={geographyOptions.zones}
                   states={geographyOptions.states}
                   districts={geographyOptions.districts}
-                  shopCategories={geographyOptions.categories}
+                  shopCategories={SHOP_CATEGORIES_ENABLED ? geographyOptions.categories : []}
+                  autoSelectSingle
                   assigned={{ zones: geographyOptions.pool.zones, states: geographyOptions.pool.states, districts: geographyOptions.pool.districts, shopCategories: geographyOptions.pool.categories }}
                   value={{ zones, states, districts, shopCategories: categories }}
                   onChange={applyCreateScope}
@@ -3525,7 +3529,7 @@ function Beats() {
                             key={outlet.id}
                             leading={<Checkbox checked={createOutletIds.includes(outlet.id)} disabled={Boolean(outlet.takenBy)} onChange={(event) => { event.stopPropagation(); toggleOutlet(outlet); }} />}
                             title={outlet.name}
-                            subtitle={outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location || undefined}
+                            subtitle={outletSubtitle(outlet, outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location)}
                             meta={outlet.category || undefined}
                             disabled={Boolean(outlet.takenBy)}
                             onClick={outlet.takenBy ? undefined : () => toggleOutlet(outlet)}
@@ -3607,7 +3611,7 @@ function Beats() {
               <EmployeeDetailRow expandable label="Zones" value={beatGeoLabels(detail.geo_scope, "zones", zones)} />
               <EmployeeDetailRow expandable label="States" value={beatGeoLabels(detail.geo_scope, "states", states)} />
               <EmployeeDetailRow expandable label="Districts" value={beatGeoLabels(detail.geo_scope, "districts", districts)} />
-              <EmployeeDetailRow expandable label="Shop categories" value={categoryLabels(categories)} />
+              {SHOP_CATEGORIES_ENABLED ? <EmployeeDetailRow expandable label="Shop categories" value={categoryLabels(categories)} /> : null}
             </div>
           </Section>
           <Section label={`Outlets in this beat · ${detail.outlets.length}`}>
@@ -3628,7 +3632,7 @@ function Beats() {
                         key={outlet.id}
                         leading={<Icon name="LocationMarker" size={22} color="var(--color-primary)" />}
                         title={outlet.name}
-                        subtitle={outlet.location || undefined}
+                        subtitle={outletSubtitle(outlet, outlet.location)}
                         meta={outlet.category || undefined}
                       />
                     ))}
@@ -3706,7 +3710,8 @@ function Beats() {
                   zones={geographyOptions.zones}
                   states={geographyOptions.states}
                   districts={geographyOptions.districts}
-                  shopCategories={geographyOptions.categories}
+                  shopCategories={SHOP_CATEGORIES_ENABLED ? geographyOptions.categories : []}
+                  autoSelectSingle
                   assigned={{ zones: geographyOptions.pool.zones, states: geographyOptions.pool.states, districts: geographyOptions.pool.districts, shopCategories: geographyOptions.pool.categories }}
                   value={{ zones, states, districts, shopCategories: categories }}
                   onChange={(value) => {
@@ -3750,7 +3755,7 @@ function Beats() {
                           key={outlet.id}
                           leading={<Checkbox checked={editOutletIds.includes(outlet.id)} disabled={Boolean(outlet.takenBy)} onChange={(event) => { event.stopPropagation(); toggleOutlet(outlet); }} />}
                           title={outlet.name}
-                          subtitle={outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location || undefined}
+                          subtitle={outletSubtitle(outlet, outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location)}
                           meta={outlet.category || undefined}
                           disabled={Boolean(outlet.takenBy)}
                           onClick={outlet.takenBy ? undefined : () => toggleOutlet(outlet)}
