@@ -52,7 +52,8 @@ class FactEmployeeOutletDay(Base):
     net_value_paise: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     lines_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Business profiler % as of the end of `business_date`, and whether it met the filled threshold
-    # then. Null until the day-close job freezes the day (see `reporting.business_profiler`).
+    # then: a record frozen by the day-close job (null until then). Screens and reports do not read
+    # it; they use each outlet's current % instead (see `reporting.business_profiler`).
     business_profiler_pct: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     business_profiler_filled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
