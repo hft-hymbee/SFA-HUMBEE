@@ -4,6 +4,7 @@ import { EmptyState, Skeleton } from "humbee-design-system";
 import type { RoutePlanResponse } from "@humbee/api-contract";
 import { useQueries } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { formatDuration, officialWorkTypes } from "@/src/features/attendance/screens";
 import {
@@ -13,6 +14,7 @@ import {
   type TeamDayActivity,
 } from "@/src/features/management/activity-timeline";
 import type { LivePositionMarker } from "@/src/features/management/live-positions-map";
+import { outletInsightsHref } from "@/src/features/outlets/service";
 import { SpCard, SpSectionLabel } from "@/src/features/shell/components";
 import { getCurrentLocationLabel } from "@/src/shared/capabilities";
 import { mapRouteStop, routePlanStops, type RouteStop } from "./service";
@@ -78,6 +80,8 @@ export interface RouteDayTimelineProps {
   punchInSubtitle: string;
   punchOutSubtitle: string;
   emptyTimelineMessage?: string;
+  /** Route of the role's outlet insights screen; adds an "Open full outlet insights" action to each outlet stop. */
+  outletInsightsPath?: string;
 }
 
 export function RouteDayTimeline({
@@ -88,7 +92,9 @@ export function RouteDayTimeline({
   punchInSubtitle,
   punchOutSubtitle,
   emptyTimelineMessage = "No activity on this day",
+  outletInsightsPath,
 }: RouteDayTimelineProps) {
+  const router = useRouter();
   const stops = useMemo(() => routePlanStops(routeDay).map(mapRouteStop), [routeDay]);
   const stopsNeedingResolvedLocation = useMemo(
     () => stops.flatMap((stop) => {
@@ -152,6 +158,13 @@ export function RouteDayTimeline({
           ...(stop.checkedInAt ? [`Check-in ${formatDateTime(stop.checkedInAt)}`] : []),
           ...(stop.checkedOutAt ? [`Check-out ${formatDateTime(stop.checkedOutAt)}`] : []),
         ],
+        action: outletInsightsPath && stop.outletRef
+          ? {
+            label: "Open full outlet insights",
+            icon: "Dashboard",
+            onClick: () => router.push(outletInsightsHref(outletInsightsPath, stop.outletRef, stop.outletName)),
+          }
+          : undefined,
       });
     });
     (routeDay.official_work ?? []).forEach((block) => {
@@ -177,7 +190,7 @@ export function RouteDayTimeline({
       });
     }
     return activities.sort(compareTeamDayActivities);
-  }, [punchInSubtitle, punchOutSubtitle, resolvedLocationByStopId, routeDay, stops]);
+  }, [outletInsightsPath, punchInSubtitle, punchOutSubtitle, resolvedLocationByStopId, routeDay, router, stops]);
   const mapMarkers = useMemo(() => stopMapMarkers(stops), [stops]);
   const mapPath = useMemo<Array<[number, number]>>(
     () => mapMarkers.map((marker) => [marker.lng, marker.lat]),

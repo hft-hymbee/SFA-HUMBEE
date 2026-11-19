@@ -40,6 +40,7 @@ export function MyDayScreen() {
           <ErrorState title="Day timeline unavailable" message="Your timeline could not be loaded." onRetry={retryRoute} />
         ) : (
           <RouteDayTimeline
+            outletInsightsPath="/sp/route/insights"
             routeDay={route.data}
             locationQueryScope="my-day"
             mapLabelWithMarkers="Your check-ins"

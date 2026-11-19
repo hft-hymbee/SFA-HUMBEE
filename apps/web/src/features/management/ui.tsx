@@ -60,6 +60,7 @@ export const viewTitles: Record<ManagementView, string> = {
   "admin-reports": "Reports",
   "bulk-upload": "Bulk upload",
   "bulk-upload-beats": "Bulk beat upload",
+  "outlet-insights": "Outlet insights",
   notifications: "Notifications",
   more: "More",
   "missed-visits": "Missed visits",

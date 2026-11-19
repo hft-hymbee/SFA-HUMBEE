@@ -65,6 +65,7 @@ import {
   useVisitOutcome,
 } from "./service";
 import { partnerIcon } from "@/src/features/orders/service";
+import { outletInsightsHref } from "@/src/features/outlets/service";
 
 interface RouteView {
   visited: number;
@@ -1181,12 +1182,7 @@ function OutletVisitContent({ stop }: { stop: RouteStop }) {
                 color="primary"
                 label="Open full outlet insights"
                 leftIcon={<Icon name="Dashboard" size={18} color="currentColor" />}
-                onClick={() => {
-                  const params = new URLSearchParams({ outletId: stop.outletRef });
-                  const name = outletSnapshot.data?.name ?? stop.outletName;
-                  if (name) params.set("name", name);
-                  router.push(`/sp/route/insights?${params.toString()}`);
-                }}
+                onClick={() => router.push(outletInsightsHref("/sp/route/insights", stop.outletRef, outletSnapshot.data?.name ?? stop.outletName))}
                 style={{ width: "100%" }}
               />
             ) : null}

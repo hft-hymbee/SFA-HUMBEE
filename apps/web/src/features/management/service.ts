@@ -33,6 +33,7 @@ export type ManagementView =
   | "admin-reports"
   | "bulk-upload"
   | "bulk-upload-beats"
+  | "outlet-insights"
   | "notifications"
   | "more"
   | "missed-visits"
@@ -56,7 +57,7 @@ export const managementViews: ManagementView[] = [
   "employees", "employee", "employee-add", "employee-edit", "org-tree", "hierarchy", "geography",
   "combined-visits", "combined-visit-sales-person", "combined-visit-beat", "combined-visit-outlet", "combined-visit-day", "visit-feedback", "coverage", "attendance", "order", "leave",
   "my-leave", "leave-apply", "leave-detail",
-  "targets", "target-edit", "team-performance", "beats", "admin-reports", "bulk-upload", "bulk-upload-beats", "notifications", "more", "missed-visits",
+  "targets", "target-edit", "team-performance", "beats", "admin-reports", "bulk-upload", "bulk-upload-beats", "outlet-insights", "notifications", "more", "missed-visits",
   "profile",
 ];
 

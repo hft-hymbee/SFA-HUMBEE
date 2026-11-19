@@ -1,6 +1,6 @@
 "use client";
 
-import { Icon } from "humbee-design-system";
+import { Button, Icon } from "humbee-design-system";
 import { useEffect, useState, type CSSProperties } from "react";
 import styles from "./management.module.css";
 
@@ -12,6 +12,8 @@ export interface TeamDayActivity {
   subtitle: string;
   chipLabel: string;
   details: string[];
+  /** Shown in the expanded panel, e.g. opening an outlet's insights. */
+  action?: { label: string; icon: string; onClick: () => void };
 }
 
 interface ActivityVisual {
@@ -87,7 +89,7 @@ function titleLeadingIcon(activity: TeamDayActivity) {
 }
 
 function activityHasDetails(activity: TeamDayActivity) {
-  return Boolean(activity.subtitle || activity.details.length);
+  return Boolean(activity.subtitle || activity.details.length || activity.action);
 }
 
 function prefersReducedMotion() {
@@ -206,12 +208,23 @@ function ActivityTimelineStep({
           </div>
         )}
         {expandable ? (
-          <div className={styles.activityTimelinePanel} data-open={open ? "true" : "false"}>
+          <div className={styles.activityTimelinePanel} data-open={open ? "true" : "false"} inert={!open}>
             <div className={styles.activityTimelinePanelInner}>
               {activity.subtitle ? <div className={styles.activityTimelineDescription}>{activity.subtitle}</div> : null}
               {activity.details.map((detail) => (
                 <div key={detail} className={styles.activityTimelineDetail}>{detail}</div>
               ))}
+              {activity.action ? (
+                <Button
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  label={activity.action.label}
+                  leftIcon={<Icon name={activity.action.icon} size={16} color="currentColor" />}
+                  onClick={activity.action.onClick}
+                  style={{ marginTop: "var(--space-xs)", paddingLeft: 0 }}
+                />
+              ) : null}
             </div>
           </div>
         ) : null}

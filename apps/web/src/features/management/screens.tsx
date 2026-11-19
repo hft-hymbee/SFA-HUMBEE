@@ -97,6 +97,7 @@ import {
   subscribeToSession,
 } from "@/src/shared/auth/session";
 import { BeatBulkUpload, BulkUploadHub } from "./bulk-upload";
+import { ManagementOutletInsights } from "./outlet-insights";
 import { downloadAdminReport } from "./download-report";
 import type { GeographyMasterResponse } from "./organization-service";
 import {
@@ -1529,6 +1530,7 @@ function TeamDay() {
             mapLabelWithoutMarkers="No check-in pins yet"
             punchInSubtitle={punchInSubtitle}
             punchOutSubtitle={punchOutSubtitle}
+            outletInsightsPath="/mgmt/outlet-insights"
           />
         )}
       </div>
@@ -4180,6 +4182,7 @@ export function ManagementFeaturePage({ view }: { view: ManagementView }) {
     case "admin-reports": return <AdminReports />;
     case "bulk-upload": return <BulkUploadHub />;
     case "bulk-upload-beats": return <BeatBulkUpload />;
+    case "outlet-insights": return <Suspense><ManagementOutletInsights /></Suspense>;
     case "notifications": return <Notifications />;
     case "more": return <More />;
     case "profile": return <ManagementProfile />;
