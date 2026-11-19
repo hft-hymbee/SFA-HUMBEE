@@ -354,4 +354,5 @@ class CallsKpiResponse(BaseModel):
     business_date: date
     today: CallsKpiWindowOut
     mtd: CallsKpiWindowOut
+    degraded: list[DegradedSourceOut] = Field(default_factory=list)
 

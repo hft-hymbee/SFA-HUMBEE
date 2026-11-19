@@ -1464,6 +1464,13 @@
             "title": "Business Date",
             "type": "string"
           },
+          "degraded": {
+            "items": {
+              "$ref": "#/components/schemas/DegradedSourceOut"
+            },
+            "title": "Degraded",
+            "type": "array"
+          },
           "mtd": {
             "$ref": "#/components/schemas/CallsKpiWindowOut"
           },

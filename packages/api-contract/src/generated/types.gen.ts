@@ -847,6 +847,10 @@ export type CallsKpiResponse = {
      * Business Date
      */
     business_date: string;
+    /**
+     * Degraded
+     */
+    degraded?: Array<DegradedSourceOut>;
     mtd: CallsKpiWindowOut;
     today: CallsKpiWindowOut;
     view: CallsKpiViewOut;

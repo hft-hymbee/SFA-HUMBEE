@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, timedelta
 
+import pytest
 import time_machine
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
@@ -18,10 +19,12 @@ from tests.fixtures.flows import check_in, punch_in
 
 from humbee_sfa.core.db import transaction
 from humbee_sfa.core.settings import get_settings
+from humbee_sfa.modules.outlets import service as outlets_service
 from humbee_sfa.modules.outlets.models.business_profiler_history import (
     OutletBusinessProfilerHistory,
 )
 from humbee_sfa.modules.outlets.service import OutletReadService
+from humbee_sfa.modules.reporting import business_profiler
 from humbee_sfa.modules.reporting.business_profiler import DAY_CLOSE_JOB_NAME
 from humbee_sfa.modules.reporting.business_profiler_close import run_business_profiler_day_close
 from humbee_sfa.modules.reporting.models import FactEmployeeDay, FactEmployeeOutletDay
@@ -97,6 +100,7 @@ def test_counts_use_each_outlets_current_pct(
 
     # Live today: check-in fetched O-1 (90) and O-2 (40).
     assert _bp(team_calls()) == (1, 1)
+    assert team_calls()["degraded"] == []
     row = team_calls()["today"]["items"][0]
     assert (row["bp_filled"], row["bp_not_filled"]) == (1, 1)
 
@@ -191,7 +195,7 @@ def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: Fake
     fetches = lambda: len(humbee.calls_to("POST", BP_FETCH))
 
     def current() -> dict[str, int | None]:
-        return service.current_business_profiler(tenant_id=seed.tenant_id(), outlet_ids=refs, timeout_s=3)
+        return service.current_business_profiler(tenant_id=seed.tenant_id(), outlet_ids=refs, budget_s=3)
 
     def recorded() -> dict[str, tuple[int | None, str]]:
         return {row.humbee_outlet_id: (row.pct, row.source) for row in db_session.scalars(select(OutletBusinessProfilerHistory))}
@@ -209,3 +213,23 @@ def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: Fake
     assert current() == {"N-1": 90, "N-3": None}
     assert fetches() == 3
     assert humbee.calls_to("POST", BP_FETCH)[-1].json["outlet_ids"] == ["N-2"]
+
+
+def test_fallback_wait_is_capped_per_request(
+    db_session: Session, humbee: FakeHumbee, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for ref in ("N-1", "N-2"):
+        humbee.add_outlet(ref, business_profiler_pct=90)
+    monkeypatch.setattr(outlets_service, "_BP_BATCH_SIZE", 1)
+
+    def filled(budget_s: float) -> tuple[dict[str, bool], bool]:
+        return business_profiler.filled_by_outlet(
+            db_session, settings=get_settings(), tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], budget_s=budget_s
+        )
+
+    # No time left: no Humbee call, both outlets count as not filled and the result is incomplete.
+    assert filled(0) == ({"N-1": False, "N-2": False}, False)
+    assert humbee.calls_to("POST", BP_FETCH) == []
+    # Within the limit: one call per chunk, complete.
+    assert filled(3) == ({"N-1": True, "N-2": True}, True)
+    assert len(humbee.calls_to("POST", BP_FETCH)) == 2

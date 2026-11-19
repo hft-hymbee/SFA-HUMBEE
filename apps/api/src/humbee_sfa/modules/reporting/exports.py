@@ -455,12 +455,12 @@ class AdminReportsService:
         visited = business_profiler.visited_by_employee_day(
             self._session, tenant_id=tenant_id, employee_ids=None, from_date=from_date, to_date=to_date
         )
-        filled = business_profiler.filled_by_outlet(
+        filled, _complete = business_profiler.filled_by_outlet(  # the xlsx has no degraded channel
             self._session,
             settings=self._settings,
             tenant_id=tenant_id,
             outlet_ids=business_profiler.outlets_of(visited),
-            timeout_s=business_profiler.REPORT_TIMEOUT_S,
+            budget_s=business_profiler.REPORT_BUDGET_S,
         )
         return {
             key: business_profiler.count({key: outlets}, filled, [key[0]])

@@ -49,9 +49,9 @@ def frozen_dates(session: Session, *, tenant_id: str, from_date: date, to_date: 
     )
 
 
-# Humbee fallback timeout per 1,000-outlet chunk: screens must not hang, a report download can wait.
-SCREEN_TIMEOUT_S = 3.0
-REPORT_TIMEOUT_S = 30.0
+# Total Humbee fallback wait per request: screens must not hang, a report download can wait.
+SCREEN_BUDGET_S = 3.0
+REPORT_BUDGET_S = 30.0
 
 # (employee_id, business_date) -> distinct outlets visited that day.
 VisitedOutlets = dict[tuple[str, date], set[str]]
@@ -78,19 +78,25 @@ def visited_by_employee_day(
 
 
 def filled_by_outlet(
-    session: Session, *, settings: Settings, tenant_id: str, outlet_ids: Iterable[str], timeout_s: float
-) -> dict[str, bool]:
-    """Each outlet's current filled status. May end the caller's read transaction (Humbee fallback);
-    an outlet Humbee could not answer for counts as not filled."""
+    session: Session,
+    *,
+    settings: Settings,
+    tenant_id: str,
+    outlet_ids: Iterable[str],
+    budget_s: float,
+) -> tuple[dict[str, bool], bool]:
+    """Each outlet's current filled status, and whether every outlet's % was known. May end the
+    caller's read transaction (Humbee fallback); an outlet Humbee could not answer for (or that it
+    left out) counts as not filled and makes the result incomplete."""
 
     refs = sorted(set(outlet_ids))
     if not refs:
-        return {}
+        return {}, True
     pct = OutletReadService(session, settings=settings).current_business_profiler(
-        tenant_id=tenant_id, outlet_ids=refs, timeout_s=timeout_s
+        tenant_id=tenant_id, outlet_ids=refs, budget_s=budget_s
     )
     threshold = settings.business_profiler_filled_threshold_pct
-    return {ref: is_filled(pct.get(ref), threshold) for ref in refs}
+    return {ref: is_filled(pct.get(ref), threshold) for ref in refs}, len(pct) == len(refs)
 
 
 def outlets_of(visited: VisitedOutlets) -> set[str]:
@@ -101,6 +107,11 @@ def count(visited: VisitedOutlets, filled: dict[str, bool], employee_ids: Iterab
     """Distinct outlets the employees visited (an outlet two of them visited counts once)."""
 
     wanted = set(employee_ids)
-    outlets = {outlet for (employee_id, _), day_outlets in visited.items() if employee_id in wanted for outlet in day_outlets}
+    outlets = {
+        outlet
+        for (employee_id, _), day_outlets in visited.items()
+        if employee_id in wanted
+        for outlet in day_outlets
+    }
     filled_count = sum(1 for outlet in outlets if filled.get(outlet, False))
     return BpCounts(filled=filled_count, not_filled=len(outlets) - filled_count)

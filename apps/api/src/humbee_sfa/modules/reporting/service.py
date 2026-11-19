@@ -1144,6 +1144,20 @@ class ReportingService:
             mom_pct=_mom_pct(mtd_paise, lmtd_paise),
         )
 
+    def _bp_filled(self, tenant_id: str, outlet_ids: set[str]) -> dict[str, bool]:
+        """Current BP filled status for a screen; a Humbee gap is flagged in `degraded`."""
+
+        filled, complete = business_profiler.filled_by_outlet(
+            self._session,
+            settings=self._settings,
+            tenant_id=tenant_id,
+            outlet_ids=outlet_ids,
+            budget_s=business_profiler.SCREEN_BUDGET_S,
+        )
+        if not complete:
+            self._degraded.append({"source": "business_profiler", "reason": "humbee_unavailable"})
+        return filled
+
     def _degraded_out(self) -> list[schemas.DegradedSourceOut]:
         return [
             schemas.DegradedSourceOut(source=item["source"], reason=item["reason"])
@@ -1724,13 +1738,7 @@ class ReportingService:
         )
         bp_counts = business_profiler.count(
             bp_visited,
-            business_profiler.filled_by_outlet(
-                self._session,
-                settings=self._settings,
-                tenant_id=claims.tenant_id,
-                outlet_ids=business_profiler.outlets_of(bp_visited),
-                timeout_s=business_profiler.SCREEN_TIMEOUT_S,
-            ),
+            self._bp_filled(claims.tenant_id, business_profiler.outlets_of(bp_visited)),
             [claims.employee_id],
         )
 
@@ -2206,13 +2214,7 @@ class ReportingService:
             to_date=as_of_date,
         ) if all_leaf_ids else {}
         bp_today = {key: outlets for key, outlets in bp_mtd.items() if key[1] == as_of_date}
-        bp_filled = business_profiler.filled_by_outlet(
-            self._session,
-            settings=self._settings,
-            tenant_id=scope.tenant_id,
-            outlet_ids=business_profiler.outlets_of(bp_mtd),
-            timeout_s=business_profiler.SCREEN_TIMEOUT_S,
-        )
+        bp_filled = self._bp_filled(scope.tenant_id, business_profiler.outlets_of(bp_mtd))
 
         live: dict[str, tuple[int | None, int | None, int | None]] = {}
         if scope.scope is Scope.SELF and all_leaf_ids:
@@ -2258,6 +2260,7 @@ class ReportingService:
         return schemas.CallsKpiResponse(
             view=view,
             business_date=as_of_date,
+            degraded=self._degraded_out(),
             today=self._build_calls_window(
                 children, leaf_sets, root_leaves, today_facts, today_outlets, live, (bp_today, bp_filled),
             ),

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -1166,13 +1167,14 @@ class OutletReadService:
 
 
     def current_business_profiler(
-        self, *, tenant_id: str, outlet_ids: list[str], timeout_s: float
+        self, *, tenant_id: str, outlet_ids: list[str], budget_s: float
     ) -> dict[str, int | None]:
         """Each outlet's latest recorded %. An outlet with no history is fetched from Humbee and
         recorded as `fetch`, so later reads need no call. An outlet Humbee leaves out is not
         recorded (absent: not filled, asked again on the next read). When Humbee does not answer, that chunk's outlets are absent from the result and
-        nothing is recorded, so the next read retries. Ends the caller's read transaction before
-        calling Humbee."""
+        nothing is recorded, so the next read retries. `budget_s` caps the total Humbee wait across
+        chunks; outlets not reached in time are absent the same way. Ends the caller's read
+        transaction before calling Humbee."""
 
         result = repository.current_business_profiler(
             self._session, tenant_id=tenant_id, outlet_ids=outlet_ids
@@ -1181,11 +1183,18 @@ class OutletReadService:
         if not missing:
             return result
         end_read_transaction(self._session)
+        deadline = time.monotonic() + budget_s
         for start in range(0, len(missing), _BP_BATCH_SIZE):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "outlet_business_profiler_budget_exhausted", outlets=len(missing) - start
+                )
+                break
             chunk = missing[start : start + _BP_BATCH_SIZE]
             try:
                 batch = self._outlets().fetch_business_profiler(
-                    tenant_id=tenant_id, outlet_ids=chunk, timeout_s=timeout_s
+                    tenant_id=tenant_id, outlet_ids=chunk, timeout_s=remaining
                 )
             except (ApiError, OutletMasterUnavailable) as exc:
                 logger.warning("outlet_business_profiler_unavailable", error=str(exc), outlets=len(chunk))
