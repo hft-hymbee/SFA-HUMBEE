@@ -17,7 +17,7 @@ import type { LivePositionMarker } from "@/src/features/management/live-position
 import { outletInsightsHref } from "@/src/features/outlets/service";
 import { SpCard, SpSectionLabel } from "@/src/features/shell/components";
 import { getCurrentLocationLabel } from "@/src/shared/capabilities";
-import { mapRouteStop, routePlanStops, type RouteStop } from "./service";
+import { mapRouteStop, noOrderReasonLabel, routePlanStops, type RouteStop } from "./service";
 
 const LivePositionsMap = dynamic(
   () => import("@/src/features/management/live-positions-map").then((module) => module.LivePositionsMap),
@@ -38,7 +38,7 @@ function formatDateTime(value: string | null | undefined) {
 function routeStopStatus(stop: RouteStop) {
   if (stop.status === "done") {
     if (stop.visitOutcome === "with_order" || (stop.orderCount ?? 0) > 0) return { label: "Order placed" };
-    if (stop.visitOutcome === "no_order") return { label: "No order" };
+    if (stop.visitOutcome === "no_order") return { label: noOrderReasonLabel(stop.noOrderReason) ?? "No order", statusKey: "No order" };
     return { label: "Completed" };
   }
   if (stop.status === "next") return { label: "In progress" };
@@ -154,6 +154,7 @@ export function RouteDayTimeline({
         title: stop.outletName,
         subtitle: stopTimelineSubtitle(stop, locationLabel),
         chipLabel: status.label,
+        statusKey: status.statusKey,
         details: [
           ...(stop.checkedInAt ? [`Check-in ${formatDateTime(stop.checkedInAt)}`] : []),
           ...(stop.checkedOutAt ? [`Check-out ${formatDateTime(stop.checkedOutAt)}`] : []),

@@ -11,6 +11,8 @@ export interface TeamDayActivity {
   title: string;
   subtitle: string;
   chipLabel: string;
+  /** Picks the icon when chipLabel is free text (e.g. a no-order reason); defaults to chipLabel. */
+  statusKey?: string;
   details: string[];
   /** Shown in the expanded panel, e.g. opening an outlet's insights. */
   action?: { label: string; icon: string; onClick: () => void };
@@ -62,7 +64,7 @@ function activityVisual(activity: TeamDayActivity): ActivityVisual {
     return { icon: "LogoutOutlined", background: "var(--color-text-secondary)" };
   }
   const telephonic = activity.subtitle.toLowerCase().includes("telephonic");
-  switch (activity.chipLabel) {
+  switch (activity.statusKey ?? activity.chipLabel) {
     case "Order placed":
       return { icon: "ShoppingCartOutlined", background: "var(--color-info)" };
     case "No order":

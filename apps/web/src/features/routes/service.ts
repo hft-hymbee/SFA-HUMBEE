@@ -53,6 +53,7 @@ export interface RouteStop {
   status: "done" | "next" | "todo" | "missed";
   visitType?: VisitType;
   visitOutcome?: "with_order" | "no_order";
+  noOrderReason?: string | null;
   orderCount?: number;
   planned: boolean;
   combinedVisitScheduled: boolean;
@@ -174,6 +175,7 @@ export function mapRouteStop(stop: RouteStopItem): RouteStop {
           : "todo",
     visitType: visitStarted && stop.visit_type === "telephonic" ? "Telephonic" : visitStarted && stop.visit_type === "physical" ? "Physical" : undefined,
     visitOutcome: visitState === "visited_with_order" ? "with_order" : visitState === "visited_no_order" ? "no_order" : undefined,
+    noOrderReason: stop.no_order_reason ?? null,
     orderCount: stop.order_count ?? 0,
     planned: stop.visit_origin !== "unplanned",
     combinedVisitScheduled: stop.combined_visit_scheduled ?? false,
@@ -646,6 +648,14 @@ const VISIT_OUTCOME_REASONS: VisitOutcomeReason[] = [
 
 export function getVisitOutcomeReasons(): VisitOutcomeReason[] {
   return VISIT_OUTCOME_REASONS;
+}
+
+/** Display label for a no-order reason code; null when there is none. */
+export function noOrderReasonLabel(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  if (reason === "other") return "No order (other reason)";
+  return VISIT_OUTCOME_REASONS.find((item) => item.id === reason)?.label
+    ?? reason.split("_").filter(Boolean).map((part, index) => (index ? part : `${part.charAt(0).toUpperCase()}${part.slice(1)}`)).join(" ");
 }
 
 export type {
