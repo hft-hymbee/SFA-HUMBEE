@@ -58,6 +58,8 @@ export const viewTitles: Record<ManagementView, string> = {
   "team-performance": "Team performance",
   beats: "Beat management",
   "admin-reports": "Reports",
+  "bulk-upload": "Bulk upload",
+  "bulk-upload-beats": "Bulk beat upload",
   notifications: "Notifications",
   more: "More",
   "missed-visits": "Missed visits",
@@ -76,7 +78,7 @@ const routeForTab: Record<string, string> = {
 function activeTab(view: ManagementView, isAdmin: boolean) {
   if (view === "dashboard" || view === "dashboard-drill" || view === "team-performance") return "dashboard";
   if (view === "approvals" || view === "approval-detail") return "approvals";
-  if (view === "more" || view === "notifications" || view === "profile" || view === "my-leave" || view === "leave-apply" || view === "leave-detail") return "more";
+  if (view === "more" || view === "bulk-upload" || view === "bulk-upload-beats" || view === "notifications" || view === "profile" || view === "my-leave" || view === "leave-apply" || view === "leave-detail") return "more";
   if (["team", "team-day", "combined-visits", "combined-visit-sales-person", "combined-visit-beat", "combined-visit-outlet", "combined-visit-day", "visit-feedback"].includes(view)) return isAdmin ? "org" : "team";
   if (view === "org-tree" || view === "hierarchy") return isAdmin ? "org" : "team";
   if (["employees", "employee", "employee-add", "employee-edit", "geography"].includes(view)) return isAdmin ? "org" : "team";

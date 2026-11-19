@@ -96,6 +96,7 @@ import {
   readSessionSync,
   subscribeToSession,
 } from "@/src/shared/auth/session";
+import { BeatBulkUpload, BulkUploadHub } from "./bulk-upload";
 import { downloadAdminReport } from "./download-report";
 import type { GeographyMasterResponse } from "./organization-service";
 import {
@@ -3216,6 +3217,7 @@ function OwnLeaveDetail() {
 
 function Beats() {
   const { isAdmin } = useManagementRole();
+  const router = useRouter();
   const list = useBeats("all");
   const mutations = useBeatMutations();
   const [creating, setCreating] = useState(false);
@@ -3778,7 +3780,7 @@ function Beats() {
     );
   }
   return (
-    <ManagementScreen view="beats" footer={<Button variant="filled" color="primary" label="Create beat" leftIcon={<Icon name="Add" size={18} color="currentColor" />} onClick={startCreate} />}>
+    <ManagementScreen view="beats" footer={<>{isAdmin ? <Button variant="outlined" color="primary" label="Bulk upload" onClick={() => router.push("/mgmt/bulk-upload-beats")} /> : null}<Button variant="filled" color="primary" label="Create beat" leftIcon={<Icon name="Add" size={18} color="currentColor" />} onClick={startCreate} /></>}>
       <div className={styles.content}>
         {list.isPending ? (
           <>
@@ -4055,6 +4057,7 @@ function More() {
       items: [
         { icon: "Add", label: "Add employee", href: "/mgmt/employee-add" },
         { icon: "PersonRounded", label: "Reports", href: "/mgmt/admin-reports" },
+        { icon: "DownloadOutlined", label: "Bulk upload", href: "/mgmt/bulk-upload" },
       ],
     },
   ];
@@ -4139,7 +4142,7 @@ function ManagementProfile() {
 export function ManagementFeaturePage({ view }: { view: ManagementView }) {
   const router = useRouter();
   const { isAdmin } = useManagementRole();
-  const managerBlocked = !isAdmin && ["employee-add", "employee-edit", "hierarchy", "geography"].includes(view);
+  const managerBlocked = !isAdmin && ["employee-add", "employee-edit", "hierarchy", "geography", "bulk-upload", "bulk-upload-beats"].includes(view);
   const adminOwnLeaveBlocked = isAdmin && ["my-leave", "leave-apply", "leave-detail"].includes(view);
   const adminTeamPerformanceBlocked = isAdmin && view === "team-performance";
   const effectiveView = managerBlocked ? "employees" : adminOwnLeaveBlocked || adminTeamPerformanceBlocked ? "more" : view;
@@ -4175,6 +4178,8 @@ export function ManagementFeaturePage({ view }: { view: ManagementView }) {
     case "team-performance": return <ManagerTeamPerformanceScreen />;
     case "beats": return <Beats />;
     case "admin-reports": return <AdminReports />;
+    case "bulk-upload": return <BulkUploadHub />;
+    case "bulk-upload-beats": return <BeatBulkUpload />;
     case "notifications": return <Notifications />;
     case "more": return <More />;
     case "profile": return <ManagementProfile />;
