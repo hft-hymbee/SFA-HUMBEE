@@ -4,9 +4,10 @@ Closes every business date up to the due date that has no successful run, plus a
 holding open visits or plans, so days missed while the app was down, a run failed or work synced late
 are caught up on the next tick.
 
-Follow-up jobs (passed in by `main.py`, e.g. reporting's business-profiler day close) run once per
-date, only after that date's sweep has succeeded (the sweep closes the day's open visits), each with
-its own run record, so one failing does not block the sweep and is retried on its own.
+Follow-up jobs (passed in by `main.py`, e.g. reporting's business-profiler day close) run for a
+date only after that date's sweep has succeeded (the sweep closes the day's open visits), and again
+once each time the sweep reruns successfully after them (late work), each with its own run record,
+so one failing does not block the sweep and is retried on its own.
 """
 
 from __future__ import annotations
@@ -132,7 +133,7 @@ class EndOfDaySweepWorker:
                     "route_sweep_worker_date_failed", business_date=business_date.isoformat()
                 )
         for job_name, job_body in self._follow_up_jobs:
-            for business_date in self._follow_up_dates(due_date, job_name):
+            for business_date, rerun_succeeded in self._follow_up_dates(due_date, job_name):
 
                 def follow_up_body(
                     connection: Connection,
@@ -147,7 +148,7 @@ class EndOfDaySweepWorker:
                         job_name=job_name,
                         tenant_id=self._tenant_id,
                         business_date=business_date,
-                        rerun_succeeded=False,
+                        rerun_succeeded=rerun_succeeded,
                         body=follow_up_body,
                     )
                 except Exception:
@@ -157,22 +158,32 @@ class EndOfDaySweepWorker:
                         business_date=business_date.isoformat(),
                     )
 
-    def _follow_up_dates(self, due_date: date, job_name: str) -> list[date]:
-        """Catch-up window dates whose sweep succeeded and `job_name` has not yet succeeded."""
+    def _follow_up_dates(self, due_date: date, job_name: str) -> list[tuple[date, bool]]:
+        """`(business_date, rerun_succeeded)` for catch-up window dates whose sweep succeeded and
+        `job_name` either has not succeeded yet, or last succeeded before the sweep's latest
+        successful run finished (late work the sweep picked up): at most one rerun per sweep run."""
 
         window = _catch_up_window(due_date)
         with self._session_factory() as session:
             rows = session.execute(
-                select(SweepRun.sweep_type, SweepRun.business_date).where(
+                select(SweepRun.sweep_type, SweepRun.business_date, SweepRun.completed_at).where(
                     SweepRun.tenant_id == self._tenant_id,
                     SweepRun.sweep_type.in_((SWEEP_JOB_NAME, job_name)),
                     SweepRun.status == "succeeded",
                     SweepRun.business_date.in_(window),
                 )
             ).all()
-        swept = {day for job, day in rows if job == SWEEP_JOB_NAME}
-        done = {day for job, day in rows if job == job_name}
-        return [day for day in window if day in swept and day not in done]
+        swept = {day: done_at for job, day, done_at in rows if job == SWEEP_JOB_NAME}
+        done = {day: done_at for job, day, done_at in rows if job == job_name}
+        result = []
+        for day in window:
+            if day not in swept:
+                continue
+            if day not in done:
+                result.append((day, False))
+            elif swept[day] and done[day] and swept[day] > done[day]:
+                result.append((day, True))
+        return result
 
     def _dates_to_sweep(self, due_date: date, job_name: str) -> list[tuple[date, bool]]:
         """`(business_date, rerun_succeeded)` pairs. A date still holding open visits or plans is
