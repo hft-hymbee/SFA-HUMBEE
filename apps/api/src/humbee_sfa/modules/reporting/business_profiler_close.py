@@ -46,9 +46,13 @@ def run_business_profiler_day_close(
 
     with Session(bind=connection, autoflush=False, expire_on_commit=False) as session:
         outlets = OutletReadService(session)
-        batches = outlets.fetch_business_profiler_for_day(tenant_id=tenant_id, outlet_ids=outlet_ids)
+        batches = outlets.fetch_business_profiler_for_day(
+            tenant_id=tenant_id, outlet_ids=outlet_ids
+        )
         with transaction(session):
-            outlets.record_day_close(tenant_id=tenant_id, batches=batches, business_date=business_date)
+            outlets.record_day_close(
+                tenant_id=tenant_id, batches=batches, business_date=business_date
+            )
             for employee_id in sorted(visited):
                 routes_rollup.recompute_employee_day(
                     session,

@@ -134,5 +134,7 @@ def require_humbee_caller(
     non-ASCII header is a 401, not a `compare_digest` TypeError."""
 
     expected = get_settings().humbee_api_key
-    if not expected or not api_key or not secrets.compare_digest(api_key.encode(), expected.encode()):
+    if not expected or not api_key:
+        raise ApiError(401, "invalid_api_key", "Invalid API key.")
+    if not secrets.compare_digest(api_key.encode(), expected.encode()):
         raise ApiError(401, "invalid_api_key", "Invalid API key.")

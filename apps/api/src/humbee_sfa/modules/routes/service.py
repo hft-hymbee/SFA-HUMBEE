@@ -551,7 +551,11 @@ class RouteService:
         )
 
     def get_business_profiler(
-        self, *, claims: AccessTokenClaims, business_date: date | None = None, employee_id: str | None = None,
+        self,
+        *,
+        claims: AccessTokenClaims,
+        business_date: date | None = None,
+        employee_id: str | None = None,
     ) -> dict[str, Any]:
         """The live business profiler % of every outlet `get_day` lists, kept out of `get_day` so the route
         list never waits on Humbee."""
@@ -1344,7 +1348,11 @@ class RouteService:
         """Distinct outlets each employee visited per day in the range. No scope check, as above."""
 
         return repository.visited_outlets_range(
-            self._session, tenant_id=tenant_id, employee_ids=employee_ids, from_date=from_date, to_date=to_date
+            self._session,
+            tenant_id=tenant_id,
+            employee_ids=employee_ids,
+            from_date=from_date,
+            to_date=to_date,
         )
 
     def visit_stats_by_employee_day(

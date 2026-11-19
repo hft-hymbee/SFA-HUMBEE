@@ -1153,7 +1153,14 @@ class OutletReadService:
         items = []
         for ref in refs:
             if ref in live:
-                items.append({"outlet_ref": ref, "business_profiler_pct": live[ref], "as_of": live_as_of, "is_live": True})
+                items.append(
+                    {
+                        "outlet_ref": ref,
+                        "business_profiler_pct": live[ref],
+                        "as_of": live_as_of,
+                        "is_live": True,
+                    }
+                )
             elif ref in stored:
                 row = stored[ref]
                 items.append(
@@ -1165,7 +1172,6 @@ class OutletReadService:
                     }
                 )
         return items
-
 
     def current_business_profiler(
         self, *, tenant_id: str, outlet_ids: list[str], budget_s: float
@@ -1202,7 +1208,8 @@ class OutletReadService:
                 continue
             # Only what Humbee returned: an outlet it leaves out (deleted, or a Humbee-side error that
             # still answers 200) is not recorded, so a known % is never wiped by an omission.
-            fetched = {ref: batch.pct_by_outlet[ref] for ref in chunk if ref in batch.pct_by_outlet}
+            got = batch.pct_by_outlet
+            fetched = {ref: got[ref] for ref in chunk if ref in got}
             with transaction(self._session):
                 repository.record_business_profiler(
                     self._session, tenant_id=tenant_id, pct_by_outlet=fetched, as_of=batch.as_of

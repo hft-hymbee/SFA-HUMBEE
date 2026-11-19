@@ -144,7 +144,11 @@ def test_counts_use_each_outlets_current_pct(
     with transaction(db_session):
         RouteService(db_session).close_day(tenant_id=seed.tenant_id(), business_date=DAY, now=datetime.now(NOW.tzinfo))
     run_business_profiler_day_close(
-        db_session.connection(), "bp", tenant_id=seed.tenant_id(), business_date=DAY, read_bind=db_session.connection()
+        db_session.connection(),
+        "bp",
+        tenant_id=seed.tenant_id(),
+        business_date=DAY,
+        read_bind=db_session.connection(),
     )
     db_session.add(
         SweepRun(
@@ -216,10 +220,13 @@ def test_current_pct_falls_back_to_humbee_once(db_session: Session, humbee: Fake
     fetches = lambda: len(humbee.calls_to("POST", BP_FETCH))
 
     def current() -> dict[str, int | None]:
-        return service.current_business_profiler(tenant_id=seed.tenant_id(), outlet_ids=refs, budget_s=3)
+        return service.current_business_profiler(
+            tenant_id=seed.tenant_id(), outlet_ids=refs, budget_s=3
+        )
 
     def recorded() -> dict[str, tuple[int | None, str]]:
-        return {row.humbee_outlet_id: (row.pct, row.source) for row in db_session.scalars(select(OutletBusinessProfilerHistory))}
+        rows = db_session.scalars(select(OutletBusinessProfilerHistory))
+        return {row.humbee_outlet_id: (row.pct, row.source) for row in rows}
 
     # Humbee down: the outlets are absent (counted not filled) and nothing is recorded.
     humbee.fail("POST", BP_FETCH, "999")
@@ -245,7 +252,11 @@ def test_fallback_wait_is_capped_per_request(
 
     def filled(budget_s: float) -> tuple[dict[str, bool], bool]:
         return business_profiler.filled_by_outlet(
-            db_session, settings=get_settings(), tenant_id=seed.tenant_id(), outlet_ids=["N-1", "N-2"], budget_s=budget_s
+            db_session,
+            settings=get_settings(),
+            tenant_id=seed.tenant_id(),
+            outlet_ids=["N-1", "N-2"],
+            budget_s=budget_s,
         )
 
     # No time left: no Humbee call, both outlets count as not filled and the result is incomplete.

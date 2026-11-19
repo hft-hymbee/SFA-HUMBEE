@@ -238,7 +238,9 @@ def business_profiler_as_of(
     if not refs:
         return {}
     history = OutletBusinessProfilerHistory
-    in_effect = _latest_history(session, tenant_id=tenant_id, outlet_ids=refs, at_or_before=day_end_utc)
+    in_effect = _latest_history(
+        session, tenant_id=tenant_id, outlet_ids=refs, at_or_before=day_end_utc
+    )
     day_close = {
         row.humbee_outlet_id: row
         for row in session.execute(

@@ -519,13 +519,22 @@ def visited_outlets(
     """Distinct outlets each employee visited on `business_date` (visited states only)."""
 
     by_day = visited_outlets_range(
-        session, tenant_id=tenant_id, employee_ids=employee_ids, from_date=business_date, to_date=business_date
+        session,
+        tenant_id=tenant_id,
+        employee_ids=employee_ids,
+        from_date=business_date,
+        to_date=business_date,
     )
     return {employee_id: outlets for (employee_id, _), outlets in by_day.items()}
 
 
 def visited_outlets_range(
-    session: Session, *, tenant_id: str, employee_ids: list[str] | None, from_date: date, to_date: date
+    session: Session,
+    *,
+    tenant_id: str,
+    employee_ids: list[str] | None,
+    from_date: date,
+    to_date: date,
 ) -> dict[tuple[str, date], set[str]]:
     """Distinct outlets each employee visited per day in `[from_date, to_date]`, in one query."""
 

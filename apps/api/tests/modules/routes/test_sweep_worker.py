@@ -25,11 +25,17 @@ def test_follow_up_runs_once_after_a_successful_sweep(db_session: Session) -> No
 
     def run(job: str, day: date, status: str) -> None:
         db_session.add(
-            SweepRun(tenant_id=seed.tenant_id(), sweep_type=job, business_date=day, started_at=NOW, status=status)
+            SweepRun(
+                tenant_id=seed.tenant_id(),
+                sweep_type=job,
+                business_date=day,
+                started_at=NOW,
+                status=status,
+            )
         )
         db_session.flush()
 
-    swept, failed, closed = DUE - timedelta(days=1), DUE - timedelta(days=2), DUE - timedelta(days=3)
+    swept, failed, closed = (DUE - timedelta(days=offset) for offset in (1, 2, 3))
     run(SWEEP_JOB_NAME, swept, "succeeded")
     run(SWEEP_JOB_NAME, failed, "failed")
     run(SWEEP_JOB_NAME, closed, "succeeded")

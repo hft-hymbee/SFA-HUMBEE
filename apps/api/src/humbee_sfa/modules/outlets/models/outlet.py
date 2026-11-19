@@ -30,4 +30,6 @@ class Outlet(Base, ConventionsMixin):
     # Last live value from Humbee (outlet detail or the business-profiler batch), served when Humbee is
     # unreachable. Null until the first live read.
     business_profiler_pct: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    business_profiler_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    business_profiler_as_of: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
