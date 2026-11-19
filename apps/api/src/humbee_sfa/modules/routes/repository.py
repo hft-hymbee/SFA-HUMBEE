@@ -518,11 +518,22 @@ def visited_outlets(
 ) -> dict[str, set[str]]:
     """Distinct outlets each employee visited on `business_date` (visited states only)."""
 
+    by_day = visited_outlets_range(
+        session, tenant_id=tenant_id, employee_ids=employee_ids, from_date=business_date, to_date=business_date
+    )
+    return {employee_id: outlets for (employee_id, _), outlets in by_day.items()}
+
+
+def visited_outlets_range(
+    session: Session, *, tenant_id: str, employee_ids: list[str] | None, from_date: date, to_date: date
+) -> dict[tuple[str, date], set[str]]:
+    """Distinct outlets each employee visited per day in `[from_date, to_date]`, in one query."""
+
     stmt = (
-        select(RouteVisit.employee_id, RouteVisit.humbee_outlet_id)
+        select(RouteVisit.employee_id, RouteVisit.business_date, RouteVisit.humbee_outlet_id)
         .where(
             RouteVisit.tenant_id == tenant_id,
-            RouteVisit.business_date == business_date,
+            RouteVisit.business_date.between(from_date, to_date),
             RouteVisit.is_active.is_(True),
             RouteVisit.state.in_(VISITED_STATES),
         )
@@ -532,9 +543,9 @@ def visited_outlets(
         if not employee_ids:
             return {}
         stmt = stmt.where(RouteVisit.employee_id.in_(employee_ids))
-    result: dict[str, set[str]] = {}
-    for employee_id, outlet_id in session.execute(stmt).all():
-        result.setdefault(employee_id, set()).add(outlet_id)
+    result: dict[tuple[str, date], set[str]] = {}
+    for employee_id, business_date, outlet_id in session.execute(stmt).all():
+        result.setdefault((employee_id, business_date), set()).add(outlet_id)
     return result
 
 

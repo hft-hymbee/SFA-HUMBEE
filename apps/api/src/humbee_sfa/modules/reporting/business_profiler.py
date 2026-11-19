@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -65,16 +65,9 @@ def visited_by_employee_day(
     from_date: date,
     to_date: date,
 ) -> VisitedOutlets:
-    routes = RouteService(session)
-    result: VisitedOutlets = {}
-    day = from_date
-    while day <= to_date:
-        for employee_id, outlets in routes.visited_outlets_by_employee(
-            tenant_id=tenant_id, business_date=day, employee_ids=employee_ids
-        ).items():
-            result[(employee_id, day)] = outlets
-        day += timedelta(days=1)
-    return result
+    return RouteService(session).visited_outlets_by_employee_day(
+        tenant_id=tenant_id, employee_ids=employee_ids, from_date=from_date, to_date=to_date
+    )
 
 
 def filled_by_outlet(

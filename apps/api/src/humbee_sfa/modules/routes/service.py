@@ -1338,6 +1338,15 @@ class RouteService:
             self._session, tenant_id=tenant_id, business_date=business_date, employee_ids=employee_ids
         )
 
+    def visited_outlets_by_employee_day(
+        self, *, tenant_id: str, employee_ids: list[str] | None, from_date: date, to_date: date
+    ) -> dict[tuple[str, date], set[str]]:
+        """Distinct outlets each employee visited per day in the range. No scope check, as above."""
+
+        return repository.visited_outlets_range(
+            self._session, tenant_id=tenant_id, employee_ids=employee_ids, from_date=from_date, to_date=to_date
+        )
+
     def visit_stats_by_employee_day(
         self, *, tenant_id: str, employee_ids: list[str], from_date: date, to_date: date
     ) -> dict[tuple[str, date], repository.VisitStats]:
