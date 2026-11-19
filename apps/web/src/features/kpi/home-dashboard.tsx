@@ -812,7 +812,7 @@ export function SalespersonVisitsSection() {
             type="button"
             onClick={() => router.push("/sp/my-day")}
           >
-            View my day
+            View my coverage
           </button>
         )}
         label="Visits"

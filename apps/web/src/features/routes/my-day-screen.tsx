@@ -23,7 +23,7 @@ export function MyDayScreen() {
   const retryRoute = () => { void route.refetch(); };
 
   return (
-    <SpScreen title="My day" back>
+    <SpScreen title="My coverage" back>
       <div className="sp-content">
         <DateField
           label="Business date"
