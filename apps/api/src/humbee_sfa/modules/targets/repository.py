@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select, tuple_
 from sqlalchemy.orm import Session
 
 from humbee_sfa.modules.org.scope import ScopeContext, apply_scope
@@ -308,3 +308,75 @@ def count_leads_for_day(
         Lead.status != "rejected",
     )
     return int(session.scalar(stmt) or 0)
+
+
+def _leads_in_scope(
+    scope: ScopeContext,
+    *,
+    from_date: date | None,
+    to_date: date | None,
+    employee_id: str | None,
+    q: str | None,
+) -> Select[tuple[Lead]]:
+    """Active leads visible to `scope`, narrowed by the optional filters. `business_date` bounds
+    are inclusive and `q` matches literally (`%`/`_` are escaped), case-insensitively."""
+
+    stmt = apply_scope(
+        select(Lead),
+        scope,
+        tenant_column=Lead.tenant_id,
+        employee_id_column=Lead.captured_by_employee_id,
+    ).where(Lead.is_active.is_(True))
+    if from_date is not None:
+        stmt = stmt.where(Lead.business_date >= from_date)
+    if to_date is not None:
+        stmt = stmt.where(Lead.business_date <= to_date)
+    if employee_id is not None:
+        stmt = stmt.where(Lead.captured_by_employee_id == employee_id)
+    if q:
+        stmt = stmt.where(
+            or_(
+                Lead.company_name.icontains(q, autoescape=True),
+                Lead.prospect_name.icontains(q, autoescape=True),
+                Lead.contact_email.icontains(q, autoescape=True),
+            )
+        )
+    return stmt
+
+
+def list_leads_in_scope(
+    session: Session,
+    *,
+    scope: ScopeContext,
+    from_date: date | None,
+    to_date: date | None,
+    employee_id: str | None,
+    q: str | None,
+    after: tuple[datetime, str] | None,
+    limit: int,
+) -> list[Lead]:
+    """One keyset page, newest first. `(occurred_at, id)` is the cursor so rows sharing an
+    `occurred_at` are neither skipped nor repeated across a page boundary."""
+
+    stmt = _leads_in_scope(
+        scope, from_date=from_date, to_date=to_date, employee_id=employee_id, q=q
+    )
+    if after is not None:
+        stmt = stmt.where(tuple_(Lead.occurred_at, Lead.id) < tuple_(*after))
+    stmt = stmt.order_by(Lead.occurred_at.desc(), Lead.id.desc()).limit(limit)
+    return list(session.scalars(stmt))
+
+
+def count_leads_matching(
+    session: Session,
+    *,
+    scope: ScopeContext,
+    from_date: date | None,
+    to_date: date | None,
+    employee_id: str | None,
+    q: str | None,
+) -> int:
+    filtered = _leads_in_scope(
+        scope, from_date=from_date, to_date=to_date, employee_id=employee_id, q=q
+    ).subquery()
+    return int(session.scalar(select(func.count()).select_from(filtered)) or 0)

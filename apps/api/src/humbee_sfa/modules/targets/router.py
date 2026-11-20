@@ -147,6 +147,30 @@ async def remove_target(
     )
 
 
+@router.get("/leads", response_model=schemas.LeadPage)
+def list_leads(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+    from_date: Annotated[date | None, Query(alias="from")] = None,
+    to_date: Annotated[date | None, Query(alias="to")] = None,
+    employee_id: Annotated[str | None, Query(min_length=26, max_length=26)] = None,
+    q: Annotated[str | None, Query(max_length=120)] = None,
+    cursor: Annotated[str | None, Query(max_length=64)] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> dict[str, Any]:
+    """Leads in the caller's scope, newest first, with keyset paging."""
+
+    return TargetService(session).list_leads(
+        claims=claims,
+        from_date=from_date,
+        to_date=to_date,
+        employee_id=employee_id,
+        q=q,
+        cursor=cursor,
+        limit=limit,
+    )
+
+
 @router.post("/leads", response_model=schemas.LeadOut, status_code=201)
 async def capture_lead(
     body: schemas.CaptureLeadBody,

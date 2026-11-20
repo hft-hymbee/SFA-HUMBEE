@@ -265,3 +265,24 @@ class LeadOut(BaseModel):
     interest_level: LeadInterestLevel
     status: LeadStatus
     captured_at: datetime
+
+
+class LeadCapturedBy(BaseModel):
+    id: str
+    name: str
+
+
+class LeadListItem(BaseModel):
+    id: str
+    company_name: str
+    name: str
+    designation: str | None
+    status: LeadStatus
+    captured_at: datetime
+    captured_by: LeadCapturedBy
+
+
+class LeadPage(BaseModel):
+    items: list[LeadListItem]
+    total: int
+    next_cursor: str | None

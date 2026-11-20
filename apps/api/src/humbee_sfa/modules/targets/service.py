@@ -646,6 +646,56 @@ class TargetService:
         logger.info("lead_captured", lead_id=lead.id)
         return 201, payload
 
+    def list_leads(
+        self,
+        *,
+        claims: AccessTokenClaims,
+        from_date: date | None,
+        to_date: date | None,
+        employee_id: str | None,
+        q: str | None,
+        cursor: str | None,
+        limit: int,
+    ) -> dict[str, Any]:
+        """Newest-first page of the leads in the caller's scope (own / whole tree / tenant, as
+        `ScopeResolver` decides). An `employee_id` filter must itself be in scope, else 404."""
+
+        _validate_lead_date_range(from_date, to_date)
+        after = _decode_lead_cursor(cursor)
+        scope = self._scope(claims)
+        if employee_id is not None:
+            org_service.get_employee_in_scope(self._session, scope=scope, employee_id=employee_id)
+        filters = {"from_date": from_date, "to_date": to_date, "employee_id": employee_id, "q": q}
+        leads = repository.list_leads_in_scope(
+            self._session, scope=scope, after=after, limit=limit, **filters
+        )
+        total = repository.count_leads_matching(self._session, scope=scope, **filters)
+        names = org_service.list_employee_names(
+            self._session,
+            tenant_id=claims.tenant_id,
+            employee_ids=sorted({lead.captured_by_employee_id for lead in leads}),
+        )
+        items = [
+            schemas.LeadListItem(
+                id=lead.id,
+                company_name=lead.company_name,
+                name=lead.prospect_name,
+                designation=lead.contact_designation,
+                status=schemas.LeadStatus(lead.status),
+                captured_at=lead.occurred_at,
+                captured_by=schemas.LeadCapturedBy(
+                    id=lead.captured_by_employee_id,
+                    name=names.get(lead.captured_by_employee_id, "Former employee"),
+                ),
+            )
+            for lead in leads
+        ]
+        return schemas.LeadPage(
+            items=items,
+            total=total,
+            next_cursor=_encode_lead_cursor(leads[-1]) if leads and len(leads) == limit else None,
+        ).model_dump(mode="json")
+
     def count_leads_in_scope(
         self, *, claims: AccessTokenClaims, from_date: date, to_date: date
     ) -> int:
@@ -789,6 +839,28 @@ def count_leads_for_employee_day(
     return repository.count_leads_for_day(
         session, tenant_id=tenant_id, employee_id=employee_id, business_date=business_date
     )
+
+
+def _validate_lead_date_range(from_date: date | None, to_date: date | None) -> None:
+    if from_date is not None and to_date is not None and from_date > to_date:
+        raise ApiError(422, "invalid_date_range", "`from` must be on or before `to`.")
+
+
+def _encode_lead_cursor(lead: Lead) -> str:
+    return f"{lead.occurred_at.isoformat()}|{lead.id}"
+
+
+def _decode_lead_cursor(cursor: str | None) -> tuple[datetime, str] | None:
+    if not cursor:
+        return None
+    occurred_at, sep, lead_id = cursor.partition("|")
+    try:
+        parsed = datetime.fromisoformat(occurred_at)
+    except ValueError:
+        parsed = None
+    if parsed is None or parsed.tzinfo is None or not sep or not lead_id:
+        raise ApiError(422, "invalid_cursor", "The pagination cursor is not valid.")
+    return parsed, lead_id
 
 
 def _lead_write_conflict(exc: IntegrityError) -> ApiError:
