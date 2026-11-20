@@ -27,7 +27,7 @@ from humbee_sfa.core.conventions import generate_ulid
 from humbee_sfa.core.db import transaction
 from humbee_sfa.core.deps import AccessTokenClaims
 from humbee_sfa.core.errors.handlers import ApiError
-from humbee_sfa.core.security import encrypt_phone, hmac_phone
+from humbee_sfa.core.security import decrypt_phone, encrypt_phone, hmac_phone
 from humbee_sfa.core.settings import Settings, get_settings
 from humbee_sfa.integration.humbee.targets import (
     HumbeeTargetManufacturerProvider,
@@ -36,7 +36,12 @@ from humbee_sfa.integration.humbee.targets import (
 )
 from humbee_sfa.modules.org import service as org_service
 from humbee_sfa.modules.org.geography_service import list_employee_zone_labels
-from humbee_sfa.modules.org.scope import OrgResource, ScopeContext, ScopeResolver
+from humbee_sfa.modules.org.scope import (
+    OrgResource,
+    ScopeContext,
+    ScopeResolver,
+    internal_routing_scope,
+)
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.modules.targets import policies, repository, schemas
 from humbee_sfa.modules.targets.models import Lead, Target, TargetManufacturerLine
@@ -695,6 +700,80 @@ class TargetService:
             total=total,
             next_cursor=_encode_lead_cursor(leads[-1]) if leads and len(leads) == limit else None,
         ).model_dump(mode="json")
+
+    def get_lead(self, *, claims: AccessTokenClaims, lead_id: str) -> dict[str, Any]:
+        """One lead in the caller's scope, with the full mobile and the capturer's profile.
+        Missing, inactive and out-of-scope are all the same 404."""
+
+        lead = repository.get_lead_in_scope(
+            self._session, scope=self._scope(claims), lead_id=lead_id
+        )
+        if lead is None:
+            raise ApiError(404, "lead_not_found", "Lead was not found.")
+        capturer = org_service.get_employee_dimension_fields(
+            self._session,
+            scope=internal_routing_scope(claims.tenant_id),
+            employee_id=lead.captured_by_employee_id,
+        )
+        if capturer is None:
+            captured_by = schemas.LeadCapturedByDetail(
+                id=lead.captured_by_employee_id,
+                name="Former employee",
+                employee_code=None,
+                role_code=None,
+                reports_to_name=None,
+            )
+        else:
+            reports_to_name = None
+            if capturer.manager_employee_id is not None:
+                reports_to_name = org_service.list_employee_names(
+                    self._session,
+                    tenant_id=claims.tenant_id,
+                    employee_ids=[capturer.manager_employee_id],
+                ).get(capturer.manager_employee_id)
+            captured_by = schemas.LeadCapturedByDetail(
+                id=capturer.id,
+                name=capturer.full_name,
+                employee_code=capturer.employee_code,
+                role_code=capturer.role_code,
+                reports_to_name=reports_to_name,
+            )
+        return schemas.LeadDetailOut(
+            id=lead.id,
+            name=lead.prospect_name,
+            designation=lead.contact_designation,
+            mobile=decrypt_phone(lead.contact_mobile_enc),
+            email=lead.contact_email,
+            company_name=lead.company_name,
+            annual_turnover_cr=(
+                float(lead.annual_turnover_cr) if lead.annual_turnover_cr is not None else None
+            ),
+            head_office_location=lead.head_office_location,
+            message=lead.notes,
+            interest_level=schemas.LeadInterestLevel(lead.interest_level),
+            status=schemas.LeadStatus(lead.status),
+            captured_at=lead.occurred_at,
+            business_date=lead.business_date,
+            captured_by=captured_by,
+        ).model_dump(mode="json")
+
+    def lead_counts_by_employee(self, *, claims: AccessTokenClaims) -> dict[str, Any]:
+        """All-time active lead count per capturer in the caller's scope, sorted by name."""
+
+        rows = repository.count_leads_by_employee(self._session, scope=self._scope(claims))
+        names = org_service.list_employee_names(
+            self._session, tenant_id=claims.tenant_id, employee_ids=sorted(e for e, _ in rows)
+        )
+        items = sorted(
+            (
+                schemas.LeadEmployeeCount(
+                    employee_id=emp_id, name=names.get(emp_id, "Former employee"), count=n
+                )
+                for emp_id, n in rows
+            ),
+            key=lambda i: (i.name.casefold(), i.employee_id),
+        )
+        return schemas.LeadCountsByEmployee(items=items).model_dump(mode="json")
 
     def count_leads_in_scope(
         self, *, claims: AccessTokenClaims, from_date: date, to_date: date

@@ -171,6 +171,27 @@ def list_leads(
     )
 
 
+@router.get("/leads/counts-by-employee", response_model=schemas.LeadCountsByEmployee)
+def lead_counts_by_employee(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> dict[str, Any]:
+    """Lead count per capturer in the caller's scope, for the captured-by picker."""
+
+    return TargetService(session).lead_counts_by_employee(claims=claims)
+
+
+@router.get("/leads/{lead_id:ulid}", response_model=schemas.LeadDetailOut)
+def get_lead(
+    lead_id: str,
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> dict[str, Any]:
+    """One lead in the caller's scope, with the full mobile number."""
+
+    return TargetService(session).get_lead(claims=claims, lead_id=lead_id)
+
+
 @router.post("/leads", response_model=schemas.LeadOut, status_code=201)
 async def capture_lead(
     body: schemas.CaptureLeadBody,

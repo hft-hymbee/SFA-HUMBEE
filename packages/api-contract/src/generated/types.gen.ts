@@ -2923,9 +2923,158 @@ export type LatestFix = {
 };
 
 /**
+ * LeadCapturedBy
+ */
+export type LeadCapturedBy = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * LeadCapturedByDetail
+ */
+export type LeadCapturedByDetail = {
+    /**
+     * Employee Code
+     */
+    employee_code: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Reports To Name
+     */
+    reports_to_name: string | null;
+    /**
+     * Role Code
+     */
+    role_code: string | null;
+};
+
+/**
+ * LeadCountsByEmployee
+ */
+export type LeadCountsByEmployee = {
+    /**
+     * Items
+     */
+    items: Array<LeadEmployeeCount>;
+};
+
+/**
+ * LeadDetailOut
+ */
+export type LeadDetailOut = {
+    /**
+     * Annual Turnover Cr
+     */
+    annual_turnover_cr: number | null;
+    /**
+     * Business Date
+     */
+    business_date: string;
+    /**
+     * Captured At
+     */
+    captured_at: string;
+    captured_by: LeadCapturedByDetail;
+    /**
+     * Company Name
+     */
+    company_name: string;
+    /**
+     * Designation
+     */
+    designation: string | null;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Head Office Location
+     */
+    head_office_location: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    interest_level: LeadInterestLevel;
+    /**
+     * Message
+     */
+    message: string | null;
+    /**
+     * Mobile
+     */
+    mobile: string;
+    /**
+     * Name
+     */
+    name: string;
+    status: LeadStatus;
+};
+
+/**
+ * LeadEmployeeCount
+ */
+export type LeadEmployeeCount = {
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Employee Id
+     */
+    employee_id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * LeadInterestLevel
  */
 export type LeadInterestLevel = 'hot' | 'warm' | 'cold';
+
+/**
+ * LeadListItem
+ */
+export type LeadListItem = {
+    /**
+     * Captured At
+     */
+    captured_at: string;
+    captured_by: LeadCapturedBy;
+    /**
+     * Company Name
+     */
+    company_name: string;
+    /**
+     * Designation
+     */
+    designation: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    status: LeadStatus;
+};
 
 /**
  * LeadOut
@@ -2973,6 +3122,24 @@ export type LeadOut = {
      */
     name: string;
     status: LeadStatus;
+};
+
+/**
+ * LeadPage
+ */
+export type LeadPage = {
+    /**
+     * Items
+     */
+    items: Array<LeadListItem>;
+    /**
+     * Next Cursor
+     */
+    next_cursor: string | null;
+    /**
+     * Total
+     */
+    total: number;
 };
 
 /**
@@ -8100,6 +8267,56 @@ export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPo
 
 export type ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponse = ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponses[keyof ReceiveBusinessProfilerPushApiV1IntegrationsHumbeeBusinessProfilerPostResponses];
 
+export type ListLeadsApiV1LeadsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * From
+         */
+        from?: string | null;
+        /**
+         * To
+         */
+        to?: string | null;
+        /**
+         * Employee Id
+         */
+        employee_id?: string | null;
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/leads';
+};
+
+export type ListLeadsApiV1LeadsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListLeadsApiV1LeadsGetError = ListLeadsApiV1LeadsGetErrors[keyof ListLeadsApiV1LeadsGetErrors];
+
+export type ListLeadsApiV1LeadsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: LeadPage;
+};
+
+export type ListLeadsApiV1LeadsGetResponse = ListLeadsApiV1LeadsGetResponses[keyof ListLeadsApiV1LeadsGetResponses];
+
 export type CaptureLeadApiV1LeadsPostData = {
     body: CaptureLeadBody;
     headers: {
@@ -8130,6 +8347,52 @@ export type CaptureLeadApiV1LeadsPostResponses = {
 };
 
 export type CaptureLeadApiV1LeadsPostResponse = CaptureLeadApiV1LeadsPostResponses[keyof CaptureLeadApiV1LeadsPostResponses];
+
+export type LeadCountsByEmployeeApiV1LeadsCountsByEmployeeGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/leads/counts-by-employee';
+};
+
+export type LeadCountsByEmployeeApiV1LeadsCountsByEmployeeGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: LeadCountsByEmployee;
+};
+
+export type LeadCountsByEmployeeApiV1LeadsCountsByEmployeeGetResponse = LeadCountsByEmployeeApiV1LeadsCountsByEmployeeGetResponses[keyof LeadCountsByEmployeeApiV1LeadsCountsByEmployeeGetResponses];
+
+export type GetLeadApiV1LeadsLeadIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Lead Id
+         */
+        lead_id: string;
+    };
+    query?: never;
+    url: '/api/v1/leads/{lead_id}';
+};
+
+export type GetLeadApiV1LeadsLeadIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetLeadApiV1LeadsLeadIdGetError = GetLeadApiV1LeadsLeadIdGetErrors[keyof GetLeadApiV1LeadsLeadIdGetErrors];
+
+export type GetLeadApiV1LeadsLeadIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: LeadDetailOut;
+};
+
+export type GetLeadApiV1LeadsLeadIdGetResponse = GetLeadApiV1LeadsLeadIdGetResponses[keyof GetLeadApiV1LeadsLeadIdGetResponses];
 
 export type GetMyBalancesApiV1LeaveBalancesMeGetData = {
     body?: never;

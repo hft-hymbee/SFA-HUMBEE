@@ -272,6 +272,39 @@ class LeadCapturedBy(BaseModel):
     name: str
 
 
+class LeadCapturedByDetail(LeadCapturedBy):
+    employee_code: str | None
+    role_code: str | None
+    reports_to_name: str | None
+
+
+class LeadDetailOut(BaseModel):
+    id: str
+    name: str
+    designation: str | None
+    mobile: str
+    email: str
+    company_name: str
+    annual_turnover_cr: float | None
+    head_office_location: str | None
+    message: str | None
+    interest_level: LeadInterestLevel
+    status: LeadStatus
+    captured_at: datetime
+    business_date: date
+    captured_by: LeadCapturedByDetail
+
+
+class LeadEmployeeCount(BaseModel):
+    employee_id: str
+    name: str
+    count: int
+
+
+class LeadCountsByEmployee(BaseModel):
+    items: list[LeadEmployeeCount]
+
+
 class LeadListItem(BaseModel):
     id: str
     company_name: str

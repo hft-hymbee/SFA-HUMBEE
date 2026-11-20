@@ -380,3 +380,22 @@ def count_leads_matching(
         scope, from_date=from_date, to_date=to_date, employee_id=employee_id, q=q
     ).subquery()
     return int(session.scalar(select(func.count()).select_from(filtered)) or 0)
+
+
+def get_lead_in_scope(session: Session, *, scope: ScopeContext, lead_id: str) -> Lead | None:
+    stmt = _leads_in_scope(scope, from_date=None, to_date=None, employee_id=None, q=None).where(
+        Lead.id == lead_id
+    )
+    return session.scalars(stmt).one_or_none()
+
+
+def count_leads_by_employee(session: Session, *, scope: ScopeContext) -> list[tuple[str, int]]:
+    """Active leads per capturer in `scope`, all-time."""
+
+    filtered = _leads_in_scope(
+        scope, from_date=None, to_date=None, employee_id=None, q=None
+    ).subquery()
+    stmt = select(filtered.c.captured_by_employee_id, func.count()).group_by(
+        filtered.c.captured_by_employee_id
+    )
+    return [(emp_id, int(n)) for emp_id, n in session.execute(stmt)]

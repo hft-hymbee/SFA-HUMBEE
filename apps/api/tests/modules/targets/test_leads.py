@@ -72,13 +72,17 @@ class _Org:
         }
 
 
+def _org(api_client: TestClient, db: Session) -> _Org:
+    return _Org(api_client, db)
+
+
 def _ids(resp: Any) -> set[str]:
     assert resp.status_code == 200, resp.text
     return {i["id"] for i in resp.json()["items"]}
 
 
 def test_list_scope_by_role(api_client: TestClient, db_session: Session) -> None:
-    o = _Org(api_client, db_session)
+    o = _org(api_client, db_session)
     L = o.lead
 
     so = o.c[o.so1.id].get("/api/v1/leads")
@@ -97,7 +101,7 @@ def test_list_scope_by_role(api_client: TestClient, db_session: Session) -> None
 
 
 def test_list_other_tenant_never_visible(api_client: TestClient, db_session: Session) -> None:
-    o = _Org(api_client, db_session)
+    o = _org(api_client, db_session)
     repository.insert_lead(
         db_session,
         lead_id=generate_ulid(),
@@ -125,7 +129,7 @@ def test_list_other_tenant_never_visible(api_client: TestClient, db_session: Ses
 
 
 def test_employee_filter_scope(api_client: TestClient, db_session: Session) -> None:
-    o = _Org(api_client, db_session)
+    o = _org(api_client, db_session)
     L = o.lead
     m1 = o.c[o.m1.id]
     assert _ids(m1.get("/api/v1/leads", employee_id=o.so2.id)) == {L["so2"]}
@@ -204,3 +208,62 @@ def test_invalid_cursor_is_422(api_client: TestClient, db_session: Session) -> N
         resp = login(api_client, sp).get("/api/v1/leads", cursor=bad)
         assert resp.status_code == 422, bad
         assert resp.json()["error"]["code"] == "invalid_cursor"
+
+
+def test_detail_in_scope_shows_full_mobile_and_capturer(
+    api_client: TestClient, db_session: Session
+) -> None:
+    o = _org(api_client, db_session)
+    resp = o.c[o.m1.id].get(f"/api/v1/leads/{o.lead['so2']}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["mobile"] == "+919845012345"
+    assert body["company_name"] == "Beta Foods"
+    assert body["business_date"] == NOW.date().isoformat()
+    cb = body["captured_by"]
+    assert cb["id"] == o.so2.id
+    assert cb["employee_code"] == o.so2.employee_code
+    assert cb["role_code"] == "sales_person"
+    assert cb["reports_to_name"] == o.m2.full_name
+
+
+def test_detail_out_of_scope_is_404(api_client: TestClient, db_session: Session) -> None:
+    o = _org(api_client, db_session)
+    for who, lead_id in (
+        (o.m1, o.lead["so3"]),
+        (o.so1, o.lead["so2"]),
+        (o.m1, generate_ulid()),
+    ):
+        resp = o.c[who.id].get(f"/api/v1/leads/{lead_id}")
+        assert resp.status_code == 404, lead_id
+        assert resp.json()["error"]["code"] == "lead_not_found"
+
+
+def test_counts_by_employee_scoped(api_client: TestClient, db_session: Session) -> None:
+    o = _org(api_client, db_session)
+
+    def counts(who: Any) -> dict[str, int]:
+        resp = o.c[who.id].get("/api/v1/leads/counts-by-employee")
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        assert [i["name"] for i in items] == sorted(i["name"] for i in items)
+        return {i["employee_id"]: i["count"] for i in items}
+
+    assert counts(o.m1) == {o.so1.id: 1, o.so2.id: 1, o.m1.id: 1}
+    assert counts(o.admin) == {o.so1.id: 1, o.so2.id: 1, o.m1.id: 1, o.so3.id: 1}
+    assert counts(o.so1) == {o.so1.id: 1}
+
+
+def test_inactive_lead_hidden_everywhere(api_client: TestClient, db_session: Session) -> None:
+    o = _org(api_client, db_session)
+    hidden = db_session.get(Lead, o.lead["so2"])
+    assert hidden is not None
+    hidden.is_active = False
+    db_session.flush()
+    m1 = o.c[o.m1.id]
+    listing = m1.get("/api/v1/leads")
+    assert o.lead["so2"] not in _ids(listing)
+    assert listing.json()["total"] == 2
+    counts = m1.get("/api/v1/leads/counts-by-employee").json()["items"]
+    assert o.so2.id not in {i["employee_id"] for i in counts}
+    assert m1.get(f"/api/v1/leads/{o.lead['so2']}").status_code == 404
