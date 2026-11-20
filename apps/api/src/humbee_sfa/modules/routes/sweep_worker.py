@@ -3,11 +3,17 @@
 Closes every business date up to the due date that has no successful run, plus any earlier date still
 holding open visits or plans, so days missed while the app was down, a run failed or work synced late
 are caught up on the next tick.
+
+Follow-up jobs (passed in by `main.py`, e.g. reporting's business-profiler day close) run for a
+date only after that date's sweep has succeeded (the sweep closes the day's open visits), and again
+once each time the sweep reruns successfully after them (late work), each with its own run record,
+so one failing does not block the sweep and is retried on its own.
 """
 
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, timedelta
 
 import structlog
@@ -28,6 +34,8 @@ from .sweep import SWEEP_JOB_NAME, run_end_of_day_sweep
 logger = structlog.get_logger("humbee_sfa.routes.sweep_worker")
 
 DEFAULT_POLL_INTERVAL_SECONDS = 30.0
+# `(job_name, body(connection, run_id, business_date) -> rows_affected)`.
+FollowUpJob = tuple[str, Callable[[Connection, str, date], int]]
 CATCH_UP_WINDOW_DAYS = 7
 
 
@@ -54,8 +62,10 @@ class EndOfDaySweepWorker:
         sweep_grace_minutes: int,
         clock: Clock | None = None,
         poll_interval_seconds: float = DEFAULT_POLL_INTERVAL_SECONDS,
+        follow_up_jobs: Sequence[FollowUpJob] = (),
     ) -> None:
         self._tenant_id = tenant_id
+        self._follow_up_jobs = tuple(follow_up_jobs)
         self._session_factory = session_factory
         self._runner = SupervisedJobRunner(engine, session_factory, clock=clock)
         self._clock = clock or SystemClock()
@@ -99,7 +109,7 @@ class EndOfDaySweepWorker:
             day_boundary_hour_ist=self._day_boundary_hour_ist,
             sweep_grace_minutes=self._sweep_grace_minutes,
         )
-        for business_date, rerun_succeeded in self._dates_to_sweep(due_date):
+        for business_date, rerun_succeeded in self._dates_to_sweep(due_date, SWEEP_JOB_NAME):
 
             def sweep_body(connection: Connection, run_id: str, day: date = business_date) -> int:
                 return run_end_of_day_sweep(
@@ -122,8 +132,60 @@ class EndOfDaySweepWorker:
                 logger.exception(
                     "route_sweep_worker_date_failed", business_date=business_date.isoformat()
                 )
+        for job_name, job_body in self._follow_up_jobs:
+            for business_date, rerun_succeeded in self._follow_up_dates(due_date, job_name):
 
-    def _dates_to_sweep(self, due_date: date) -> list[tuple[date, bool]]:
+                def follow_up_body(
+                    connection: Connection,
+                    run_id: str,
+                    day: date = business_date,
+                    body: Callable[[Connection, str, date], int] = job_body,
+                ) -> int:
+                    return body(connection, run_id, day)
+
+                try:
+                    self._runner.run(
+                        job_name=job_name,
+                        tenant_id=self._tenant_id,
+                        business_date=business_date,
+                        rerun_succeeded=rerun_succeeded,
+                        body=follow_up_body,
+                    )
+                except Exception:
+                    logger.exception(
+                        "route_sweep_follow_up_failed",
+                        job_name=job_name,
+                        business_date=business_date.isoformat(),
+                    )
+
+    def _follow_up_dates(self, due_date: date, job_name: str) -> list[tuple[date, bool]]:
+        """`(business_date, rerun_succeeded)` for catch-up window dates whose sweep succeeded and
+        `job_name` either has not succeeded yet, or last succeeded before the sweep's latest
+        successful run finished (late work the sweep picked up): at most one rerun per sweep run."""
+
+        window = _catch_up_window(due_date)
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(SweepRun.sweep_type, SweepRun.business_date, SweepRun.completed_at).where(
+                    SweepRun.tenant_id == self._tenant_id,
+                    SweepRun.sweep_type.in_((SWEEP_JOB_NAME, job_name)),
+                    SweepRun.status == "succeeded",
+                    SweepRun.business_date.in_(window),
+                )
+            ).all()
+        swept = {day: done_at for job, day, done_at in rows if job == SWEEP_JOB_NAME}
+        done = {day: done_at for job, day, done_at in rows if job == job_name}
+        result = []
+        for day in window:
+            if day not in swept:
+                continue
+            if day not in done:
+                result.append((day, False))
+            elif swept[day] and done[day] and swept[day] > done[day]:
+                result.append((day, True))
+        return result
+
+    def _dates_to_sweep(self, due_date: date, job_name: str) -> list[tuple[date, bool]]:
         """`(business_date, rerun_succeeded)` pairs. A date still holding open visits or plans is
         swept even if an earlier run succeeded — work synced late lands on the day it occurred."""
 
@@ -142,15 +204,12 @@ class EndOfDaySweepWorker:
                     .distinct()
                 )
             }
-            window = [
-                due_date - timedelta(days=offset)
-                for offset in range(CATCH_UP_WINDOW_DAYS - 1, -1, -1)
-            ]
+            window = _catch_up_window(due_date)
             succeeded = set(
                 session.scalars(
                     select(SweepRun.business_date).where(
                         SweepRun.tenant_id == self._tenant_id,
-                        SweepRun.sweep_type == SWEEP_JOB_NAME,
+                        SweepRun.sweep_type == job_name,
                         SweepRun.status == "succeeded",
                         SweepRun.business_date.in_(window),
                     )
@@ -158,3 +217,7 @@ class EndOfDaySweepWorker:
             )
         dates = open_dates | {day for day in window if day not in succeeded}
         return [(day, day in open_dates) for day in sorted(dates)]
+
+
+def _catch_up_window(due_date: date) -> list[date]:
+    return [due_date - timedelta(days=offset) for offset in range(CATCH_UP_WINDOW_DAYS - 1, -1, -1)]

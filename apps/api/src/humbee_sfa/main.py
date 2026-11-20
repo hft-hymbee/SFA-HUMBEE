@@ -36,6 +36,10 @@ from humbee_sfa.modules.org.geography_router import router as org_geography_rout
 from humbee_sfa.modules.org.router import router as org_router
 from humbee_sfa.modules.outlets.adapter import OutletVerificationAdapter
 from humbee_sfa.modules.outlets.router import router as outlets_router
+from humbee_sfa.modules.reporting.business_profiler_close import (
+    DAY_CLOSE_JOB_NAME as BP_DAY_CLOSE_JOB_NAME,
+)
+from humbee_sfa.modules.reporting.business_profiler_close import run_business_profiler_day_close
 from humbee_sfa.modules.reporting.projector_worker import ReportingProjectorWorker
 from humbee_sfa.modules.reporting.router import router as reporting_router
 from humbee_sfa.modules.routes.router import router as routes_router
@@ -62,6 +66,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             tenant_id=cfg.tenant_id,
             day_boundary_hour_ist=cfg.day_boundary_hour_ist,
             sweep_grace_minutes=cfg.route_sweep_grace_minutes,
+            follow_up_jobs=[
+                (
+                    BP_DAY_CLOSE_JOB_NAME,
+                    lambda connection, run_id, day: run_business_profiler_day_close(
+                        connection, run_id, tenant_id=cfg.tenant_id, business_date=day
+                    ),
+                )
+            ],
         )
         route_sweep_worker.start()
         reporting_projector_worker = ReportingProjectorWorker(

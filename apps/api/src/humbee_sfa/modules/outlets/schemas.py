@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 PHONE_E164_PATTERN = r"^\+91\d{10}$"
 OTP_CODE_PATTERN = r"^\d{4,8}$"
@@ -118,6 +118,7 @@ class OutletDetailResponse(BaseModel):
     credit_outstanding_paise: int | None
     latitude: float | None
     longitude: float | None
+    business_profiler_pct: int | None = None
     as_of: datetime
 
 
@@ -380,3 +381,16 @@ class CandidateDetailResponse(CandidateListItem):
     operational_address: OperationalAddressBody
     roles: list[CandidateRoleOut]
     version: int
+
+
+class BusinessProfilerPushItem(BaseModel):
+    outlet_id: str = Field(min_length=1, max_length=64)
+    # Null: the outlet has no % in Humbee (no admin user or no profile).
+    business_profiler_pct: int | None = Field(default=None, ge=0, le=100)
+    changed_at: AwareDatetime
+
+
+class BusinessProfilerPushBody(BaseModel):
+    """Humbee's push after a profiler save: the new % of every outlet the change touched."""
+
+    outlets: list[BusinessProfilerPushItem] = Field(min_length=1, max_length=1000)

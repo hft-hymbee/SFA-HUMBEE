@@ -180,6 +180,9 @@ class Settings(BaseSettings):
     # Informational late-punch-in threshold, runtime config not a constant.
     attendance_late_threshold_hour_ist: int = Field(default=9, ge=0, le=23)
     route_sweep_grace_minutes: int = Field(default=5, ge=0)
+    # An outlet's business profiler counts as filled at or above this %. A day frozen by the
+    # day-close job keeps the flags computed under the value in force then.
+    business_profiler_filled_threshold_pct: int = Field(default=80, ge=0, le=100)
     # Reporting projector drain cadence — deliberately per-environment:
     # sbx wants fast feedback while verifying producers against live traffic, prod wants a low
     # steady drumbeat. See `ReportingProjectorWorker`.
