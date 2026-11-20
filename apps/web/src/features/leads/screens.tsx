@@ -4,7 +4,7 @@ import { Button, EmptyState, ErrorState, FAB, TextField } from "humbee-design-sy
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { ulid } from "ulid";
-import { ApiClientError, createIdempotencyKey } from "@/src/shared/api";
+import { createIdempotencyKey } from "@/src/shared/api";
 import { useConnectivity } from "@/src/shared/capabilities";
 import { useDebouncedSearchQuery } from "@/src/shared/state";
 import { SpCard, SpInlineAlert, SpScreen, SpSectionLabel, SpStickyFooter } from "@/src/features/shell/components";
@@ -23,6 +23,7 @@ import {
   validateLeadDraft,
   type LeadFormDraft,
 } from "./form-state";
+import { isLeadId, isNotFound } from "./lead-id";
 import { useActorId, useCaptureLead, useLead, useLeads } from "./hooks";
 import { LeadFilterBar, LeadListBody } from "./list-parts";
 import styles from "./leads.module.css";
@@ -232,10 +233,6 @@ export function MyLeadsScreen() {
   );
 }
 
-function isNotFound(error: unknown) {
-  return error instanceof ApiClientError && error.status === 404;
-}
-
 export function LeadDetailScreen({ leadId }: { leadId: string }) {
   const router = useRouter();
   const { isOnline } = useConnectivity();
@@ -243,7 +240,7 @@ export function LeadDetailScreen({ leadId }: { leadId: string }) {
   const lead = useLead(leadId);
   const title = "Lead details";
 
-  if (!leadId || (lead.isError && isNotFound(lead.error))) {
+  if (!isLeadId(leadId) || (lead.isError && isNotFound(lead.error))) {
     return (
       <SpScreen title={title} back offline={!isOnline}>
         <EmptyState

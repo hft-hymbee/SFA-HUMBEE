@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import time_machine
@@ -12,6 +12,11 @@ from tests.fixtures import seed
 from tests.fixtures.auth import Authed, login
 
 from humbee_sfa.core.conventions import generate_ulid
+from humbee_sfa.core.security import encrypt_phone, hmac_phone
+from humbee_sfa.core.settings import get_settings
+from humbee_sfa.modules.org import repository as org_repository
+from humbee_sfa.modules.org.models import Employee
+from humbee_sfa.modules.org.scope import maintenance_scope
 from humbee_sfa.modules.targets import repository
 from humbee_sfa.modules.targets.models import Lead
 
@@ -267,3 +272,147 @@ def test_inactive_lead_hidden_everywhere(api_client: TestClient, db_session: Ses
     counts = m1.get("/api/v1/leads/counts-by-employee").json()["items"]
     assert o.so2.id not in {i["employee_id"] for i in counts}
     assert m1.get(f"/api/v1/leads/{o.lead['so2']}").status_code == 404
+
+
+def test_capture_rejects_blank_or_too_short_after_trim(
+    api_client: TestClient, db_session: Session
+) -> None:
+    sp = seed.employee(db_session, "sales_person", manager=seed.employee(db_session, "manager"))
+    c = login(api_client, sp)
+    # The DB checks use length(btrim(x)) >= 2, so padding must never reach it as a 500.
+    for field in ("company_name", "name"):
+        for bad in ("   ", " a"):
+            resp = c.post("/api/v1/leads", _lead_body(**{field: bad}))
+            assert resp.status_code == 422, (field, bad)
+
+
+def test_capture_trims_padded_names(api_client: TestClient, db_session: Session) -> None:
+    sp = seed.employee(db_session, "sales_person", manager=seed.employee(db_session, "manager"))
+    resp = login(api_client, sp).post(
+        "/api/v1/leads", _lead_body(company_name="  Kumar Oils  ", name="  Ravi Kumar ")
+    )
+    assert resp.status_code == 201, resp.text
+    lead = db_session.scalars(select(Lead)).one()
+    assert lead.company_name == "Kumar Oils"
+    assert lead.prospect_name == "Ravi Kumar"
+    assert lead.associated_manufacturer_names == ["Kumar Oils"]
+
+
+def test_capture_accepts_company_name_of_exactly_120(
+    api_client: TestClient, db_session: Session
+) -> None:
+    sp = seed.employee(db_session, "sales_person", manager=seed.employee(db_session, "manager"))
+    resp = login(api_client, sp).post("/api/v1/leads", _lead_body(company_name="X" * 120))
+    assert resp.status_code == 201, resp.text
+
+
+def test_detail_sales_officer_opens_own_lead(api_client: TestClient, db_session: Session) -> None:
+    o = _org(api_client, db_session)
+    resp = o.c[o.so1.id].get(f"/api/v1/leads/{o.lead['so1']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["captured_by"]["id"] == o.so1.id
+
+
+def test_detail_admin_opens_lead_from_any_tree(api_client: TestClient, db_session: Session) -> None:
+    o = _org(api_client, db_session)
+    resp = o.c[o.admin.id].get(f"/api/v1/leads/{o.lead['so3']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["captured_by"]["id"] == o.so3.id
+
+
+def test_list_is_newest_first_across_occurred_at(
+    api_client: TestClient, db_session: Session, travel: time_machine.Coordinates
+) -> None:
+    sp = seed.employee(db_session, "sales_person", manager=seed.employee(db_session, "manager"))
+    c = login(api_client, sp)
+    first = _capture(c, "First Co")
+    travel.move_to(NOW + timedelta(hours=2))
+    c = login(api_client, sp)
+    second = _capture(c, "Second Co")
+    travel.move_to(NOW + timedelta(hours=4))
+    c = login(api_client, sp)
+    third = _capture(c, "Third Co")
+    resp = c.get("/api/v1/leads")
+    assert [i["id"] for i in resp.json()["items"]] == [third, second, first]
+
+
+def _deactivate(db: Session, employee: Employee) -> None:
+    org_repository.deactivate_employee(
+        db,
+        scope=maintenance_scope(get_settings().tenant_id),
+        employee=employee,
+        at=datetime.now(UTC),
+    )
+
+
+def test_deactivated_capturer_keeps_name_everywhere(
+    api_client: TestClient, db_session: Session
+) -> None:
+    o = _org(api_client, db_session)
+    _deactivate(db_session, o.so1)
+    m1 = o.c[o.m1.id]
+    listing = m1.get("/api/v1/leads").json()["items"]
+    item = next(i for i in listing if i["id"] == o.lead["so1"])
+    assert item["captured_by"]["name"] == o.so1.full_name
+    detail = m1.get(f"/api/v1/leads/{o.lead['so1']}").json()
+    assert detail["captured_by"]["name"] == o.so1.full_name
+    counts = m1.get("/api/v1/leads/counts-by-employee").json()["items"]
+    assert {i["employee_id"]: i["name"] for i in counts}[o.so1.id] == o.so1.full_name
+
+
+def test_manager_can_filter_to_deactivated_report(
+    api_client: TestClient, db_session: Session
+) -> None:
+    o = _org(api_client, db_session)
+    _deactivate(db_session, o.so1)
+    resp = o.c[o.m1.id].get("/api/v1/leads", employee_id=o.so1.id)
+    assert _ids(resp) == {o.lead["so1"]}
+
+
+def test_unresolvable_capturer_reads_former_employee(
+    api_client: TestClient, db_session: Session
+) -> None:
+    o = _org(api_client, db_session)
+    ghost_id = generate_ulid()
+    lead = repository.insert_lead(
+        db_session,
+        lead_id=generate_ulid(),
+        tenant_id=get_settings().tenant_id,
+        captured_by_employee_id=ghost_id,
+        prospect_name="Orphan",
+        contact_designation=None,
+        contact_mobile_hmac=hmac_phone("+919845099999"),
+        contact_mobile_enc=encrypt_phone("+919845099999"),
+        contact_mobile_last4="0000",
+        contact_email="o@example.com",
+        company_name="Orphan Co",
+        associated_manufacturer_names=["Orphan Co"],
+        annual_turnover_cr=None,
+        head_office_location=None,
+        notes=None,
+        occurred_at=NOW,
+        received_at=NOW,
+        business_date=NOW.date(),
+    )
+    db_session.commit()
+    admin = o.c[o.admin.id]
+    items = admin.get("/api/v1/leads").json()["items"]
+    assert next(i for i in items if i["id"] == lead.id)["captured_by"] == {
+        "id": ghost_id,
+        "name": "Former employee",
+    }
+    cb = admin.get(f"/api/v1/leads/{lead.id}").json()["captured_by"]
+    assert cb == {
+        "id": ghost_id,
+        "name": "Former employee",
+        "employee_code": None,
+        "role_code": None,
+        "reports_to_name": None,
+    }
+
+
+def test_list_query_bounds_are_422(api_client: TestClient, db_session: Session) -> None:
+    sp = seed.employee(db_session, "sales_person", manager=seed.employee(db_session, "manager"))
+    c = login(api_client, sp)
+    for params in ({"limit": 0}, {"limit": 51}, {"q": "x" * 121}):
+        assert c.get("/api/v1/leads", **params).status_code == 422, params

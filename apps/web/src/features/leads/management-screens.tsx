@@ -13,7 +13,6 @@ import {
 import type { EmployeeResponse } from "@humbee/api-contract";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
-import { ApiClientError } from "@/src/shared/api";
 import { useConnectivity } from "@/src/shared/capabilities";
 import { useDebouncedSearchQuery } from "@/src/shared/state";
 import { useEmployees } from "@/src/features/management/organization-hooks";
@@ -29,6 +28,7 @@ import {
   type LeadFilters,
 } from "./filters";
 import { leadRoleLabel } from "./format";
+import { isLeadId, isNotFound } from "./lead-id";
 import { useActorId, useLead, useLeadCountsByEmployee, useLeads } from "./hooks";
 import { LeadFilterBar, LeadInitials, LeadListBody } from "./list-parts";
 import type { LeadEmployeeCount } from "./service";
@@ -300,7 +300,6 @@ function CapturedByTrigger({
           )}
           color="neutral"
           onClick={onClear}
-          style={{ width: 32, height: 32 }}
         />
       ) : (
         <Icon name="KeyboardArrowDown" size={20} color="var(--color-text-secondary)" />
@@ -326,8 +325,18 @@ export function ManagementLeadsScreen() {
   const options = useCapturerOptions();
   const [sheetOpen, setSheetOpen] = useState(false);
   // Local state is the source of truth; the URL mirrors it so filters survive opening a lead.
-  const [filters, setFilters] = useState<LeadFilters>(
+  const [rawFilters, setFilters] = useState<LeadFilters>(
     () => leadFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
+  );
+  // A stale or hand-edited `emp` that matches no one the viewer can see falls back to "All" (and the URL follows)
+  // instead of a load error, once the employee options have loaded.
+  const unknownEmployee = options.ready
+    && rawFilters.employeeId !== ""
+    && rawFilters.employeeId !== options.actorId
+    && options.nameFor(rawFilters.employeeId) === null;
+  const filters = useMemo(
+    () => (unknownEmployee ? { ...rawFilters, employeeId: "" } : rawFilters),
+    [rawFilters, unknownEmployee],
   );
   const debouncedQ = useDebouncedSearchQuery(filters.q);
   const applied = useMemo(() => ({ ...filters, q: debouncedQ }), [filters, debouncedQ]);
@@ -398,10 +407,6 @@ export function ManagementLeadsScreen() {
   );
 }
 
-function isNotFound(error: unknown) {
-  return error instanceof ApiClientError && error.status === 404;
-}
-
 export function ManagementLeadDetailScreen() {
   const router = useManagementRouter();
   const searchParams = useSearchParams();
@@ -410,7 +415,7 @@ export function ManagementLeadDetailScreen() {
   const lead = useLead(leadId);
 
   let body: ReactNode;
-  if (!leadId || (lead.isError && isNotFound(lead.error))) {
+  if (!isLeadId(leadId) || (lead.isError && isNotFound(lead.error))) {
     body = (
       <EmptyState
         icon="Warning"

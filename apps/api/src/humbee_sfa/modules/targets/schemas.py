@@ -236,6 +236,12 @@ class CaptureLeadBody(BaseModel):
     head_office_location: str | None = Field(default=None, max_length=255)
     message: str | None = Field(default=None, max_length=500)
 
+    @field_validator("name", "company_name", mode="before")
+    @classmethod
+    def _trim_names(cls, value: Any) -> Any:
+        # The DB checks are length(btrim(x)) >= 2, so trim before min_length runs and store the trimmed text.
+        return value.strip() if isinstance(value, str) else value
+
     @field_validator("designation", mode="before")
     @classmethod
     def _normalise_designation(cls, value: Any) -> Any:

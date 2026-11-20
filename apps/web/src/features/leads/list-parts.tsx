@@ -251,7 +251,19 @@ export function LeadListBody({
         ))}
       </div>
       <div className={styles.listFooter}>
-        {query.hasNextPage ? (
+        {query.isFetchNextPageError ? (
+          <>
+            <p className={styles.endNote} role="alert">Couldn&apos;t load more leads.</p>
+            <Button
+              variant="outlined"
+              color="primary"
+              loading={query.isFetchingNextPage}
+              label="Try again"
+              onClick={() => void query.fetchNextPage()}
+              style={{ width: "100%" }}
+            />
+          </>
+        ) : query.hasNextPage ? (
           <Button
             variant="outlined"
             color="primary"

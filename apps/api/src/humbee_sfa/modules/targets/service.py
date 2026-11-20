@@ -710,6 +710,7 @@ class TargetService:
         )
         if lead is None:
             raise ApiError(404, "lead_not_found", "Lead was not found.")
+        # Safe: the id comes from a lead that already passed the caller's scope; only that capturer's profile is read.
         capturer = org_service.get_employee_dimension_fields(
             self._session,
             scope=internal_routing_scope(claims.tenant_id),

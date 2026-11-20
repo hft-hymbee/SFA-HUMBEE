@@ -10,6 +10,7 @@ import {
 import { useAppMutation } from "@/src/shared/state";
 import { createActorQueryKeys } from "@/src/shared/state/query-keys";
 import { resolveLeadDateWindow, type LeadFilters } from "./filters";
+import { isLeadId } from "./lead-id";
 import { leadsService, type CaptureLeadBody } from "./service";
 
 const LEADS_PAGE_SIZE = 20;
@@ -63,7 +64,7 @@ export function useLead(id: string) {
   return useQuery({
     queryKey: leadKeys.detail(actorId, id),
     queryFn: ({ signal }) => leadsService.detail(id, signal),
-    enabled: Boolean(id),
+    enabled: isLeadId(id),
   });
 }
 
