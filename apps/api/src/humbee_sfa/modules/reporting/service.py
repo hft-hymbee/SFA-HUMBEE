@@ -35,7 +35,7 @@ from humbee_sfa.modules.org.scope import (
 )
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.modules.outlets.service import OutletReadService
-from humbee_sfa.modules.reporting import repository, schemas
+from humbee_sfa.modules.reporting import business_profiler, repository, schemas
 from humbee_sfa.modules.reporting.models import FactEmployeeDay
 from humbee_sfa.modules.routes.service import RouteService
 from humbee_sfa.modules.targets.service import TargetService
@@ -1144,6 +1144,20 @@ class ReportingService:
             mom_pct=_mom_pct(mtd_paise, lmtd_paise),
         )
 
+    def _bp_filled(self, tenant_id: str, outlet_ids: set[str]) -> dict[str, bool]:
+        """Current BP filled status for a screen; a Humbee gap is flagged in `degraded`."""
+
+        filled, complete = business_profiler.filled_by_outlet(
+            self._session,
+            settings=self._settings,
+            tenant_id=tenant_id,
+            outlet_ids=outlet_ids,
+            budget_s=business_profiler.SCREEN_BUDGET_S,
+        )
+        if not complete:
+            self._degraded.append({"source": "business_profiler", "reason": "humbee_unavailable"})
+        return filled
+
     def _degraded_out(self) -> list[schemas.DegradedSourceOut]:
         return [
             schemas.DegradedSourceOut(source=item["source"], reason=item["reason"])
@@ -1715,6 +1729,18 @@ class ReportingService:
                 scope, windows.metrics_from, windows.metrics_to, None
             ),
         )
+        bp_visited = business_profiler.visited_by_employee_day(
+            self._session,
+            tenant_id=claims.tenant_id,
+            employee_ids=[claims.employee_id],
+            from_date=windows.metrics_from,
+            to_date=windows.metrics_to,
+        )
+        bp_counts = business_profiler.count(
+            bp_visited,
+            self._bp_filled(claims.tenant_id, business_profiler.outlets_of(bp_visited)),
+            [claims.employee_id],
+        )
 
         return schemas.SpDashboardKpisResponse(
             period=period,
@@ -1736,6 +1762,8 @@ class ReportingService:
                 coverage_pct=coverage_pct if planned_visits > 0 else None,
                 productivity_pct=_productivity_pct(productive_visits, visits_total),
                 outlets_ordered=outlets_ordered,
+                bp_filled=bp_counts.filled,
+                bp_not_filled=bp_counts.not_filled,
             ),
             degraded=self._degraded_out(),
         ).model_dump(mode="json")
@@ -2123,7 +2151,10 @@ class ReportingService:
         reporting nodes, not field-execution nodes, so their own field activity is excluded.
         UTC unions outlet sets rather than summing distinct counts, which keeps a parent's
         number equal to the roll-up of the children the caller is about to drill into.
-        The live activity timeline stays on the coverage endpoints.
+        `mtd` runs from the 1st of the business date's month to the business date; its SC/TC/PC
+        take the business date's share from the same live values as `today`. BP counts distinct
+        visited outlets in each window by their current %. The live activity timeline stays on the
+        coverage endpoints.
         """
         scope = ScopeResolver.resolve_from_claims(claims, OrgResource.ACTIVITY_DATA)
         expected_path = {Scope.SELF: "self", Scope.OWN_TREE: "team", Scope.ORG: "org"}.get(
@@ -2173,6 +2204,18 @@ class ReportingService:
         today_facts, today_outlets = facts(as_of_date)
         mtd_facts, mtd_outlets = facts(month_start)
 
+        # BP: the outlets visited in each window, each classified by its current % (one lookup
+        # over the month, which contains the day).
+        bp_mtd = business_profiler.visited_by_employee_day(
+            self._session,
+            tenant_id=scope.tenant_id,
+            employee_ids=all_leaf_ids,
+            from_date=month_start,
+            to_date=as_of_date,
+        ) if all_leaf_ids else {}
+        bp_today = {key: outlets for key, outlets in bp_mtd.items() if key[1] == as_of_date}
+        bp_filled = self._bp_filled(scope.tenant_id, business_profiler.outlets_of(bp_mtd))
+
         live: dict[str, tuple[int | None, int | None, int | None]] = {}
         if scope.scope is Scope.SELF and all_leaf_ids:
             planned, visited, productive, _pct = self._sp_planned_coverage(
@@ -2192,6 +2235,15 @@ class ReportingService:
                     None,
                 )
 
+        # MTD = the earlier days from facts + the selected day as `today` shows it (live where known),
+        # so MTD never trails the day while the projector catches up.
+        for leaf_id, (planned, visited, productive) in live.items():
+            today_fact = today_facts.get(leaf_id) or {"tc": 0, "pc": 0, "sc": 0}
+            mtd = mtd_facts.setdefault(leaf_id, {"tc": 0, "pc": 0, "sc": 0})
+            for key, value in (("sc", planned), ("tc", visited), ("pc", productive)):
+                if value is not None:
+                    mtd[key] += value - today_fact[key]
+
         view = schemas.CallsKpiViewOut(
             scope=scope_path,
             root=(
@@ -2208,11 +2260,12 @@ class ReportingService:
         return schemas.CallsKpiResponse(
             view=view,
             business_date=as_of_date,
+            degraded=self._degraded_out(),
             today=self._build_calls_window(
-                children, leaf_sets, root_leaves, today_facts, today_outlets, live,
+                children, leaf_sets, root_leaves, today_facts, today_outlets, live, (bp_today, bp_filled),
             ),
             mtd=self._build_calls_window(
-                children, leaf_sets, root_leaves, mtd_facts, mtd_outlets, {},
+                children, leaf_sets, root_leaves, mtd_facts, mtd_outlets, {}, (bp_mtd, bp_filled),
             ),
         ).model_dump(mode="json")
 
@@ -2289,6 +2342,7 @@ class ReportingService:
         facts: dict[str, dict[str, int]],
         outlets: dict[str, set[str]],
         live: dict[str, tuple[int | None, int | None, int | None]],
+        bp: tuple[business_profiler.VisitedOutlets, dict[str, bool]],
     ) -> schemas.CallsKpiWindowOut:
         def aggregate(leaf_ids: list[str]) -> schemas.CallsKpiTotalsOut:
             tc = pc = sc = 0
@@ -2300,7 +2354,15 @@ class ReportingService:
                 pc += productive if productive is not None else fact["pc"]
                 sc += planned if planned is not None else fact["sc"]
                 covered |= outlets.get(leaf_id) or set()
-            return schemas.CallsKpiTotalsOut(tc=tc, pc=pc, sc=sc, utc=len(covered))
+            bp_counts = business_profiler.count(*bp, leaf_ids)
+            return schemas.CallsKpiTotalsOut(
+                tc=tc,
+                pc=pc,
+                sc=sc,
+                utc=len(covered),
+                bp_filled=bp_counts.filled,
+                bp_not_filled=bp_counts.not_filled,
+            )
 
         items = []
         for child in children:
@@ -2318,6 +2380,8 @@ class ReportingService:
                     pc=values.pc,
                     sc=values.sc,
                     utc=values.utc,
+                    bp_filled=values.bp_filled,
+                    bp_not_filled=values.bp_not_filled,
                 )
             )
         return schemas.CallsKpiWindowOut(items=items, totals=aggregate(root_leaves))

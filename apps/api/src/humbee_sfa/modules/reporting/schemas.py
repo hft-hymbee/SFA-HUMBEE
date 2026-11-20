@@ -178,6 +178,10 @@ class SpDashboardMetricsOut(BaseModel):
     coverage_pct: int | None = None
     productivity_pct: int = 0
     outlets_ordered: int = 0
+    # Distinct outlets visited in the period (planned and unplanned) whose current business profiler %
+    # is >= the threshold, and the rest. An outlet with no % counts as not filled.
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class SpDashboardKpisResponse(BaseModel):
@@ -319,6 +323,10 @@ class CallsKpiRowOut(BaseModel):
     pc: int
     sc: int
     utc: int
+    # Distinct outlets visited in the window (planned and unplanned) whose current business profiler %
+    # is >= the threshold, and the rest. An outlet with no % counts as not filled.
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class CallsKpiTotalsOut(BaseModel):
@@ -326,6 +334,8 @@ class CallsKpiTotalsOut(BaseModel):
     pc: int
     sc: int
     utc: int
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class CallsKpiWindowOut(BaseModel):
@@ -344,4 +354,5 @@ class CallsKpiResponse(BaseModel):
     business_date: date
     today: CallsKpiWindowOut
     mtd: CallsKpiWindowOut
+    degraded: list[DegradedSourceOut] = Field(default_factory=list)
 
