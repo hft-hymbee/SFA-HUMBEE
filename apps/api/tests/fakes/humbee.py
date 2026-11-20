@@ -71,6 +71,7 @@ class Outlet:
     gstin: str | None = None
     pan: str | None = None
     business_profiler_pct: int | None = 0
+    manufacturers: str | None = None  # Humbee's codes, e.g. "DBC,TAG"
 
 
 @dataclass
@@ -198,7 +199,7 @@ class FakeHumbee:
             for o in self.outlets.values()
             if o.district_id in district_ids
             and (not categories or o.shop_category_id in categories)
-            and query in o.name.lower()
+            and any(query in (value or "").lower() for value in (o.name, o.gstin, o.pan))
         ]
         start = int(call.params.get("cursor") or 0)
         end = start + min(int(call.params["limit"]), self.outlet_page_size)
@@ -217,6 +218,7 @@ class FakeHumbee:
                             "shop_category_id": o.shop_category_id,
                             "gstin": o.gstin,
                             "pan": o.pan,
+                            "manufacturers_associated_with": o.manufacturers,
                         }
                         for o in page
                         if o.district_id == district_id
