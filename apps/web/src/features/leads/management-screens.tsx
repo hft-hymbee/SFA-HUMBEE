@@ -406,7 +406,6 @@ export function ManagementLeadDetailScreen() {
   const router = useManagementRouter();
   const searchParams = useSearchParams();
   const { isOnline } = useConnectivity();
-  const viewerId = useActorId();
   const leadId = searchParams.get("id") ?? "";
   const lead = useLead(leadId);
 
@@ -437,7 +436,7 @@ export function ManagementLeadDetailScreen() {
       />
     );
   } else {
-    body = <LeadDetailBody lead={lead.data} viewerIsCapturer={lead.data.captured_by.id === viewerId} />;
+    body = <LeadDetailBody lead={lead.data} viewerIsCapturer={false} />;
   }
 
   return (
