@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, IconButton, StandardChip, TextField } from "humbee-design-system";
+import { Button, TextField } from "humbee-design-system";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent, type ReactNode } from "react";
 import { ulid } from "ulid";
@@ -11,11 +11,9 @@ import {
   buildCaptureLeadBody,
   createEmptyLeadDraft,
   validateLeadDraft,
-  withManufacturerName,
   type LeadFormDraft,
 } from "./form-state";
 import { useCaptureLead } from "./hooks";
-import styles from "./leads.module.css";
 
 function LeadSection({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -42,14 +40,6 @@ export function CaptureLeadScreen() {
   const updateDraft = (patch: Partial<LeadFormDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const inputValue = (event: ChangeEvent) => (event.target as HTMLInputElement).value;
 
-  const addManufacturerName = () => updateDraft({
-    manufacturerNames: withManufacturerName(draft.manufacturerNames, draft.manufacturerNameInput),
-    manufacturerNameInput: "",
-  });
-  const removeManufacturerName = (name: string) => updateDraft({
-    manufacturerNames: draft.manufacturerNames.filter((existing) => existing !== name),
-  });
-
   const submitLead = () => {
     if (Object.values(errors).some(Boolean) || capture.isPending || !writesEnabled) {
       setShowErrors(true);
@@ -64,49 +54,36 @@ export function CaptureLeadScreen() {
   return (
     <SpScreen title="Capture lead" back offline={!writesEnabled}>
       <div className="sp-content">
-        <LeadSection label="Manufacturers">
-          <form
-            className={styles.manufacturerForm}
-            onSubmit={(event) => {
-              event.preventDefault();
-              addManufacturerName();
-            }}
-          >
-            <TextField
-              label="Manufacturer names"
-              placeholder="Type a name and tap +"
-              required
-              fullWidth
-              value={draft.manufacturerNameInput}
-              error={shouldShow("manufacturerNames")}
-              helperText={shouldShow("manufacturerNames") ? errors.manufacturerNames : "Brands not yet on Humbee."}
-              inputProps={{ autoCapitalize: "words", enterKeyHint: "done" }}
-              endAdornment={
-                <IconButton
-                  iconName="Add"
-                  color="primary"
-                  disabled={!draft.manufacturerNameInput.trim()}
-                  onClick={addManufacturerName}
-                  style={{ marginBlock: "calc(-1 * (var(--space-sm) + var(--space-xs) / 4))" }}
-                />
-              }
-              onChange={(event) => updateDraft({ manufacturerNameInput: inputValue(event) })}
-            />
-            {draft.manufacturerNames.length > 0 ? (
-              <div className={styles.chips}>
-                {draft.manufacturerNames.map((name) => (
-                  <StandardChip
-                    key={name}
-                    label={name}
-                    selected
-                    showDelete
-                    capitalise={false}
-                    onChange={() => removeManufacturerName(name)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </form>
+        <LeadSection label="Manufacturer">
+          <TextField
+            label="Manufacturer name"
+            placeholder="Registered company name"
+            required
+            fullWidth
+            value={draft.companyName}
+            error={shouldShow("companyName")}
+            helperText={shouldShow("companyName") ? errors.companyName : "A manufacturer not yet on Humbee."}
+            inputProps={{ autoCapitalize: "words", autoComplete: "organization", maxLength: 120 }}
+            onChange={(event) => updateDraft({ companyName: inputValue(event) })}
+          />
+          <TextField
+            label="Annual turnover (₹ cr)"
+            placeholder="Approx. turnover, e.g. 25"
+            fullWidth
+            value={draft.annualTurnoverCr}
+            error={shouldShow("annualTurnoverCr")}
+            helperText={shouldShow("annualTurnoverCr") ? errors.annualTurnoverCr : undefined}
+            inputProps={{ inputMode: "decimal" }}
+            onChange={(event) => updateDraft({ annualTurnoverCr: inputValue(event) })}
+          />
+          <TextField
+            label="Head office location"
+            placeholder="City or area"
+            fullWidth
+            value={draft.headOfficeLocation}
+            inputProps={{ autoCapitalize: "words" }}
+            onChange={(event) => updateDraft({ headOfficeLocation: inputValue(event) })}
+          />
         </LeadSection>
 
         <LeadSection label="Contact">
@@ -152,38 +129,6 @@ export function CaptureLeadScreen() {
             helperText={shouldShow("email") ? errors.email : undefined}
             inputProps={{ inputMode: "email", type: "email", autoCapitalize: "none", autoCorrect: "off", autoComplete: "email" }}
             onChange={(event) => updateDraft({ email: inputValue(event) })}
-          />
-        </LeadSection>
-
-        <LeadSection label="Company">
-          <TextField
-            label="Company name"
-            placeholder="Registered company name"
-            required
-            fullWidth
-            value={draft.companyName}
-            error={shouldShow("companyName")}
-            helperText={shouldShow("companyName") ? errors.companyName : undefined}
-            inputProps={{ autoCapitalize: "words", autoComplete: "organization" }}
-            onChange={(event) => updateDraft({ companyName: inputValue(event) })}
-          />
-          <TextField
-            label="Annual turnover (₹ cr)"
-            placeholder="Approx. turnover, e.g. 25"
-            fullWidth
-            value={draft.annualTurnoverCr}
-            error={shouldShow("annualTurnoverCr")}
-            helperText={shouldShow("annualTurnoverCr") ? errors.annualTurnoverCr : undefined}
-            inputProps={{ inputMode: "decimal" }}
-            onChange={(event) => updateDraft({ annualTurnoverCr: inputValue(event) })}
-          />
-          <TextField
-            label="Head office location"
-            placeholder="City or area"
-            fullWidth
-            value={draft.headOfficeLocation}
-            inputProps={{ autoCapitalize: "words" }}
-            onChange={(event) => updateDraft({ headOfficeLocation: inputValue(event) })}
           />
         </LeadSection>
 

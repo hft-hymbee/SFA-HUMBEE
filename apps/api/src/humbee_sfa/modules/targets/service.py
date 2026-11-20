@@ -621,7 +621,7 @@ class TargetService:
                     contact_mobile_last4=body.mobile[-4:],
                     contact_email=body.email,
                     company_name=body.company_name,
-                    associated_manufacturer_names=body.associated_manufacturers,
+                    associated_manufacturer_names=[body.company_name],
                     annual_turnover_cr=body.annual_turnover_cr,
                     head_office_location=body.head_office_location,
                     notes=body.message,
@@ -665,7 +665,6 @@ class TargetService:
             mobile_last4=lead.contact_mobile_last4,
             email=lead.contact_email,
             company_name=lead.company_name,
-            associated_manufacturers=lead.associated_manufacturer_names,
             annual_turnover_cr=(
                 float(lead.annual_turnover_cr) if lead.annual_turnover_cr is not None else None
             ),

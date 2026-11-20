@@ -2101,7 +2101,7 @@
         "type": "object"
       },
       "CaptureLeadBody": {
-        "description": "A salesperson captures a prospective business as a lead for follow-up. Leads are\nfor manufacturers not on Humbee, so they are named as free text \u2014 at least one \u2014 rather than\npicked from the Humbee roster.",
+        "description": "A salesperson captures a prospective business as a lead for follow-up. A lead is exactly one\nmanufacturer not on Humbee, named as free text by `company_name` rather than picked from the\nHumbee roster.",
         "properties": {
           "annual_turnover_cr": {
             "anyOf": [
@@ -2116,18 +2116,8 @@
             ],
             "title": "Annual Turnover Cr"
           },
-          "associated_manufacturers": {
-            "items": {
-              "maxLength": 120,
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "title": "Associated Manufacturers",
-            "type": "array"
-          },
           "company_name": {
-            "maxLength": 255,
+            "maxLength": 120,
             "minLength": 2,
             "title": "Company Name",
             "type": "string"
@@ -2203,8 +2193,7 @@
           "name",
           "mobile",
           "email",
-          "company_name",
-          "associated_manufacturers"
+          "company_name"
         ],
         "title": "CaptureLeadBody",
         "type": "object"
@@ -5118,13 +5107,6 @@
             ],
             "title": "Annual Turnover Cr"
           },
-          "associated_manufacturers": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Associated Manufacturers",
-            "type": "array"
-          },
           "captured_at": {
             "format": "date-time",
             "title": "Captured At",
@@ -5197,7 +5179,6 @@
           "mobile_last4",
           "email",
           "company_name",
-          "associated_manufacturers",
           "annual_turnover_cr",
           "head_office_location",
           "message",

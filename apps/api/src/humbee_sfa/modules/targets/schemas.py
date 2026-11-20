@@ -18,7 +18,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Matches `targets_manufacturer_lines.humbee_manufacturer_id varchar(64)`. Without the bound an
 # over-long id reaches Postgres as a DataError — which is not an IntegrityError, so nothing
@@ -221,21 +221,17 @@ class LeadStatus(StrEnum):
     REJECTED = "rejected"
 
 
-ManufacturerName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-
-
 class CaptureLeadBody(BaseModel):
-    """A salesperson captures a prospective business as a lead for follow-up. Leads are
-    for manufacturers not on Humbee, so they are named as free text — at least one — rather than
-    picked from the Humbee roster."""
+    """A salesperson captures a prospective business as a lead for follow-up. A lead is exactly one
+    manufacturer not on Humbee, named as free text by `company_name` rather than picked from the
+    Humbee roster."""
 
     id: str | None = Field(default=None, min_length=26, max_length=26)
     name: str = Field(min_length=2, max_length=120)
     designation: str | None = Field(default=None, max_length=120)
     mobile: str = Field(pattern=PHONE_E164_PATTERN)
     email: str = Field(pattern=EMAIL_PATTERN, max_length=255)
-    company_name: str = Field(min_length=2, max_length=255)
-    associated_manufacturers: list[ManufacturerName] = Field(min_length=1)
+    company_name: str = Field(min_length=2, max_length=120)
     annual_turnover_cr: float | None = Field(default=None, gt=0, le=1_000_000)
     head_office_location: str | None = Field(default=None, max_length=255)
     message: str | None = Field(default=None, max_length=500)
@@ -244,14 +240,6 @@ class CaptureLeadBody(BaseModel):
     @classmethod
     def _normalise_designation(cls, value: Any) -> Any:
         return (value.strip() or None) if isinstance(value, str) else value
-
-    @field_validator("associated_manufacturers")
-    @classmethod
-    def _dedupe_manufacturers(cls, value: list[str]) -> list[str]:
-        unique: dict[str, str] = {}
-        for name in value:
-            unique.setdefault(name.casefold(), name)
-        return list(unique.values())
 
     @field_validator("mobile", mode="before")
     @classmethod
@@ -271,7 +259,6 @@ class LeadOut(BaseModel):
     mobile_last4: str
     email: str
     company_name: str
-    associated_manufacturers: list[str]
     annual_turnover_cr: float | None
     head_office_location: str | None
     message: str | None

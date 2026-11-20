@@ -1240,19 +1240,15 @@ export type CandidateRoleOut = {
 /**
  * CaptureLeadBody
  *
- * A salesperson captures a prospective business as a lead for follow-up. Leads are
- * for manufacturers not on Humbee, so they are named as free text — at least one — rather than
- * picked from the Humbee roster.
+ * A salesperson captures a prospective business as a lead for follow-up. A lead is exactly one
+ * manufacturer not on Humbee, named as free text by `company_name` rather than picked from the
+ * Humbee roster.
  */
 export type CaptureLeadBody = {
     /**
      * Annual Turnover Cr
      */
     annual_turnover_cr?: number | null;
-    /**
-     * Associated Manufacturers
-     */
-    associated_manufacturers: Array<string>;
     /**
      * Company Name
      */
@@ -2939,10 +2935,6 @@ export type LeadOut = {
      * Annual Turnover Cr
      */
     annual_turnover_cr: number | null;
-    /**
-     * Associated Manufacturers
-     */
-    associated_manufacturers: Array<string>;
     /**
      * Captured At
      */
