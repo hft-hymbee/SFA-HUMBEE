@@ -49,6 +49,7 @@ import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { LogoutConfirmSheet } from "@/src/features/identity/screens";
+import { ManagementLeadDetailScreen, ManagementLeadsScreen } from "@/src/features/leads/management-screens";
 import {
   flattenApprovals,
   useApprovalDecision,
@@ -4039,6 +4040,7 @@ function More() {
       items: [
         { icon: "LocationMarker", label: "Beat management", href: "/mgmt/beats" },
         { icon: "ShoppingCartOutlined", label: "Orders", href: "/mgmt/dashboard-drill" },
+        { icon: "FormatListBulleted", label: "Leads", href: "/mgmt/leads" },
       ],
     },
     {
@@ -4063,6 +4065,7 @@ function More() {
         { icon: "LocationMarker", label: "Org coverage", href: "/mgmt/coverage" },
         { icon: "LocationMarker", label: "Beat management", href: "/mgmt/beats" },
         { icon: "Schedule", label: "Attendance", href: "/mgmt/attendance" },
+        { icon: "FormatListBulleted", label: "Leads", href: "/mgmt/leads" },
       ],
     },
     {
@@ -4201,6 +4204,8 @@ export function ManagementFeaturePage({ view }: { view: ManagementView }) {
     case "notifications": return <Notifications />;
     case "more": return <More />;
     case "profile": return <ManagementProfile />;
+    case "leads": return <Suspense><ManagementLeadsScreen /></Suspense>;
+    case "lead": return <Suspense><ManagementLeadDetailScreen /></Suspense>;
     default:
       return (
         <ManagementScreen view={effectiveView}>

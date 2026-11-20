@@ -212,3 +212,36 @@
 .fabSpacer {
   height: calc(56px + var(--space-lg));
 }
+
+/* Captured-by picker: a read-only DS TextField opens the DS BottomSheet. */
+.pickerInput {
+  cursor: pointer;
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sheetOptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sheetOptions .sectionLabel {
+  margin: var(--space-sm) 0 0;
+}
+
+.visuallyHidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

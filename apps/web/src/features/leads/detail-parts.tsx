@@ -2,7 +2,7 @@
 
 import { Button, Icon, PaperElevation, StatusChip, type StatusChipProps } from "humbee-design-system";
 import type { CSSProperties, ReactNode } from "react";
-import { leadDateTime, leadTurnover } from "./format";
+import { leadDateTime, leadRoleLabel, leadTurnover } from "./format";
 import { LeadInitials } from "./list-parts";
 import type { LeadDetailOut } from "./service";
 import styles from "./leads.module.css";
@@ -73,7 +73,7 @@ export function LeadDetailBody({
   const capturer = lead.captured_by;
   const capturerSub = viewerIsCapturer
     ? capturer.employee_code
-    : [capturer.employee_code, capturer.role_code].filter(Boolean).join(" · ") || null;
+    : [capturer.employee_code, leadRoleLabel(capturer.role_code)].filter(Boolean).join(" · ") || null;
 
   return (
     <div className={styles.detail}>

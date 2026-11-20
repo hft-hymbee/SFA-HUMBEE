@@ -165,6 +165,7 @@ export function LeadListBody({
   emptyState,
   onClearFilters,
   filtersActive,
+  countSuffix,
 }: {
   query: ReturnType<typeof useLeads>;
   showCapturer: boolean;
@@ -172,6 +173,8 @@ export function LeadListBody({
   emptyState: ReactNode;
   onClearFilters: () => void;
   filtersActive: boolean;
+  /** Appended to the count line, e.g. "by you" when one employee is selected. */
+  countSuffix?: ReactNode;
 }) {
   const viewerId = useActorId();
   const listRef = useInfiniteScrollTrigger<HTMLDivElement>({
@@ -229,6 +232,7 @@ export function LeadListBody({
       <div className={styles.countLine}>
         <span aria-live="polite">
           <strong>{total}</strong> lead{total === 1 ? "" : "s"}
+          {countSuffix ? <> {countSuffix}</> : null}
         </span>
         {filtersActive ? (
           <Button variant="text" color="primary" size="small" label="Clear filters" onClick={onClearFilters} />

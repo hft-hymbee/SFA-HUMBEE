@@ -36,3 +36,15 @@ export function leadTurnover(cr: number | null): string | null {
   if (cr === null || cr === undefined) return null;
   return `₹ ${cr.toFixed(2)} cr`;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  sales_person: "Sales Person",
+};
+
+/** Human label for an employee `role_code`; unknown codes pass through. */
+export function leadRoleLabel(roleCode: string | null | undefined): string {
+  if (!roleCode) return "";
+  return ROLE_LABELS[roleCode] ?? roleCode;
+}
