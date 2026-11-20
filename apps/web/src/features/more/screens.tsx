@@ -33,6 +33,7 @@ const groups: Array<{ label: string; items: AccountAction[] }> = [
     items: [
       { icon: "InventoryOutlined", label: "Onboard outlet", href: "/sp/outlets/new" },
       { icon: "PersonRounded", label: "Capture lead", href: "/sp/leads/new" },
+      { icon: "FormatListBulleted", label: "My leads", href: "/sp/leads" },
       { icon: "LocationMarker", label: "Missed visits", href: "/sp/visits/missed" },
     ],
   },

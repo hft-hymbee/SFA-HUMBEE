@@ -23,13 +23,32 @@ function isRange(value: string | null): value is LeadDateRange {
   return RANGES.includes(value as LeadDateRange);
 }
 
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** True for a real calendar date written as `YYYY-MM-DD` (rejects e.g. 2026-02-30). */
+export function isLeadIsoDate(value: string): boolean {
+  const match = ISO_DATE.exec(value);
+  if (!match) return false;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 export function leadFiltersFromSearchParams(params: URLSearchParams): LeadFilters {
-  const range = params.get("range");
+  const rawRange = params.get("range");
+  const range = isRange(rawRange) ? rawRange : DEFAULT_LEAD_FILTERS.range;
+  const date = (key: "from" | "to") => {
+    const value = params.get(key) ?? "";
+    return range === "custom" && isLeadIsoDate(value) ? value : "";
+  };
+  const from = date("from");
+  let to = date("to");
+  if (from && to && from > to) to = "";
   return {
     q: params.get("q") ?? DEFAULT_LEAD_FILTERS.q,
-    range: isRange(range) ? range : DEFAULT_LEAD_FILTERS.range,
-    from: params.get("from") ?? DEFAULT_LEAD_FILTERS.from,
-    to: params.get("to") ?? DEFAULT_LEAD_FILTERS.to,
+    range,
+    from,
+    to,
     employeeId: params.get("emp") ?? DEFAULT_LEAD_FILTERS.employeeId,
   };
 }
@@ -44,7 +63,8 @@ export function leadFiltersToSearchParams(f: LeadFilters): URLSearchParams {
   return params;
 }
 
-function isoLocal(date: Date): string {
+/** Local calendar date as `YYYY-MM-DD`. */
+export function leadIsoDate(date: Date): string {
   const y = String(date.getFullYear()).padStart(4, "0");
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
@@ -58,13 +78,13 @@ export function resolveLeadDateWindow(
   switch (f.range) {
     case "month":
       return {
-        from: isoLocal(new Date(today.getFullYear(), today.getMonth(), 1)),
-        to: isoLocal(today),
+        from: leadIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+        to: leadIsoDate(today),
       };
     case "30":
       return {
-        from: isoLocal(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)),
-        to: isoLocal(today),
+        from: leadIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)),
+        to: leadIsoDate(today),
       };
     case "custom":
       return {

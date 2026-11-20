@@ -23,6 +23,7 @@ function activeTab(pathname: string) {
   if (pathname.startsWith("/sp/route") || pathname.startsWith("/sp/visits")) return "route";
   if (pathname.startsWith("/sp/orders")) return "orders";
   if (pathname.startsWith("/sp/more")) return "more";
+  if (pathname.startsWith("/sp/leads")) return "more";
   return "today";
 }
 

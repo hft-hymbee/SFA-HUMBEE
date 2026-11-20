@@ -1,19 +1,31 @@
 "use client";
 
-import { Button, TextField } from "humbee-design-system";
-import { useRouter } from "next/navigation";
-import { useState, type ChangeEvent, type ReactNode } from "react";
+import { Button, EmptyState, ErrorState, FAB, TextField } from "humbee-design-system";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { ulid } from "ulid";
-import { createIdempotencyKey } from "@/src/shared/api";
+import { ApiClientError, createIdempotencyKey } from "@/src/shared/api";
 import { useConnectivity } from "@/src/shared/capabilities";
+import { useDebouncedSearchQuery } from "@/src/shared/state";
 import { SpCard, SpInlineAlert, SpScreen, SpSectionLabel, SpStickyFooter } from "@/src/features/shell/components";
+import { SpPageSkeleton } from "@/src/features/shell/loading";
+import { LeadDetailBody } from "./detail-parts";
+import {
+  DEFAULT_LEAD_FILTERS,
+  hasActiveLeadFilters,
+  leadFiltersFromSearchParams,
+  leadFiltersToSearchParams,
+  type LeadFilters,
+} from "./filters";
 import {
   buildCaptureLeadBody,
   createEmptyLeadDraft,
   validateLeadDraft,
   type LeadFormDraft,
 } from "./form-state";
-import { useCaptureLead } from "./hooks";
+import { useActorId, useCaptureLead, useLead, useLeads } from "./hooks";
+import { LeadFilterBar, LeadListBody } from "./list-parts";
+import styles from "./leads.module.css";
 
 function LeadSection({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -47,7 +59,7 @@ export function CaptureLeadScreen() {
     }
     capture.mutate(
       { body: buildCaptureLeadBody(draft, leadId), idempotencyKey },
-      { onSuccess: () => router.replace("/sp/more") },
+      { onSuccess: () => router.replace("/sp/leads") },
     );
   };
 
@@ -156,6 +168,121 @@ export function CaptureLeadScreen() {
           style={{ width: "100%" }}
         />
       </SpStickyFooter>
+    </SpScreen>
+  );
+}
+
+const MY_LEADS_PATH = "/sp/leads";
+
+/** SO filters never carry an employee: an SO only ever sees their own leads. */
+function soFilters(filters: LeadFilters): LeadFilters {
+  return { ...filters, employeeId: "" };
+}
+
+export function MyLeadsScreen() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isOnline } = useConnectivity();
+  // Local state is the source of truth; the URL mirrors it so filters survive opening a lead.
+  const [filters, setFilters] = useState<LeadFilters>(
+    () => soFilters(leadFiltersFromSearchParams(new URLSearchParams(searchParams.toString()))),
+  );
+  const debouncedQ = useDebouncedSearchQuery(filters.q);
+  const applied = useMemo(() => ({ ...filters, q: debouncedQ }), [filters, debouncedQ]);
+  const leads = useLeads(applied);
+  const filtersActive = hasActiveLeadFilters(applied);
+
+  useEffect(() => {
+    const query = leadFiltersToSearchParams(applied).toString();
+    if (query === window.location.search.replace(/^\?/, "")) return;
+    router.replace(query ? `${MY_LEADS_PATH}?${query}` : MY_LEADS_PATH, { scroll: false });
+  }, [applied, router]);
+
+  const clearFilters = () => setFilters(DEFAULT_LEAD_FILTERS);
+  const captureLead = () => router.push("/sp/leads/new");
+  const total = leads.data?.pages[0]?.total ?? 0;
+  const showFab = leads.isSuccess && (total > 0 || filtersActive);
+
+  return (
+    <SpScreen title="My leads" back offline={!isOnline}>
+      <div className="sp-content">
+        <LeadFilterBar filters={filters} onChange={(next) => setFilters(soFilters(next))} />
+        <LeadListBody
+          query={leads}
+          showCapturer={false}
+          onOpen={(id) => router.push(`/sp/leads/detail?id=${encodeURIComponent(id)}`)}
+          emptyState={(
+            <EmptyState
+              icon="PersonRounded"
+              title="No leads yet"
+              message="Leads you capture for new manufacturers will show up here."
+              actionLabel="Capture a lead"
+              onAction={captureLead}
+            />
+          )}
+          onClearFilters={clearFilters}
+          filtersActive={filtersActive}
+        />
+        {showFab ? <div className={styles.fabSpacer} aria-hidden="true" /> : null}
+      </div>
+      {showFab ? (
+        <FAB iconName="Add" label="Capture lead" onClick={captureLead} style={{ bottom: "var(--space-md)" }} />
+      ) : null}
+    </SpScreen>
+  );
+}
+
+function isNotFound(error: unknown) {
+  return error instanceof ApiClientError && error.status === 404;
+}
+
+export function LeadDetailScreen({ leadId }: { leadId: string }) {
+  const router = useRouter();
+  const { isOnline } = useConnectivity();
+  const viewerId = useActorId();
+  const lead = useLead(leadId);
+  const title = "Lead details";
+
+  if (!leadId || (lead.isError && isNotFound(lead.error))) {
+    return (
+      <SpScreen title={title} back offline={!isOnline}>
+        <EmptyState
+          icon="Warning"
+          title="Lead not found"
+          message="This lead doesn't exist or isn't in your scope."
+          actionLabel="Back to leads"
+          onAction={() => router.replace(MY_LEADS_PATH)}
+        />
+      </SpScreen>
+    );
+  }
+
+  if (lead.isPending) {
+    return (
+      <SpScreen title={title} back offline={!isOnline}>
+        <SpPageSkeleton rows={4} />
+      </SpScreen>
+    );
+  }
+
+  if (lead.isError) {
+    return (
+      <SpScreen title={title} back offline={!isOnline}>
+        <ErrorState
+          title="Couldn't load this lead"
+          message="Check your connection and try again."
+          retryLabel="Try again"
+          onRetry={() => void lead.refetch()}
+        />
+      </SpScreen>
+    );
+  }
+
+  return (
+    <SpScreen title={title} back offline={!isOnline}>
+      <div className="sp-content">
+        <LeadDetailBody lead={lead.data} viewerIsCapturer={lead.data.captured_by.id === viewerId} />
+      </div>
     </SpScreen>
   );
 }

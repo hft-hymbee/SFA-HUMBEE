@@ -14,7 +14,8 @@ import { leadsService, type CaptureLeadBody } from "./service";
 
 const LEADS_PAGE_SIZE = 20;
 
-function useActorId() {
+/** The signed-in employee's id (empty when signed out). */
+export function useActorId() {
   return useSyncExternalStore(
     subscribeToSession,
     readSessionSync,
