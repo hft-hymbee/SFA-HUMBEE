@@ -224,6 +224,8 @@ class ManagerDashboardMetricsOut(BaseModel):
     no_punch_in: int | None = None
     on_leave: int | None = None
     pending_approvals: int | None = None
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class DesignationScopeOut(BaseModel):
@@ -265,6 +267,8 @@ class AdminDashboardMetricsOut(BaseModel):
     no_punch_in: int | None = None
     on_leave: int | None = None
     pending_approvals: int | None = None
+    bp_filled: int = 0
+    bp_not_filled: int = 0
 
 
 class AdminDashboardKpisResponse(BaseModel):

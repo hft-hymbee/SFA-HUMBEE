@@ -119,6 +119,8 @@ class OutletDetailResponse(BaseModel):
     latitude: float | None
     longitude: float | None
     business_profiler_pct: int | None = None
+    # Same threshold as the dashboard filled counts; false when there is no %.
+    is_filled: bool = False
     as_of: datetime
 
 
