@@ -550,6 +550,47 @@ class RouteService:
             plan=plan,
         )
 
+    def get_business_profiler(
+        self,
+        *,
+        claims: AccessTokenClaims,
+        business_date: date | None = None,
+        employee_id: str | None = None,
+    ) -> dict[str, Any]:
+        """The live business profiler % of every outlet `get_day` lists, kept out of `get_day` so the route
+        list never waits on Humbee."""
+
+        scope = self._scope(claims)
+        resolved_business_date = business_date or current_business_date(
+            self._clock, settings=self._settings
+        )
+        target_employee_id = employee_id or claims.employee_id
+        if employee_id is None or employee_id == scope.actor_employee_id:
+            self._require_self(scope)
+        else:
+            self._authorize_report(scope, employee_id)
+        plan = repository.get_active_plan(
+            self._session, tenant_id=scope.tenant_id, employee_id=target_employee_id,
+            business_date=resolved_business_date,
+        )
+        stops = repository.list_stops(self._session, route_plan_id=plan.id) if plan is not None else []
+        visits = repository.list_day_visits(
+            self._session,
+            tenant_id=scope.tenant_id,
+            employee_id=target_employee_id,
+            business_date=resolved_business_date,
+        )
+        outlet_refs = [stop.humbee_outlet_id for stop in stops] + [visit.humbee_outlet_id for visit in visits]
+
+        end_read_transaction(self._session)
+        items = OutletReadService(
+            self._session,
+            settings=self._settings,
+            clock=self._clock,
+            outlet_port=self._injected_outlet_port,
+        ).get_business_profiler(tenant_id=scope.tenant_id, outlet_ids=outlet_refs)
+        return schemas.RouteBusinessProfilerResponse(outlets=items).model_dump(mode="json")
+
     def list_unplanned_outlets(self, *, claims: AccessTokenClaims) -> list[dict[str, Any]]:
         """Outlet search never returns locality — only the per-outlet detail call
         does, and this list is too large to fetch one at a time. `UnplannedOutletItem` carries
@@ -1289,6 +1330,40 @@ class RouteService:
             tenant_id=tenant_id,
             employee_ids=employee_ids,
             business_date=business_date,
+        )
+
+    def visited_outlets_by_employee(
+        self, *, tenant_id: str, business_date: date, employee_ids: list[str] | None = None
+    ) -> dict[str, set[str]]:
+        """Distinct outlets each employee visited on `business_date`. No scope check: callers are
+        reporting reads that already resolved scope, and the day-close job."""
+
+        return repository.visited_outlets(
+            self._session, tenant_id=tenant_id, business_date=business_date, employee_ids=employee_ids
+        )
+
+    def visited_outlets_by_employee_day(
+        self, *, tenant_id: str, employee_ids: list[str] | None, from_date: date, to_date: date
+    ) -> dict[tuple[str, date], set[str]]:
+        """Distinct outlets each employee visited per day in the range. No scope check, as above."""
+
+        return repository.visited_outlets_range(
+            self._session,
+            tenant_id=tenant_id,
+            employee_ids=employee_ids,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    def visit_stats_by_employee_day(
+        self, *, tenant_id: str, employee_ids: list[str], from_date: date, to_date: date
+    ) -> dict[tuple[str, date], repository.VisitStats]:
+        return repository.visit_stats(
+            self._session,
+            tenant_id=tenant_id,
+            employee_ids=employee_ids,
+            from_date=from_date,
+            to_date=to_date,
         )
 
     def coverage_team(

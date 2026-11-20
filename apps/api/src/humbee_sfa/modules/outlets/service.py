@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -49,6 +50,7 @@ from humbee_sfa.integration.humbee.onboarding import (
     RoleEntry,
 )
 from humbee_sfa.integration.humbee.outlet import (
+    BusinessProfilerBatch,
     HumbeeOutletMasterProvider,
     OutletMasterUnavailable,
     OutletRecord,
@@ -856,6 +858,13 @@ class OutletReadService:
             fetched_at=self._clock.now_utc(),
             actor_employee_id=actor_employee_id,
         )
+        if record.business_profiler_pct is not None:
+            repository.record_business_profiler(
+                self._session,
+                tenant_id=tenant_id,
+                pct_by_outlet={record.external_id: record.business_profiler_pct},
+                as_of=record.as_of,
+            )
         return record
 
     def get_outlet_detail(self, *, claims: AccessTokenClaims, outlet_id: str) -> dict[str, Any]:
@@ -883,6 +892,7 @@ class OutletReadService:
             credit_outstanding_paise=record.credit_outstanding_paise,
             latitude=float(record.lat) if record.lat is not None else None,
             longitude=float(record.lng) if record.lng is not None else None,
+            business_profiler_pct=record.business_profiler_pct,
             as_of=record.as_of,
         ).model_dump(mode="json")
 
@@ -1109,6 +1119,207 @@ class OutletReadService:
             outlet_esi_id=outlet_esi_id,
             url=url,
         ).model_dump(mode="json")
+
+    def get_business_profiler(self, *, tenant_id: str, outlet_ids: list[str]) -> list[dict[str, Any]]:
+        """Live business profiler % per outlet, falling back to the last known value when Humbee does not
+        answer. An outlet with neither is omitted. The caller must not hold a read transaction: this
+        makes one Humbee call and then writes the live values in its own transaction."""
+
+        refs = list(dict.fromkeys(outlet_ids))
+        if not refs:
+            return []
+
+        live: dict[str, int] = {}
+        live_as_of = None
+        try:
+            batch = self._outlets().fetch_business_profiler(tenant_id=tenant_id, outlet_ids=refs)
+        except (ApiError, OutletMasterUnavailable) as exc:
+            logger.warning("outlet_business_profiler_unavailable", error=str(exc))
+        else:
+            live_as_of = batch.as_of
+            with transaction(self._session):
+                repository.record_business_profiler(
+                    self._session, tenant_id=tenant_id, pct_by_outlet=batch.pct_by_outlet, as_of=live_as_of
+                )
+            live = {ref: pct for ref, pct in batch.pct_by_outlet.items() if pct is not None}
+
+        stored = {
+            row.humbee_outlet_id: row
+            for row in repository.get_projected(
+                self._session, tenant_id=tenant_id, outlet_ids=[ref for ref in refs if ref not in live]
+            )
+            if row.business_profiler_pct is not None
+        }
+        items = []
+        for ref in refs:
+            if ref in live:
+                items.append(
+                    {
+                        "outlet_ref": ref,
+                        "business_profiler_pct": live[ref],
+                        "as_of": live_as_of,
+                        "is_live": True,
+                    }
+                )
+            elif ref in stored:
+                row = stored[ref]
+                items.append(
+                    {
+                        "outlet_ref": ref,
+                        "business_profiler_pct": row.business_profiler_pct,
+                        "as_of": row.business_profiler_as_of,
+                        "is_live": False,
+                    }
+                )
+        return items
+
+    def current_business_profiler(
+        self, *, tenant_id: str, outlet_ids: list[str], budget_s: float
+    ) -> tuple[dict[str, int | None], int]:
+        """Each outlet's latest recorded %, and how many outlets Humbee did not answer for.
+
+        An outlet with no history is fetched from Humbee and recorded as `fetch`, so later reads
+        need no call. An outlet Humbee answers for but leaves out (deleted or unknown) is not
+        recorded and is not asked about again for an hour; it is absent (not filled) but does not
+        count as unanswered. When a chunk fails, or `budget_s` (the total Humbee wait across chunks)
+        runs out, those outlets are absent, counted as unanswered, and nothing is recorded, so the
+        next read retries. Ends the caller's read transaction before calling Humbee."""
+
+        result = repository.current_business_profiler(
+            self._session, tenant_id=tenant_id, outlet_ids=outlet_ids
+        )
+        now = time.monotonic()
+        missing = [
+            ref
+            for ref in dict.fromkeys(outlet_ids)
+            if ref not in result and _OMITTED_UNTIL.get((tenant_id, ref), 0.0) <= now
+        ]
+        if not missing:
+            return result, 0
+        end_read_transaction(self._session)
+        deadline = now + budget_s
+        unanswered = 0
+        for start in range(0, len(missing), _BP_BATCH_SIZE):
+            chunk = missing[start : start + _BP_BATCH_SIZE]
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                unanswered += len(missing) - start
+                logger.warning(
+                    "outlet_business_profiler_budget_exhausted", outlets=len(missing) - start
+                )
+                break
+            try:
+                batch = self._outlets().fetch_business_profiler(
+                    tenant_id=tenant_id, outlet_ids=chunk, timeout_s=remaining
+                )
+            except (ApiError, OutletMasterUnavailable) as exc:
+                unanswered += len(chunk)
+                logger.warning(
+                    "outlet_business_profiler_unavailable", error=str(exc), outlets=len(chunk)
+                )
+                continue
+            # Only what Humbee returned: an outlet it leaves out (deleted, or a Humbee-side error that
+            # still answers 200) is not recorded, so a known % is never wiped by an omission.
+            got = batch.pct_by_outlet
+            fetched = {ref: got[ref] for ref in chunk if ref in got}
+            skip_until = time.monotonic() + _OMITTED_SKIP_S
+            for ref in chunk:
+                if ref not in got:
+                    _OMITTED_UNTIL[(tenant_id, ref)] = skip_until
+            with transaction(self._session):
+                repository.record_business_profiler(
+                    self._session, tenant_id=tenant_id, pct_by_outlet=fetched, as_of=batch.as_of
+                )
+            result.update(fetched)
+        return result, unanswered
+
+    def record_business_profiler_push(self, *, items: list[tuple[str, int | None, datetime]]) -> None:
+        with transaction(self._session):
+            record_pushed_business_profiler(
+                self._session, tenant_id=self._settings.tenant_id, items=items
+            )
+
+    def fetch_business_profiler_for_day(
+        self, *, tenant_id: str, outlet_ids: list[str]
+    ) -> list[BusinessProfilerBatch]:
+        """The day-close pull's network half: every outlet's live % from Humbee, in chunks. No DB
+        access, so the caller holds no transaction while waiting. Raises if Humbee does not answer,
+        so the job fails and is retried."""
+
+        refs = list(dict.fromkeys(outlet_ids))
+        return [
+            self._outlets().fetch_business_profiler(
+                tenant_id=tenant_id,
+                outlet_ids=refs[start : start + _BP_BATCH_SIZE],
+                timeout_s=_DAY_CLOSE_TIMEOUT_S,
+            )
+            for start in range(0, len(refs), _BP_BATCH_SIZE)
+        ]
+
+    def record_day_close(
+        self, *, tenant_id: str, batches: list[BusinessProfilerBatch], business_date: date
+    ) -> None:
+        """Record the day-close pull as `business_date`'s frozen evidence. Only what Humbee returned
+        is recorded; an outlet it left out keeps its last value. Never commits."""
+
+        for batch in batches:
+            repository.record_business_profiler(
+                self._session,
+                tenant_id=tenant_id,
+                pct_by_outlet=batch.pct_by_outlet,
+                as_of=batch.as_of,
+                source="day_close",
+                for_business_date=business_date,
+            )
+
+
+_BP_BATCH_SIZE = 1000
+# Outlets Humbee answered for but left out, skipped until the stored monotonic deadline.
+# ponytail: per-process and lost on restart; a stored "omitted at" marker if repeat calls matter.
+_OMITTED_UNTIL: dict[tuple[str, str], float] = {}
+_OMITTED_SKIP_S = 3600.0
+_DAY_CLOSE_TIMEOUT_S = 30.0
+
+
+def record_pushed_business_profiler(
+    session: Session, *, tenant_id: str, items: list[tuple[str, int | None, datetime]]
+) -> None:
+    """Record Humbee's push: `(outlet_id, pct, changed_at)` per outlet. A replayed or out-of-order
+    push is harmless — history is keyed by `changed_at` and the projection keeps the newest value.
+    Never commits."""
+
+    # One batched record per `changed_at` (a push normally shares one), not one per outlet.
+    by_changed_at: dict[datetime, dict[str, int | None]] = {}
+    for outlet_id, pct, changed_at in items:
+        by_changed_at.setdefault(changed_at, {})[outlet_id] = pct
+    for changed_at, pct_by_outlet in by_changed_at.items():
+        repository.record_business_profiler(
+            session,
+            tenant_id=tenant_id,
+            pct_by_outlet=pct_by_outlet,
+            as_of=changed_at,
+            source="push",
+        )
+
+
+def business_profiler_as_of(
+    session: Session,
+    *,
+    tenant_id: str,
+    outlet_ids: list[str],
+    business_date: date,
+    day_boundary_hour_ist: int,
+) -> dict[str, int | None]:
+    """Each outlet's % at the end of `business_date`; see `repository.business_profiler_as_of`."""
+
+    _, day_end_utc = business_date_bounds_utc(business_date, day_boundary_hour_ist)
+    return repository.business_profiler_as_of(
+        session,
+        tenant_id=tenant_id,
+        outlet_ids=outlet_ids,
+        business_date=business_date,
+        day_end_utc=day_end_utc,
+    )
 
 
 # ---------------------------------------------------------------------------

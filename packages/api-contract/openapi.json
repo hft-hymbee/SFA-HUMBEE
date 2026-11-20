@@ -1376,6 +1376,59 @@
         "title": "BranchEditResponse",
         "type": "object"
       },
+      "BusinessProfilerPushBody": {
+        "description": "Humbee's push after a profiler save: the new % of every outlet the change touched.",
+        "properties": {
+          "outlets": {
+            "items": {
+              "$ref": "#/components/schemas/BusinessProfilerPushItem"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Outlets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outlets"
+        ],
+        "title": "BusinessProfilerPushBody",
+        "type": "object"
+      },
+      "BusinessProfilerPushItem": {
+        "properties": {
+          "business_profiler_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Profiler Pct"
+          },
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          },
+          "outlet_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Outlet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outlet_id",
+          "changed_at"
+        ],
+        "title": "BusinessProfilerPushItem",
+        "type": "object"
+      },
       "CallsKpiNodeOut": {
         "properties": {
           "designation_code": {
@@ -1411,6 +1464,13 @@
             "title": "Business Date",
             "type": "string"
           },
+          "degraded": {
+            "items": {
+              "$ref": "#/components/schemas/DegradedSourceOut"
+            },
+            "title": "Degraded",
+            "type": "array"
+          },
           "mtd": {
             "$ref": "#/components/schemas/CallsKpiWindowOut"
           },
@@ -1432,6 +1492,16 @@
       },
       "CallsKpiRowOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "designation_code": {
             "title": "Designation Code",
             "type": "string"
@@ -1490,6 +1560,16 @@
       },
       "CallsKpiTotalsOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "pc": {
             "title": "Pc",
             "type": "integer"
@@ -7320,6 +7400,17 @@
             "title": "As Of",
             "type": "string"
           },
+          "business_profiler_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Profiler Pct"
+          },
           "contact_mobile": {
             "anyOf": [
               {
@@ -8377,6 +8468,52 @@
         "title": "RemoveTargetResponse",
         "type": "object"
       },
+      "RouteBusinessProfilerItem": {
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "business_profiler_pct": {
+            "title": "Business Profiler Pct",
+            "type": "integer"
+          },
+          "is_live": {
+            "title": "Is Live",
+            "type": "boolean"
+          },
+          "outlet_ref": {
+            "title": "Outlet Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outlet_ref",
+          "business_profiler_pct",
+          "as_of",
+          "is_live"
+        ],
+        "title": "RouteBusinessProfilerItem",
+        "type": "object"
+      },
+      "RouteBusinessProfilerResponse": {
+        "description": "Business profiler % for the outlets on the day's route, merged into `RoutePlanResponse` by\n`outlet_ref`. `is_live: false` is the last known value; an outlet with no value at all is absent.",
+        "properties": {
+          "outlets": {
+            "items": {
+              "$ref": "#/components/schemas/RouteBusinessProfilerItem"
+            },
+            "title": "Outlets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outlets"
+        ],
+        "title": "RouteBusinessProfilerResponse",
+        "type": "object"
+      },
       "RouteDaysResponse": {
         "properties": {
           "business_dates": {
@@ -9407,6 +9544,16 @@
       },
       "SpDashboardMetricsOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "coverage_pct": {
             "anyOf": [
               {
@@ -13926,6 +14073,61 @@
         ]
       }
     },
+    "/api/v1/integrations/humbee/business-profiler": {
+      "post": {
+        "description": "Humbee pushes each outlet's new business profiler % after a profiler save, so today's\nreporting counts stay live without a visit.",
+        "operationId": "receive_business_profiler_push_api_v1_integrations_humbee_business_profiler_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessProfilerPushBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Receive Business Profiler Push",
+        "tags": [
+          "Outlets",
+          "Integrations"
+        ]
+      }
+    },
     "/api/v1/leads": {
       "post": {
         "description": "Save \u2014 a salesperson captures a prospective business as a lead for follow-up.",
@@ -17762,6 +17964,73 @@
           }
         },
         "summary": "Get Current Route Plan",
+        "tags": [
+          "Routes"
+        ]
+      }
+    },
+    "/api/v1/route-plans/current/business-profiler": {
+      "get": {
+        "description": "Live business profiler % for the outlets of `GET /route-plans/current`, called alongside it so\nthe list renders without waiting on Humbee. Same `business_date` / `employee_id` rules.",
+        "operationId": "get_current_route_business_profiler_api_v1_route_plans_current_business_profiler_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "business_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Business Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteBusinessProfilerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Current Route Business Profiler",
         "tags": [
           "Routes"
         ]

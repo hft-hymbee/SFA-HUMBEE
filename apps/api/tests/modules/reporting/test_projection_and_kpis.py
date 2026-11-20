@@ -69,7 +69,7 @@ def _facts(db: Session, employee: Employee) -> dict[str, object]:
 
 
 def _totals(body: dict, window: str) -> dict[str, int]:
-    return body[window]["totals"]
+    return {key: body[window]["totals"][key] for key in ("tc", "pc", "sc", "utc")}
 
 
 def _start_beat(sp: Authed, beat_id: str) -> dict[str, str]:
@@ -280,6 +280,16 @@ def test_team_rollup_sums_only_own_tree(
     assert rows == {sp1.id: (2, 1, 2, 2), sp2.id: (2, 1, 1, 2)}
     assert _totals(body, "mtd") == {"tc": 4, "pc": 2, "sc": 3, "utc": 3}
     assert _totals(body, "today") == {"tc": 4, "pc": 2, "sc": 3, "utc": 3}
+
+    # A visit the projector has not caught up with: today's live TC moves, and MTD moves with it.
+    sp = login(api_client, sp1)
+    late = generate_ulid()
+    _enter(sp, late, outlet_ref="O-3")
+    _no_order(sp, late)
+    body = login(api_client, manager_a).get("/api/v1/reporting/kpis/calls/team").json()
+    assert _totals(body, "today") == {"tc": 5, "pc": 2, "sc": 3, "utc": 3}
+    assert _totals(body, "mtd") == {"tc": 5, "pc": 2, "sc": 3, "utc": 3}
+    assert {row["employee_id"]: row["tc"] for row in body["mtd"]["items"]} == {sp1.id: 3, sp2.id: 2}
 
     sp_client = login(api_client, sp3)
     assert sp_client.get("/api/v1/reporting/kpis/calls/org").status_code == 403

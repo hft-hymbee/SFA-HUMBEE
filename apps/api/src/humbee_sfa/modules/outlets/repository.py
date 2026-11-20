@@ -3,7 +3,7 @@ firm-onboarding candidate."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -15,6 +15,7 @@ from humbee_sfa.integration.humbee.outlet import OutletRecord
 from humbee_sfa.modules.org.scope import ScopeContext, employee_scope_condition
 from humbee_sfa.modules.outlets.models import (
     Outlet,
+    OutletBusinessProfilerHistory,
     OutletOnboardingCandidate,
     OwnerOtpChallenge,
 )
@@ -144,6 +145,150 @@ def upsert_detail(
             where=statement.excluded.as_of >= Outlet.as_of,
         )
     )
+
+
+def record_business_profiler(
+    session: Session,
+    *,
+    tenant_id: str,
+    pct_by_outlet: dict[str, int | None],
+    as_of: datetime,
+    source: str = "fetch",
+    for_business_date: date | None = None,
+) -> None:
+    """Store values on existing projection rows (never overwriting a newer one) and append each
+    change to the history. A `push`/`fetch` value equal to the one already in effect at `as_of`
+    adds no history row; a `day_close` pull always does, since it is the day's frozen evidence."""
+
+    if not pct_by_outlet:
+        return
+    rows = session.execute(
+        select(Outlet).where(
+            Outlet.tenant_id == tenant_id, Outlet.humbee_outlet_id.in_(list(pct_by_outlet))
+        )
+    ).scalars()
+    for row in rows:
+        if row.business_profiler_as_of is None or row.business_profiler_as_of <= as_of:
+            row.business_profiler_pct = pct_by_outlet[row.humbee_outlet_id]
+            row.business_profiler_as_of = as_of
+
+    changed = dict(pct_by_outlet)
+    if source != "day_close":
+        in_effect = _latest_history(
+            session, tenant_id=tenant_id, outlet_ids=list(changed), at_or_before=as_of
+        )
+        changed = {
+            outlet_id: pct
+            for outlet_id, pct in changed.items()
+            if outlet_id not in in_effect or in_effect[outlet_id].pct != pct
+        }
+    if changed:
+        session.execute(
+            insert(OutletBusinessProfilerHistory),
+            [
+                {
+                    "id": generate_ulid(),
+                    "tenant_id": tenant_id,
+                    "humbee_outlet_id": outlet_id,
+                    "pct": pct,
+                    "effective_at": as_of,
+                    "source": source,
+                    "for_business_date": for_business_date,
+                }
+                for outlet_id, pct in changed.items()
+            ],
+        )
+
+
+def _latest_history(
+    session: Session, *, tenant_id: str, outlet_ids: list[str], at_or_before: datetime | None
+) -> dict[str, OutletBusinessProfilerHistory]:
+    if not outlet_ids:
+        return {}
+    history = OutletBusinessProfilerHistory
+    conditions = [history.tenant_id == tenant_id, history.humbee_outlet_id.in_(outlet_ids)]
+    if at_or_before is not None:
+        conditions.append(history.effective_at <= at_or_before)
+    rows = session.execute(
+        select(history)
+        .where(*conditions)
+        .distinct(history.humbee_outlet_id)
+        .order_by(history.humbee_outlet_id, history.effective_at.desc(), history.id.desc())
+    ).scalars()
+    return {row.humbee_outlet_id: row for row in rows}
+
+
+def business_profiler_as_of(
+    session: Session,
+    *,
+    tenant_id: str,
+    outlet_ids: list[str],
+    business_date: date,
+    day_end_utc: datetime,
+) -> dict[str, int | None]:
+    """Each outlet's % at the end of `business_date` (`None`: no % known, which counts as not filled).
+
+    The latest value in effect at `day_end_utc`, unless the day-close pull for that date recorded
+    one and nothing else arrived for the outlet between the day's end and that pull: then the pull
+    wins, which repairs a push lost during the day without letting a change made after midnight
+    leak back into the day.
+    """
+
+    refs = list(dict.fromkeys(outlet_ids))
+    if not refs:
+        return {}
+    history = OutletBusinessProfilerHistory
+    in_effect = _latest_history(
+        session, tenant_id=tenant_id, outlet_ids=refs, at_or_before=day_end_utc
+    )
+    day_close = {
+        row.humbee_outlet_id: row
+        for row in session.execute(
+            select(history)
+            .where(
+                history.tenant_id == tenant_id,
+                history.humbee_outlet_id.in_(refs),
+                history.source == "day_close",
+                history.for_business_date == business_date,
+            )
+            .distinct(history.humbee_outlet_id)
+            .order_by(history.humbee_outlet_id, history.effective_at, history.id)
+        ).scalars()
+    }
+    after_end: dict[str, list[datetime]] = {}
+    if day_close:
+        for outlet_id, effective_at in session.execute(
+            select(history.humbee_outlet_id, history.effective_at).where(
+                history.tenant_id == tenant_id,
+                history.humbee_outlet_id.in_(list(day_close)),
+                history.source != "day_close",
+                history.effective_at > day_end_utc,
+                history.effective_at <= max(row.effective_at for row in day_close.values()),
+            )
+        ):
+            after_end.setdefault(outlet_id, []).append(effective_at)
+
+    result: dict[str, int | None] = {}
+    for ref in refs:
+        pull = day_close.get(ref)
+        if pull is not None and not any(at <= pull.effective_at for at in after_end.get(ref, [])):
+            result[ref] = pull.pct
+        else:
+            row = in_effect.get(ref)
+            result[ref] = row.pct if row is not None else None
+    return result
+
+
+def current_business_profiler(
+    session: Session, *, tenant_id: str, outlet_ids: list[str]
+) -> dict[str, int | None]:
+    """The latest recorded % per outlet that has any history (the % may be `None`: recorded as
+    having none). An outlet with no history row is absent, so callers can tell it apart."""
+
+    rows = _latest_history(
+        session, tenant_id=tenant_id, outlet_ids=list(dict.fromkeys(outlet_ids)), at_or_before=None
+    )
+    return {ref: row.pct for ref, row in rows.items()}
 
 
 def create_challenge(

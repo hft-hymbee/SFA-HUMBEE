@@ -64,6 +64,20 @@ class OfficialWorkBlock(BaseModel):
     duration_seconds: int | None
 
 
+class RouteBusinessProfilerItem(BaseModel):
+    outlet_ref: str
+    business_profiler_pct: int
+    as_of: datetime
+    is_live: bool
+
+
+class RouteBusinessProfilerResponse(BaseModel):
+    """Business profiler % for the outlets on the day's route, merged into `RoutePlanResponse` by
+    `outlet_ref`. `is_live: false` is the last known value; an outlet with no value at all is absent."""
+
+    outlets: list[RouteBusinessProfilerItem]
+
+
 class RoutePlanResponse(BaseModel):
     id: str | None
     business_date: date
