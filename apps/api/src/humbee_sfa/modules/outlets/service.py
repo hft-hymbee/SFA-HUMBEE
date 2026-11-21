@@ -96,6 +96,12 @@ class ProjectedOutlet:
     record: OutletRecord
 
 
+def is_filled(pct: int | None, threshold: int) -> bool:
+    """Whether a business profiler % counts as filled; no % is not filled."""
+
+    return pct is not None and pct >= threshold
+
+
 @dataclass(frozen=True)
 class LocalOutletSummary:
     local_id: str
@@ -893,6 +899,9 @@ class OutletReadService:
             latitude=float(record.lat) if record.lat is not None else None,
             longitude=float(record.lng) if record.lng is not None else None,
             business_profiler_pct=record.business_profiler_pct,
+            is_filled=is_filled(
+                record.business_profiler_pct, self._settings.business_profiler_filled_threshold_pct
+            ),
             as_of=record.as_of,
         ).model_dump(mode="json")
 
@@ -1150,6 +1159,7 @@ class OutletReadService:
             )
             if row.business_profiler_pct is not None
         }
+        threshold = self._settings.business_profiler_filled_threshold_pct
         items = []
         for ref in refs:
             if ref in live:
@@ -1157,6 +1167,7 @@ class OutletReadService:
                     {
                         "outlet_ref": ref,
                         "business_profiler_pct": live[ref],
+                        "is_filled": is_filled(live[ref], threshold),
                         "as_of": live_as_of,
                         "is_live": True,
                     }
@@ -1167,6 +1178,7 @@ class OutletReadService:
                     {
                         "outlet_ref": ref,
                         "business_profiler_pct": row.business_profiler_pct,
+                        "is_filled": is_filled(row.business_profiler_pct, threshold),
                         "as_of": row.business_profiler_as_of,
                         "is_live": False,
                     }

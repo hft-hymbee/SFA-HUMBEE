@@ -32,6 +32,7 @@ from humbee_sfa.modules.org.scope import (
     ScopeContext,
     ScopeResolver,
     employee_scope_condition,
+    own_tree_employee_ids,
 )
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.modules.outlets.service import OutletReadService
@@ -1158,6 +1159,24 @@ class ReportingService:
             self._degraded.append({"source": "business_profiler", "reason": "humbee_unavailable"})
         return filled
 
+    def _bp_counts(
+        self, tenant_id: str, employee_ids: list[str] | None, windows: _DashboardWindows
+    ) -> business_profiler.BpCounts:
+        """Distinct outlets the employees (`None`: the whole tenant) visited in the window, split by
+        current BP filled status."""
+
+        visited = business_profiler.visited_by_employee_day(
+            self._session,
+            tenant_id=tenant_id,
+            employee_ids=employee_ids,
+            from_date=windows.metrics_from,
+            to_date=windows.metrics_to,
+        )
+        outlets = business_profiler.outlets_of(visited)
+        filled = self._bp_filled(tenant_id, outlets)
+        filled_count = sum(1 for outlet in outlets if filled.get(outlet, False))
+        return business_profiler.BpCounts(filled=filled_count, not_filled=len(outlets) - filled_count)
+
     def _degraded_out(self) -> list[schemas.DegradedSourceOut]:
         return [
             schemas.DegradedSourceOut(source=item["source"], reason=item["reason"])
@@ -1729,18 +1748,7 @@ class ReportingService:
                 scope, windows.metrics_from, windows.metrics_to, None
             ),
         )
-        bp_visited = business_profiler.visited_by_employee_day(
-            self._session,
-            tenant_id=claims.tenant_id,
-            employee_ids=[claims.employee_id],
-            from_date=windows.metrics_from,
-            to_date=windows.metrics_to,
-        )
-        bp_counts = business_profiler.count(
-            bp_visited,
-            self._bp_filled(claims.tenant_id, business_profiler.outlets_of(bp_visited)),
-            [claims.employee_id],
-        )
+        bp_counts = self._bp_counts(claims.tenant_id, [claims.employee_id], windows)
 
         return schemas.SpDashboardKpisResponse(
             period=period,
@@ -1917,6 +1925,9 @@ class ReportingService:
             coverage=self._team_coverage(claims=claims, business_date=windows.business_date),
         )
         attendance = self._team_attendance(claims=claims, business_date=windows.business_date)
+        # The same tree as `unique_outlets`: the manager and everyone under them.
+        team_ids = list({claims.employee_id, *self._session.scalars(own_tree_employee_ids(scope))})
+        bp_counts = self._bp_counts(claims.tenant_id, team_ids, windows)
 
         caller_designation_code = org_service.get_employee_in_scope(
             self._session, scope=scope, employee_id=claims.employee_id
@@ -1984,6 +1995,8 @@ class ReportingService:
                 no_punch_in=attendance["no_punch_in"],
                 on_leave=attendance["on_leave"],
                 pending_approvals=self._pending_approvals(claims=claims),
+                bp_filled=bp_counts.filled,
+                bp_not_filled=bp_counts.not_filled,
             ),
             targets=self._map_target_lines(
                 designation_targets_payload, femd_by_id=femd_by_id, manufacturer_id=manufacturer_id
@@ -2094,6 +2107,9 @@ class ReportingService:
             designation_by_id=designation_by_id,
         )
 
+        # Whole tenant, ignoring the manufacturer and designation filters, like `unique_outlets`.
+        bp_counts = self._bp_counts(claims.tenant_id, None, windows)
+
         return schemas.AdminDashboardKpisResponse(
             period=period,
             business_date=windows.business_date,
@@ -2115,6 +2131,8 @@ class ReportingService:
                 no_punch_in=attendance["no_punch_in"],
                 on_leave=attendance["on_leave"],
                 pending_approvals=self._pending_approvals(claims=claims),
+                bp_filled=bp_counts.filled,
+                bp_not_filled=bp_counts.not_filled,
             ),
             targets=self._map_target_lines(
                 targets_payload, femd_by_id=femd_by_id, manufacturer_id=manufacturer_id

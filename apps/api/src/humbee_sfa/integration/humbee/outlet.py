@@ -39,6 +39,8 @@ class OutletRecord:
     credit_limit_paise: int | None = None
     credit_outstanding_paise: int | None = None
     business_profiler_pct: int | None = None
+    # Humbee's manufacturer codes, e.g. "DBC,TAG"; outlet search only.
+    manufacturer_names: str | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,7 @@ def _record_from_search_item(
         district_name=district_name,
         gstin=gstin,
         pan=pan,
+        manufacturer_names=item.get("manufacturers_associated_with") or None,
         as_of=as_of,
     )
 
