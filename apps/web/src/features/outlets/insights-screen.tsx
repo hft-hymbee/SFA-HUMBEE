@@ -2,7 +2,7 @@
 
 import type { OutletInsightManufacturersResponse } from "@humbee/api-contract";
 import { BottomSheet, EmptyState, ErrorState, Icon } from "humbee-design-system";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { SpScreen } from "@/src/features/shell/components";
 import { SpListSkeleton } from "@/src/features/shell/loading";
@@ -928,12 +928,25 @@ function InsightTabStrip({
   );
 }
 
+export interface OutletInsightsFrameProps {
+  title: string;
+  toolbar: ReactNode;
+  children: ReactNode;
+}
+
+function SpInsightsFrame({ title, toolbar, children }: OutletInsightsFrameProps) {
+  return <SpScreen title={title} back appBarVariant="insights" toolbar={toolbar}>{children}</SpScreen>;
+}
+
+/** `Frame` supplies the role's screen chrome; the Sales Officer app bar by default. */
 export function OutletInsightsScreen({
   outletId,
   outletName,
+  Frame = SpInsightsFrame,
 }: {
   outletId: string;
   outletName: string;
+  Frame?: ComponentType<OutletInsightsFrameProps>;
 }) {
   const manufacturersQuery = useOutletInsightManufacturers(outletId);
   const manufacturers = useMemo(
@@ -987,10 +1000,8 @@ export function OutletInsightsScreen({
   }, [closeProfiler, profilerVisible, sheet]);
 
   return (
-    <SpScreen
+    <Frame
       title={outletName || "Outlet insights"}
-      back
-      appBarVariant="insights"
       toolbar={(
         <div className={styles.toolbar}>
           <div className={styles.scope}>
@@ -1173,6 +1184,6 @@ export function OutletInsightsScreen({
           <p className={styles.sheetNote}>This manufacturer has no roles linked.</p>
         )}
       </BottomSheet>
-    </SpScreen>
+    </Frame>
   );
 }

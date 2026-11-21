@@ -1,7 +1,7 @@
 "use client";
 
-import { Icon } from "humbee-design-system";
-import { useEffect, useState, type CSSProperties } from "react";
+import { Button, Icon } from "humbee-design-system";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "./management.module.css";
 
 export interface TeamDayActivity {
@@ -11,7 +11,13 @@ export interface TeamDayActivity {
   title: string;
   subtitle: string;
   chipLabel: string;
+  /** Picks the icon when chipLabel is free text (e.g. a no-order reason); defaults to chipLabel. */
+  statusKey?: string;
   details: string[];
+  /** Shown after chipLabel on the summary line, e.g. an outlet's business profiler %. */
+  metaBadge?: ReactNode;
+  /** Shown in the expanded panel, e.g. opening an outlet's insights. */
+  action?: { label: string; icon: string; onClick: () => void };
 }
 
 interface ActivityVisual {
@@ -60,7 +66,7 @@ function activityVisual(activity: TeamDayActivity): ActivityVisual {
     return { icon: "LogoutOutlined", background: "var(--color-text-secondary)" };
   }
   const telephonic = activity.subtitle.toLowerCase().includes("telephonic");
-  switch (activity.chipLabel) {
+  switch (activity.statusKey ?? activity.chipLabel) {
     case "Order placed":
       return { icon: "ShoppingCartOutlined", background: "var(--color-info)" };
     case "No order":
@@ -87,7 +93,7 @@ function titleLeadingIcon(activity: TeamDayActivity) {
 }
 
 function activityHasDetails(activity: TeamDayActivity) {
-  return Boolean(activity.subtitle || activity.details.length);
+  return Boolean(activity.subtitle || activity.details.length || activity.action);
 }
 
 function prefersReducedMotion() {
@@ -185,7 +191,12 @@ function ActivityTimelineStep({
                 <Icon name="KeyboardArrowRight" size={20} color="var(--color-text-secondary)" />
               </span>
             </span>
-            {activity.chipLabel ? <span className={styles.activityTimelineMeta}>{activity.chipLabel}</span> : null}
+            {activity.chipLabel || activity.metaBadge ? (
+              <span className={styles.activityTimelineMeta}>
+                {activity.chipLabel}
+                {activity.metaBadge ? <>{activity.chipLabel ? " · " : null}{activity.metaBadge}</> : null}
+              </span>
+            ) : null}
           </button>
         ) : (
           <div className={styles.activityTimelineSummary}>
@@ -202,16 +213,32 @@ function ActivityTimelineStep({
               ) : null}
               <span>{activity.title}</span>
             </div>
-            {activity.chipLabel ? <div className={styles.activityTimelineMeta}>{activity.chipLabel}</div> : null}
+            {activity.chipLabel || activity.metaBadge ? (
+              <div className={styles.activityTimelineMeta}>
+                {activity.chipLabel}
+                {activity.metaBadge ? <>{activity.chipLabel ? " · " : null}{activity.metaBadge}</> : null}
+              </div>
+            ) : null}
           </div>
         )}
         {expandable ? (
-          <div className={styles.activityTimelinePanel} data-open={open ? "true" : "false"}>
+          <div className={styles.activityTimelinePanel} data-open={open ? "true" : "false"} inert={!open}>
             <div className={styles.activityTimelinePanelInner}>
               {activity.subtitle ? <div className={styles.activityTimelineDescription}>{activity.subtitle}</div> : null}
               {activity.details.map((detail) => (
                 <div key={detail} className={styles.activityTimelineDetail}>{detail}</div>
               ))}
+              {activity.action ? (
+                <Button
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  label={activity.action.label}
+                  leftIcon={<Icon name={activity.action.icon} size={16} color="currentColor" />}
+                  onClick={activity.action.onClick}
+                  style={{ marginTop: "var(--space-xs)", paddingLeft: 0 }}
+                />
+              ) : null}
             </div>
           </div>
         ) : null}

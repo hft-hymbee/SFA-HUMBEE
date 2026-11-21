@@ -7,10 +7,11 @@ import type { BeatDetailResponse, ShopCategory } from "@humbee/api-contract";
 import { SpCard, SpInlineAlert, SpProcessProgress, SpScreen, SpSectionLabel, SpStickyFooter, StatusHistory } from "@/src/features/shell/components";
 import type { StatusHistoryStep } from "@/src/features/shell/components";
 import { ApiClientError } from "@/src/shared/api";
-import { shopCategoryLabel } from "@/src/shared/geography-master";
-import { filterOutletsByQuery, sortOutletsTakenLast } from "@/src/shared/outlet-list";
+import { SHOP_CATEGORIES_ENABLED, shopCategoryLabel } from "@/src/shared/geography-master";
+import { filterOutletsByQuery, outletIdentity, sortOutletsTakenLast } from "@/src/shared/outlet-list";
 import styles from "@/src/features/management/management.module.css";
 import { useBeatDraft } from "./beat-draft";
+import { outletSubtitle } from "./outlet-identity";
 import type { BeatFrequency } from "./beat-draft";
 import type { Beat, BeatScope, OutletChoice } from "./service";
 import { mapBeat, mapOutlet, useBeatDetail, useBeatMutations, useBeats, useGeographyMaster, useScopeOutlets } from "./service";
@@ -265,8 +266,9 @@ export function CreateBeatScopeScreen() {
           zones={zones}
           states={states}
           districts={districts}
-          shopCategories={shopCategories}
+          shopCategories={SHOP_CATEGORIES_ENABLED ? shopCategories : []}
           cascadeChildren={false}
+          autoSelectSingle
           assigned={{
             zones: scope.zones,
             states: scope.states,
@@ -311,17 +313,25 @@ export function CreateBeatScopeScreen() {
   );
 }
 
+type OutletPickerFilter = "all" | "unassigned" | "assigned";
+
 export function OutletPickerScreen() {
   const router = useRouter();
-  const { availableOutlets, draft, outletQuery, outletsComplete, outletsError, outletsLoading, outletsRefreshing, refreshOutlets, selectedOutlets, setOutletQuery, toggleAllOutlets, toggleOutlet, toggleOutletGroup } = useBeatDraft();
+  const { availableOutlets, draft, outletQuery, outletsComplete, outletsError, outletsLoading, outletsRefreshing, refreshOutlets, selectedOutlets, setOutletQuery, toggleAllOutlets, toggleOutlet } = useBeatDraft();
+  const [outletFilter, setOutletFilter] = useState<OutletPickerFilter>("all");
   const sortedAvailableOutlets = useMemo(() => sortOutletsTakenLast(availableOutlets, "location_then_name"), [availableOutlets]);
   const availableOutletsOnly = useMemo(() => sortedAvailableOutlets.filter((outlet) => !outlet.takenBy), [sortedAvailableOutlets]);
   const assignedOutletsOnly = useMemo(() => sortedAvailableOutlets.filter((outlet) => Boolean(outlet.takenBy)), [sortedAvailableOutlets]);
-  const availableLocations = useMemo(() => [...new Set(availableOutletsOnly.map((outlet) => outlet.location))], [availableOutletsOnly]);
-  const assignedLocations = useMemo(() => [...new Set(assignedOutletsOnly.map((outlet) => outlet.location))], [assignedOutletsOnly]);
   const selectedOutletIds = useMemo(() => new Set(draft.outletIds), [draft.outletIds]);
-  const selectableOutlets = availableOutletsOnly;
-  const allOutletsSelected = selectableOutlets.length > 0 && selectableOutlets.every((outlet) => selectedOutletIds.has(outlet.id));
+  const allOutletsSelected = availableOutletsOnly.length > 0 && availableOutletsOnly.every((outlet) => selectedOutletIds.has(outlet.id));
+  const showUnassigned = outletFilter !== "assigned" && availableOutletsOnly.length > 0;
+  const showAssigned = outletFilter !== "unassigned" && assignedOutletsOnly.length > 0;
+  const showFilters = !outletsLoading && !outletsError && draft.districts.length > 0 && (sortedAvailableOutlets.length > 0 || Boolean(outletQuery));
+  const filterOptions: Array<[OutletPickerFilter, string, number]> = [
+    ["all", "All", sortedAvailableOutlets.length],
+    ["unassigned", "Unassigned", availableOutletsOnly.length],
+    ["assigned", "Assigned", assignedOutletsOnly.length],
+  ];
   useEffect(() => {
     router.prefetch("/sp/beats/create/review");
   }, [router]);
@@ -331,18 +341,15 @@ export function OutletPickerScreen() {
       <div className="sp-search-toolbar">
         <TextField placeholder="Search outlets" startAdornment={<Icon name="SearchOutlined" size={20} color="var(--color-text-placeholder)" />} value={outletQuery} onChange={(event) => setOutletQuery((event.target as HTMLInputElement).value)} />
       </div>
+      {showFilters ? (
+        <div className="sp-filter-bar">
+          {filterOptions.map(([value, text, count]) => (
+            <button className="sp-filter-chip" data-active={outletFilter === value} key={value} onClick={() => setOutletFilter(value)} type="button">{`${text} · ${count}`}</button>
+          ))}
+        </div>
+      ) : null}
       <div className="sp-content">
         <SpProcessProgress steps={CREATE_BEAT_STEPS} activeStep={1} />
-        {selectableOutlets.length ? (
-          <Button
-            variant="text"
-            color="primary"
-            size="small"
-            label={outletsRefreshing ? "Loading all outlets..." : allOutletsSelected ? "Clear all outlets" : `Select all outlets (${selectableOutlets.length})`}
-            disabled={outletsRefreshing}
-            onClick={toggleAllOutlets}
-          />
-        ) : null}
       </div>
       {outletsLoading ? (
         <div className="sp-content"><Skeleton height={280} radius={12} /></div>
@@ -354,59 +361,61 @@ export function OutletPickerScreen() {
         <EmptyState icon="SearchOutlined" title={`No outlets match "${outletQuery}"`} message="Try another outlet name." actionLabel="Clear search" onAction={() => setOutletQuery("")} />
       ) : !sortedAvailableOutlets.length ? (
         <EmptyState icon="LocationPin" title="No outlets in this scope" message="Change the geography or category selection to continue." actionLabel="Change scope" onAction={() => router.push("/sp/beats/create/scope")} />
-      ) : availableLocations.map((location) => {
-        const group = availableOutletsOnly.filter((outlet) => outlet.location === location);
-        const selectableGroup = group.filter((outlet) => !outlet.takenBy);
-        const allSelected = selectableGroup.length > 0 && selectableGroup.every((outlet) => selectedOutletIds.has(outlet.id));
-        return (
-          <div key={location}>
-            <div className="sp-group-header">
-              <div>
-                <strong>{location || "Area not set"}</strong>
-                <span>{group.length} outlets</span>
+      ) : !showUnassigned && !showAssigned ? (
+        outletFilter === "unassigned" ? (
+          <EmptyState icon="LocationPin" title="All outlets in this scope are already on a beat" message="Switch to All to see every outlet in this scope." actionLabel="Show all" onAction={() => setOutletFilter("all")} />
+        ) : (
+          <EmptyState icon="LocationPin" title="No outlets here are on another beat" message="Every outlet in this scope is free to add." actionLabel="Show all" onAction={() => setOutletFilter("all")} />
+        )
+      ) : (
+        <>
+          {showUnassigned ? (
+            <div>
+              <div className="sp-group-header">
+                <div>
+                  <strong>Unassigned outlets</strong>
+                  <span>{outletCountLabel(availableOutletsOnly.length)}</span>
+                </div>
+                <Button variant="text" color="primary" size="small" label={outletsRefreshing ? "Loading..." : allOutletsSelected ? "Clear" : "Select all"} disabled={outletsRefreshing} onClick={toggleAllOutlets} />
               </div>
-              {selectableGroup.length ? <Button variant="text" color="primary" size="small" label={allSelected ? "Clear" : "Select all"} disabled={outletsRefreshing} onClick={() => toggleOutletGroup(location)} /> : null}
-            </div>
-            <div className="sp-list">
-              {group.map((outlet) => (
-                <ListRow
-                  key={outlet.id}
-                  leading={<span onClick={(event) => event.stopPropagation()}><Checkbox checked={selectedOutletIds.has(outlet.id)} onChange={() => toggleOutlet(outlet.id)} /></span>}
-                  title={outlet.name}
-                  subtitle={undefined}
-                  meta={outlet.category || undefined}
-                  onClick={() => toggleOutlet(outlet.id)}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-      {assignedLocations.map((location) => {
-        const group = assignedOutletsOnly.filter((outlet) => outlet.location === location);
-        return (
-          <div key={`assigned-${location}`}>
-            <div className="sp-group-header">
-              <div>
-                <strong>{location || "Area not set"}</strong>
-                <span>{group.length} outlets</span>
+              <div className="sp-list">
+                {availableOutletsOnly.map((outlet) => (
+                  <ListRow
+                    key={outlet.id}
+                    leading={<span onClick={(event) => event.stopPropagation()}><Checkbox checked={selectedOutletIds.has(outlet.id)} onChange={() => toggleOutlet(outlet.id)} /></span>}
+                    title={outlet.name}
+                    subtitle={outletSubtitle(outlet, outlet.location)}
+                    meta={outlet.category || undefined}
+                    onClick={() => toggleOutlet(outlet.id)}
+                  />
+                ))}
               </div>
             </div>
-            <div className="sp-list">
-              {group.map((outlet) => (
-                <ListRow
-                  key={outlet.id}
-                  leading={<span onClick={(event) => event.stopPropagation()}><Checkbox checked={false} disabled onChange={() => toggleOutlet(outlet.id)} /></span>}
-                  title={outlet.name}
-                  subtitle={outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location || undefined}
-                  meta={outlet.category || undefined}
-                  disabled
-                />
-              ))}
+          ) : null}
+          {showAssigned ? (
+            <div>
+              <div className="sp-group-header">
+                <div>
+                  <strong>Already assigned to a beat</strong>
+                  <span>{outletCountLabel(assignedOutletsOnly.length)}</span>
+                </div>
+              </div>
+              <div className="sp-list">
+                {assignedOutletsOnly.map((outlet) => (
+                  <ListRow
+                    key={outlet.id}
+                    leading={<span onClick={(event) => event.stopPropagation()}><Checkbox checked={false} disabled onChange={() => toggleOutlet(outlet.id)} /></span>}
+                    title={outlet.name}
+                    subtitle={outletSubtitle(outlet, outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location)}
+                    meta={outlet.category || undefined}
+                    disabled
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          ) : null}
+        </>
+      )}
       <SpStickyFooter>
         <div className="sp-row">
           <strong>{`${outletsComplete ? selectedOutlets.length : draft.outletIds.length} selected`}</strong>
@@ -531,7 +540,7 @@ export function NameBeatScreen() {
               {visibleSelectedOutlets.length ? (
                 <SpCard padded={false}>
                   <div className="sp-list">
-                    {visibleSelectedOutlets.map((outlet, index) => <ListRow key={outlet.id} leading={<span className="sp-sequence-number">{index + 1}</span>} title={outlet.name} subtitle={outlet.location || undefined} meta={outlet.category || undefined} />)}
+                    {visibleSelectedOutlets.map((outlet, index) => <ListRow key={outlet.id} leading={<span className="sp-sequence-number">{index + 1}</span>} title={outlet.name} subtitle={outletSubtitle(outlet, outlet.location)} meta={outlet.category || undefined} />)}
                   </div>
                 </SpCard>
               ) : (
@@ -584,7 +593,7 @@ function BeatDetailContent({ beatId, detail }: { beatId: string; detail: BeatDet
     name: outlet.name,
     zone: "",
     state: "",
-    district: "",
+    ...outletIdentity(outlet),
     location: outlet.locality?.trim() || "",
     category: outlet.category ? shopCategoryLabel(outlet.category) : "",
     selected: true,
@@ -645,7 +654,7 @@ function BeatDetailContent({ beatId, detail }: { beatId: string; detail: BeatDet
               {visibleBeatOutlets.length ? (
                 <SpCard padded={false}>
                   <div className="sp-list">
-                    {visibleBeatOutlets.map((outlet) => <ListRow key={outlet.id} leading={<Icon name="LocationPin" size={22} color="var(--color-primary)" />} title={outlet.name} subtitle={outlet.location || undefined} meta={outlet.category || undefined} />)}
+                    {visibleBeatOutlets.map((outlet) => <ListRow key={outlet.id} leading={<Icon name="LocationPin" size={22} color="var(--color-primary)" />} title={outlet.name} subtitle={outletSubtitle(outlet, outlet.location)} meta={outlet.category || undefined} />)}
                   </div>
                 </SpCard>
               ) : (
@@ -665,7 +674,7 @@ function BeatDetailContent({ beatId, detail }: { beatId: string; detail: BeatDet
             <BeatDetailRow label="Zones" value={beatGeoLabels(detail.geo_scope, "zones", zones)} />
             <BeatDetailRow label="States" value={beatGeoLabels(detail.geo_scope, "states", states)} />
             <BeatDetailRow label="Districts" value={beatGeoLabels(detail.geo_scope, "districts", districts)} />
-            <BeatDetailRow label="Shop categories" value={categoryLabels(categories)} />
+            {SHOP_CATEGORIES_ENABLED ? <BeatDetailRow label="Shop categories" value={categoryLabels(categories)} /> : null}
           </div>
         </BeatDetailSection>
         {inactive ? <SpInlineAlert tone="warning">This beat is inactive and cannot be used for new route planning. Existing history is retained.</SpInlineAlert> : null}
@@ -706,7 +715,7 @@ export function EditBeatScreen({ beatId, knownStatus }: { beatId: string; knownS
     name: outlet.name,
     zone: "",
     state: "",
-    district: "",
+    ...outletIdentity(outlet),
     location: outlet.locality?.trim() || "",
     category: outlet.category ? shopCategoryLabel(outlet.category) : "",
     selected: true,
@@ -871,7 +880,8 @@ function EditBeatContent({
             zones={zoneOptions}
             states={stateOptions}
             districts={districtOptions}
-            shopCategories={categoryOptions}
+            shopCategories={SHOP_CATEGORIES_ENABLED ? categoryOptions : []}
+            autoSelectSingle
             showScopeSummary={false}
             assigned={{ zones: scope.zones, states: scope.states, districts: scope.districts, shopCategories: scope.categories }}
             value={{ zones, states, districts, shopCategories: categories }}
@@ -918,7 +928,7 @@ function EditBeatContent({
             {visibleOutlets.length ? (
               <SpCard padded={false}>
                 <div className="sp-list">
-                  {visibleOutlets.map((outlet) => <ListRow key={outlet.id} leading={<span onClick={(event) => event.stopPropagation()}><Checkbox checked={outletIdSet.has(outlet.id)} disabled={Boolean(outlet.takenBy)} onChange={() => toggleEditOutlet(outlet)} /></span>} title={outlet.name} subtitle={outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location || undefined} meta={outlet.category || undefined} disabled={Boolean(outlet.takenBy)} onClick={outlet.takenBy ? undefined : () => toggleEditOutlet(outlet)} />)}
+                  {visibleOutlets.map((outlet) => <ListRow key={outlet.id} leading={<span onClick={(event) => event.stopPropagation()}><Checkbox checked={outletIdSet.has(outlet.id)} disabled={Boolean(outlet.takenBy)} onChange={() => toggleEditOutlet(outlet)} /></span>} title={outlet.name} subtitle={outletSubtitle(outlet, outlet.takenBy ? `Already on beat ${outlet.takenBy}` : outlet.location)} meta={outlet.category || undefined} disabled={Boolean(outlet.takenBy)} onClick={outlet.takenBy ? undefined : () => toggleEditOutlet(outlet)} />)}
                 </div>
               </SpCard>
             ) : (

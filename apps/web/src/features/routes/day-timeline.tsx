@@ -4,6 +4,7 @@ import { EmptyState, Skeleton } from "humbee-design-system";
 import type { RoutePlanResponse } from "@humbee/api-contract";
 import { useQueries } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { formatDuration, officialWorkTypes } from "@/src/features/attendance/screens";
 import {
@@ -13,9 +14,11 @@ import {
   type TeamDayActivity,
 } from "@/src/features/management/activity-timeline";
 import type { LivePositionMarker } from "@/src/features/management/live-positions-map";
+import { BpBadge } from "@/src/features/outlets/business-profiler";
+import { outletInsightsHref } from "@/src/features/outlets/service";
 import { SpCard, SpSectionLabel } from "@/src/features/shell/components";
 import { getCurrentLocationLabel } from "@/src/shared/capabilities";
-import { mapRouteStop, routePlanStops, type RouteStop } from "./service";
+import { mapRouteStop, noOrderReasonLabel, routePlanStops, type RouteStop } from "./service";
 
 const LivePositionsMap = dynamic(
   () => import("@/src/features/management/live-positions-map").then((module) => module.LivePositionsMap),
@@ -36,7 +39,7 @@ function formatDateTime(value: string | null | undefined) {
 function routeStopStatus(stop: RouteStop) {
   if (stop.status === "done") {
     if (stop.visitOutcome === "with_order" || (stop.orderCount ?? 0) > 0) return { label: "Order placed" };
-    if (stop.visitOutcome === "no_order") return { label: "No order" };
+    if (stop.visitOutcome === "no_order") return { label: noOrderReasonLabel(stop.noOrderReason) ?? "No order", statusKey: "No order" };
     return { label: "Completed" };
   }
   if (stop.status === "next") return { label: "In progress" };
@@ -78,6 +81,10 @@ export interface RouteDayTimelineProps {
   punchInSubtitle: string;
   punchOutSubtitle: string;
   emptyTimelineMessage?: string;
+  /** Route of the role's outlet insights screen; adds an "Open full outlet insights" action to each outlet stop. */
+  outletInsightsPath?: string;
+  /** Business profiler % by outlet ref (see `useRouteBusinessProfiler`); shown on each outlet stop. */
+  businessProfilerPct?: (outletRef: string) => number | null;
 }
 
 export function RouteDayTimeline({
@@ -88,7 +95,10 @@ export function RouteDayTimeline({
   punchInSubtitle,
   punchOutSubtitle,
   emptyTimelineMessage = "No activity on this day",
+  outletInsightsPath,
+  businessProfilerPct,
 }: RouteDayTimelineProps) {
+  const router = useRouter();
   const stops = useMemo(() => routePlanStops(routeDay).map(mapRouteStop), [routeDay]);
   const stopsNeedingResolvedLocation = useMemo(
     () => stops.flatMap((stop) => {
@@ -138,6 +148,7 @@ export function RouteDayTimeline({
     }
     stops.forEach((stop) => {
       const status = routeStopStatus(stop);
+      const bpPct = stop.outletRef ? businessProfilerPct?.(stop.outletRef) ?? null : null;
       const locationLabel = stop.area.trim()
         ? stop.area
         : (resolvedLocationByStopId.get(stop.id) ?? (stop.checkinGps ? "Resolving location..." : "Location unavailable"));
@@ -148,10 +159,19 @@ export function RouteDayTimeline({
         title: stop.outletName,
         subtitle: stopTimelineSubtitle(stop, locationLabel),
         chipLabel: status.label,
+        statusKey: status.statusKey,
+        metaBadge: bpPct !== null ? <BpBadge pct={bpPct} /> : undefined,
         details: [
           ...(stop.checkedInAt ? [`Check-in ${formatDateTime(stop.checkedInAt)}`] : []),
           ...(stop.checkedOutAt ? [`Check-out ${formatDateTime(stop.checkedOutAt)}`] : []),
         ],
+        action: outletInsightsPath && stop.outletRef
+          ? {
+            label: "Open full outlet insights",
+            icon: "Dashboard",
+            onClick: () => router.push(outletInsightsHref(outletInsightsPath, stop.outletRef, stop.outletName)),
+          }
+          : undefined,
       });
     });
     (routeDay.official_work ?? []).forEach((block) => {
@@ -177,7 +197,7 @@ export function RouteDayTimeline({
       });
     }
     return activities.sort(compareTeamDayActivities);
-  }, [punchInSubtitle, punchOutSubtitle, resolvedLocationByStopId, routeDay, stops]);
+  }, [businessProfilerPct, outletInsightsPath, punchInSubtitle, punchOutSubtitle, resolvedLocationByStopId, routeDay, router, stops]);
   const mapMarkers = useMemo(() => stopMapMarkers(stops), [stops]);
   const mapPath = useMemo<Array<[number, number]>>(
     () => mapMarkers.map((marker) => [marker.lng, marker.lat]),

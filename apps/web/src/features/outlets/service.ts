@@ -244,6 +244,13 @@ export function useOutletOnboardingMutations() {
 
 export type OutletInsightSectionName = "performance" | "benefits" | "rewards";
 
+/** Link to the full outlet insights screen under `basePath` (each role has its own route). */
+export function outletInsightsHref(basePath: string, outletId: string, outletName?: string | null) {
+  const params = new URLSearchParams({ outletId });
+  if (outletName) params.set("name", outletName);
+  return `${basePath}?${params.toString()}`;
+}
+
 export const outletInsightKeys = {
   all: (actor: string) => ["outlet-insights", { actorId: actor }] as const,
   section: (

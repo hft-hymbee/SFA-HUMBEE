@@ -70,6 +70,14 @@ export type AdminDashboardMetricsOut = {
      */
     active_employees: number | null;
     /**
+     * Bp Filled
+     */
+    bp_filled?: number;
+    /**
+     * Bp Not Filled
+     */
+    bp_not_filled?: number;
+    /**
      * Coverage Pct
      */
     coverage_pct?: number | null;
@@ -3252,6 +3260,14 @@ export type ManagerDashboardKpisResponse = {
  */
 export type ManagerDashboardMetricsOut = {
     /**
+     * Bp Filled
+     */
+    bp_filled?: number;
+    /**
+     * Bp Not Filled
+     */
+    bp_not_filled?: number;
+    /**
      * Coverage Pct
      */
     coverage_pct?: number | null;
@@ -4286,6 +4302,10 @@ export type OutletDetailResponse = {
      */
     is_active: boolean | null;
     /**
+     * Is Filled
+     */
+    is_filled?: boolean;
+    /**
      * Latitude
      */
     latitude: number | null;
@@ -4863,6 +4883,10 @@ export type RouteBusinessProfilerItem = {
      */
     business_profiler_pct: number;
     /**
+     * Is Filled
+     */
+    is_filled: boolean;
+    /**
      * Is Live
      */
     is_live: boolean;
@@ -5098,9 +5122,21 @@ export type ScatterPointOut = {
 export type ScopeOutletItem = {
     category: ShopCategory | null;
     /**
+     * District Name
+     */
+    district_name: string | null;
+    /**
+     * Gstin Pan
+     */
+    gstin_pan: string | null;
+    /**
      * Locality
      */
     locality: string | null;
+    /**
+     * Manufacturer Names
+     */
+    manufacturer_names: string | null;
     /**
      * Name
      */

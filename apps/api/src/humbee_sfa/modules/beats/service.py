@@ -140,6 +140,16 @@ def _raise_import_errors(
     )
 
 
+def _outlet_identity(record: OutletRecord) -> dict[str, str | None]:
+    """What tells apart outlets that share a name in one district, for the beat outlet picker only."""
+
+    return {
+        "gstin_pan": record.gstin or record.pan,
+        "district_name": record.district_name or None,
+        "manufacturer_names": record.manufacturer_names,
+    }
+
+
 def _is_abandoned_draft(beat: Beat, version: BeatVersion | None) -> bool:
     """A wizard draft opened and never named. The `Beat` row exists from the wizard's first step,
     so an abandoned session leaves a placeholder-named, outlet-less row that carries no
@@ -968,6 +978,7 @@ class BeatService:
                     category=schemas.to_shop_category(record.category),
                     selected=record.external_id in selected,
                     taken_by_beat=taken_by.get(record.external_id),
+                    **_outlet_identity(record),
                 )
                 for record in page.records
             ],
