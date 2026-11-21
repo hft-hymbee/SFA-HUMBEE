@@ -142,6 +142,9 @@ class ScopeOutletItem(BaseModel):
     category: ShopCategory | None
     selected: bool
     taken_by_beat: str | None
+    gstin_pan: str | None
+    district_name: str | None
+    manufacturer_names: str | None
 
 
 class ScopeOutletsResponse(BaseModel):

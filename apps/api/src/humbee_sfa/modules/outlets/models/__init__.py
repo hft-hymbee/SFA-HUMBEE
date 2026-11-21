@@ -3,6 +3,8 @@
 - `outlet.py`                  `Outlet` — tenant-scoped projection of Humbee outlet master data.
 - `onboarding_candidate.py`    `OutletOnboardingCandidate` — `outlets_onboarding_candidates`, a
   field-captured firm held locally until a manager approves it, because `onboard-firm` is irreversible.
+- `business_profiler_history.py` `OutletBusinessProfilerHistory` — every change of an outlet's
+  business profiler %, for "as of end of day" reporting.
 - `owner_otp_challenge.py`     `OwnerOtpChallenge` — `outlets_owner_otp_challenges`, phone
   verification for a prospective firm owner ahead of `onboard-firm`.
 
@@ -12,12 +14,16 @@ externally, never persisted) are not tables — there is no ORM model for either
 
 from __future__ import annotations
 
+from humbee_sfa.modules.outlets.models.business_profiler_history import (
+    OutletBusinessProfilerHistory,
+)
 from humbee_sfa.modules.outlets.models.onboarding_candidate import OutletOnboardingCandidate
 from humbee_sfa.modules.outlets.models.outlet import Outlet
 from humbee_sfa.modules.outlets.models.owner_otp_challenge import OwnerOtpChallenge
 
 __all__ = [
     "Outlet",
+    "OutletBusinessProfilerHistory",
     "OutletOnboardingCandidate",
     "OwnerOtpChallenge",
 ]

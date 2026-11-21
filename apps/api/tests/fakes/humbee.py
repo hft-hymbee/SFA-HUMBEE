@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -69,6 +70,8 @@ class Outlet:
     contact_mobile: str | None = "+919000000001"
     gstin: str | None = None
     pan: str | None = None
+    business_profiler_pct: int | None = 0
+    manufacturers: str | None = None  # Humbee's codes, e.g. "DBC,TAG"
 
 
 @dataclass
@@ -96,6 +99,7 @@ class FakeHumbee:
         self.route("GET", "/sfa/v1/geography-districts")(self._districts)
         self.route("GET", "/sfa/v1/outlets")(self._search_outlets)
         self.route("GET", "/sfa/v1/outlets/{outlet_id}")(self._outlet_detail)
+        self.route("POST", "/sfa/v1/outlets/business-profiler")(self._business_profiler)
 
     def add_zone(self, zone_id: str, name: str) -> Zone:
         self.zones[zone_id] = Zone(zone_id, name)
@@ -195,7 +199,7 @@ class FakeHumbee:
             for o in self.outlets.values()
             if o.district_id in district_ids
             and (not categories or o.shop_category_id in categories)
-            and query in o.name.lower()
+            and any(query in (value or "").lower() for value in (o.name, o.gstin, o.pan))
         ]
         start = int(call.params.get("cursor") or 0)
         end = start + min(int(call.params["limit"]), self.outlet_page_size)
@@ -214,6 +218,7 @@ class FakeHumbee:
                             "shop_category_id": o.shop_category_id,
                             "gstin": o.gstin,
                             "pan": o.pan,
+                            "manufacturers_associated_with": o.manufacturers,
                         }
                         for o in page
                         if o.district_id == district_id
@@ -242,5 +247,17 @@ class FakeHumbee:
             "registered_address": "1 MG Road",
             "credit_limit_paise": None,
             "credit_outstanding_paise": None,
+            "business_profiler_pct": outlet.business_profiler_pct,
             "as_of": AS_OF,
+        }
+
+    def _business_profiler(self, call: HumbeeCall) -> Any:
+        return {
+            "outlets": [
+                {"outlet_id": outlet_id, "business_profiler_pct": self.outlets[outlet_id].business_profiler_pct}
+                for outlet_id in dict.fromkeys(call.json["outlet_ids"])
+                if outlet_id in self.outlets
+            ],
+            # Humbee computes the % on read, so the batch is stamped with the time of the call.
+            "as_of": datetime.now(UTC).isoformat(),
         }

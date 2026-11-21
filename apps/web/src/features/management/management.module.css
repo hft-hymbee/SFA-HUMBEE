@@ -2478,3 +2478,16 @@ button.treeNode {
     display: none !important;
   }
 }
+
+.insightsToolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  background: var(--surface-card);
+}
+
+.coverageNodeBp:not(:empty) {
+  margin-top: var(--space-sm);
+}

@@ -27,6 +27,7 @@ import { approvalService } from "@/src/features/approvals/service";
 import { ApiClientError, createIdempotencyKey, getBrowserApiClient, idempotencyHeaders } from "@/src/shared/api";
 import { readSessionSync } from "@/src/shared/auth/session";
 import { readGeographyMaster, shopCategoryLabel } from "@/src/shared/geography-master";
+import { outletIdentity, type OutletIdentityFields } from "@/src/shared/outlet-list";
 import { fetchAllPages } from "@/src/shared/pagination";
 
 export interface Beat {
@@ -48,12 +49,11 @@ export interface Beat {
   status: "approved" | "pending" | "draft" | "inactive";
 }
 
-export interface OutletChoice {
+export interface OutletChoice extends OutletIdentityFields {
   id: string;
   name: string;
   zone: string;
   state: string;
-  district: string;
   location: string;
   category: string;
   selected: boolean;
@@ -270,7 +270,7 @@ export function mapOutlet(outlet: ScopeOutletItem): OutletChoice {
     name: outlet.name,
     zone: "",
     state: "",
-    district: "",
+    ...outletIdentity(outlet),
     location: outlet.locality?.trim() || "",
     category: outlet.category ? shopCategoryLabel(outlet.category) : "",
     selected: outlet.selected,

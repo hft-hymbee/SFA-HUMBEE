@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.db import get_db_session
 from humbee_sfa.core.errors.handlers import ApiError
 from humbee_sfa.core.security import InvalidTokenError, decode_access_token, utc_from_timestamp
+from humbee_sfa.core.settings import get_settings
 
 
 @dataclass(frozen=True)
@@ -122,3 +124,17 @@ def _decode_claims(request: Request) -> AccessTokenClaims:
         issued_at=_parse_timestamp(payload, "iat"),
         access_token_expires_at=_parse_timestamp(payload, "exp"),
     )
+
+
+def require_humbee_caller(
+    api_key: Annotated[str | None, Header(alias="api-key", max_length=512)] = None,
+) -> None:
+    """Humbee calls with the SFA vendor key (its `vendor_api_keys` row for SFA) — the same key SFA
+    holds as `HUMBEE_API_KEY` to call Humbee — not an employee token. Compared as bytes, so a
+    non-ASCII header is a 401, not a `compare_digest` TypeError."""
+
+    expected = get_settings().humbee_api_key
+    if not expected or not api_key:
+        raise ApiError(401, "invalid_api_key", "Invalid API key.")
+    if not secrets.compare_digest(api_key.encode(), expected.encode()):
+        raise ApiError(401, "invalid_api_key", "Invalid API key.")

@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.db import get_db_session
-from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims
+from humbee_sfa.core.deps import AccessTokenClaims, get_current_claims, require_humbee_caller
 from humbee_sfa.modules.outlets import schemas
 from humbee_sfa.modules.outlets.service import OutletOnboardingService, OutletReadService
 from humbee_sfa.platform.telemetry.middleware import get_request_id
@@ -21,6 +21,7 @@ from humbee_sfa.platform.telemetry.middleware import get_request_id
 router = APIRouter(tags=["Outlets"])
 onboarding_router = APIRouter(prefix="/api/v1/outlets/onboarding", tags=["Outlets"])
 read_router = APIRouter(prefix="/api/v1/outlets", tags=["Outlets"])
+humbee_push_router = APIRouter(prefix="/api/v1/integrations/humbee", tags=["Integrations"])
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", max_length=128)]
 OutletId = Annotated[str, Path(min_length=1, max_length=64)]
@@ -312,5 +313,25 @@ def get_candidate(
     )
 
 
+@humbee_push_router.post(
+    "/business-profiler",
+    status_code=204,
+    response_class=Response,
+    dependencies=[Depends(require_humbee_caller)],
+)
+def receive_business_profiler_push(
+    body: schemas.BusinessProfilerPushBody,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> Response:
+    """Humbee pushes each outlet's new business profiler % after a profiler save, so today's
+    reporting counts stay live without a visit."""
+
+    OutletReadService(session).record_business_profiler_push(
+        items=[(item.outlet_id, item.business_profiler_pct, item.changed_at) for item in body.outlets]
+    )
+    return Response(status_code=204)
+
+
 router.include_router(read_router)
+router.include_router(humbee_push_router)
 router.include_router(onboarding_router)

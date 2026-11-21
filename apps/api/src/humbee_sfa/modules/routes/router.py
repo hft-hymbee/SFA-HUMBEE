@@ -66,6 +66,23 @@ def get_current_route_plan(
     )
 
 
+@router.get(
+    "/route-plans/current/business-profiler", response_model=schemas.RouteBusinessProfilerResponse
+)
+def get_current_route_business_profiler(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+    business_date: Annotated[date | None, Query()] = None,
+    employee_id: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    """Live business profiler % for the outlets of `GET /route-plans/current`, called alongside it so
+    the list renders without waiting on Humbee. Same `business_date` / `employee_id` rules."""
+
+    return RouteService(session).get_business_profiler(
+        claims=claims, business_date=business_date, employee_id=employee_id
+    )
+
+
 @router.post("/route-plans/switch-beat", response_model=schemas.RoutePlanResponse)
 async def start_beat(
     body: schemas.SwitchBeatBody,

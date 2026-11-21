@@ -12,6 +12,7 @@ import io
 from datetime import date, datetime
 from typing import Any
 
+import structlog
 from fastapi import Response
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -34,11 +35,14 @@ from humbee_sfa.modules.org.geography_service import (
 from humbee_sfa.modules.org.scope import OrgResource, Scope, ScopeResolver
 from humbee_sfa.modules.org.service import OrgService
 from humbee_sfa.modules.outlets.service import OutletReadService
-from humbee_sfa.modules.reporting import repository
+from humbee_sfa.modules.reporting import business_profiler, repository
 from humbee_sfa.modules.reporting.service import _LEVEL_BY_DESIGNATION
+from humbee_sfa.modules.routes.service import RouteService
 
 _MAX_ATTENDANCE_RANGE_MONTHS = 4
 _XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+logger = structlog.get_logger(__name__)
 
 
 def _add_months(value: date, months: int) -> date:
@@ -445,6 +449,36 @@ class AdminReportsService:
 
     # -- 6. Attendance -----------------------------------------------------------
 
+    def _bp_counts_by_employee_day(
+        self, *, tenant_id: str, from_date: date, to_date: date
+    ) -> dict[tuple[str, date], business_profiler.BpCounts]:
+        """Per employee-day, the distinct outlets visited that day split by their current BP status.
+        May end the read transaction (Humbee fallback), so call it before loading ORM rows."""
+
+        visited = business_profiler.visited_by_employee_day(
+            self._session, tenant_id=tenant_id, employee_ids=None, from_date=from_date, to_date=to_date
+        )
+        outlet_ids = business_profiler.outlets_of(visited)
+        filled, complete = business_profiler.filled_by_outlet(
+            self._session,
+            settings=self._settings,
+            tenant_id=tenant_id,
+            outlet_ids=outlet_ids,
+            budget_s=business_profiler.REPORT_BUDGET_S,
+        )
+        if not complete:
+            # The xlsx has no degraded channel: outlets Humbee did not answer for count as not filled.
+            logger.warning(
+                "attendance_report_business_profiler_incomplete",
+                from_date=from_date.isoformat(),
+                to_date=to_date.isoformat(),
+                outlets=len(outlet_ids),
+            )
+        return {
+            key: business_profiler.count({key: outlets}, filled, [key[0]])
+            for key, outlets in visited.items()
+        }
+
     def attendance_report(self, *, claims: AccessTokenClaims, from_date: date, to_date: date) -> Response:
         self._require_admin(claims)
         if to_date < from_date:
@@ -453,12 +487,23 @@ class AdminReportsService:
             raise ApiError(
                 400, "range_too_large", f"Date range must not exceed {_MAX_ATTENDANCE_RANGE_MONTHS} months."
             )
+        bp_counts = self._bp_counts_by_employee_day(
+            tenant_id=claims.tenant_id, from_date=from_date, to_date=to_date
+        )
         directory = self._directory(claims)
         records = AttendanceService(
             self._session, settings=self._settings, clock=self._clock
         ).list_attendance_for_report(claims=claims, from_date=from_date, to_date=to_date)
         fact_days = repository.fact_employee_days_map(
             self._session,
+            tenant_id=claims.tenant_id,
+            employee_ids=list(directory),
+            from_date=from_date,
+            to_date=to_date,
+        )
+        visit_stats = RouteService(
+            self._session, settings=self._settings, clock=self._clock
+        ).visit_stats_by_employee_day(
             tenant_id=claims.tenant_id,
             employee_ids=list(directory),
             from_date=from_date,
@@ -477,6 +522,9 @@ class AdminReportsService:
             else:
                 working_hours = ""
             mock_gps = bool(record["punch_in_is_mock"]) or bool(record["punch_out_is_mock"])
+            day_key = (record["employee_id"], record["business_date"])
+            stats = visit_stats.get(day_key)
+            bp = bp_counts.get(day_key)
             rows.append(
                 [
                     person.get("employee_code", record["employee_id"]),
@@ -496,7 +544,13 @@ class AdminReportsService:
                     record["late_by_minutes"] if record["late_by_minutes"] is not None else "",
                     working_hours,
                     round(fact.distance_metres / 1000, 2) if fact else "",
-                    fact.visits_total if fact else "",
+                    stats.total if stats else 0,
+                    stats.physical if stats else 0,
+                    stats.telephonic if stats else 0,
+                    stats.productive if stats else 0,
+                    stats.missed if stats else 0,
+                    bp.filled if bp else 0,
+                    bp.not_filled if bp else 0,
                     fact.orders_submitted_count if fact else "",
                     _yes_no(mock_gps) if (record["punch_in_is_mock"] is not None or record["punch_out_is_mock"] is not None) else "",
                 ]
@@ -506,8 +560,9 @@ class AdminReportsService:
             headers=[
                 "Employee Code", "Name", "Phone", "Designation", "Manager", "Date", "Day", "Status",
                 "Leave Type", "Punch In", "Punch In Location", "Punch Out", "Punch Out Location",
-                "Late", "Late By (Mins)", "Working Hours", "Distance (km)", "Visits", "Orders",
-                "Mock GPS",
+                "Late", "Late By (Mins)", "Working Hours", "Distance (km)", "Total Visits",
+                "Physical Visits", "Telephonic Visits", "Productive Visits", "Missed Visits",
+                "BP Filled Outlets", "BP Not Filled Outlets", "Orders", "Mock GPS",
             ],
             rows=rows,
             filename=f"attendance-report-{from_date.isoformat()}-to-{to_date.isoformat()}.xlsx",
