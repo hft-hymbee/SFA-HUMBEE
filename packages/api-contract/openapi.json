@@ -142,6 +142,16 @@
             ],
             "title": "Active Employees"
           },
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "coverage_pct": {
             "anyOf": [
               {
@@ -3247,6 +3257,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3296,6 +3307,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3311,6 +3323,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3455,6 +3468,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3520,6 +3534,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3540,6 +3555,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -5630,6 +5646,16 @@
       },
       "ManagerDashboardMetricsOut": {
         "properties": {
+          "bp_filled": {
+            "default": 0,
+            "title": "Bp Filled",
+            "type": "integer"
+          },
+          "bp_not_filled": {
+            "default": 0,
+            "title": "Bp Not Filled",
+            "type": "integer"
+          },
           "coverage_pct": {
             "anyOf": [
               {
@@ -7481,6 +7507,11 @@
             ],
             "title": "Is Active"
           },
+          "is_filled": {
+            "default": false,
+            "title": "Is Filled",
+            "type": "boolean"
+          },
           "latitude": {
             "anyOf": [
               {
@@ -8479,6 +8510,10 @@
             "title": "Business Profiler Pct",
             "type": "integer"
           },
+          "is_filled": {
+            "title": "Is Filled",
+            "type": "boolean"
+          },
           "is_live": {
             "title": "Is Live",
             "type": "boolean"
@@ -8491,6 +8526,7 @@
         "required": [
           "outlet_ref",
           "business_profiler_pct",
+          "is_filled",
           "as_of",
           "is_live"
         ],
@@ -8989,6 +9025,28 @@
               }
             ]
           },
+          "district_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District Name"
+          },
+          "gstin_pan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin Pan"
+          },
           "locality": {
             "anyOf": [
               {
@@ -8999,6 +9057,17 @@
               }
             ],
             "title": "Locality"
+          },
+          "manufacturer_names": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer Names"
           },
           "name": {
             "title": "Name",
@@ -9030,7 +9099,10 @@
           "locality",
           "category",
           "selected",
-          "taken_by_beat"
+          "taken_by_beat",
+          "gstin_pan",
+          "district_name",
+          "manufacturer_names"
         ],
         "title": "ScopeOutletItem",
         "type": "object"

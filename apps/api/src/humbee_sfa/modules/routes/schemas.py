@@ -67,6 +67,8 @@ class OfficialWorkBlock(BaseModel):
 class RouteBusinessProfilerItem(BaseModel):
     outlet_ref: str
     business_profiler_pct: int
+    # Same threshold as the dashboard filled counts.
+    is_filled: bool
     as_of: datetime
     is_live: bool
 

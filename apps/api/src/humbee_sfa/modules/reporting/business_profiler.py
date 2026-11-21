@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from humbee_sfa.core.settings import Settings
-from humbee_sfa.modules.outlets.service import OutletReadService
+from humbee_sfa.modules.outlets.service import OutletReadService, is_filled
 from humbee_sfa.modules.routes.service import RouteService
 from humbee_sfa.platform.models import SweepRun
 
@@ -30,10 +30,6 @@ DAY_CLOSE_JOB_NAME = "reporting.business_profiler_day_close"
 class BpCounts:
     filled: int
     not_filled: int
-
-
-def is_filled(pct: int | None, threshold: int) -> bool:
-    return pct is not None and pct >= threshold
 
 
 def frozen_dates(session: Session, *, tenant_id: str, from_date: date, to_date: date) -> set[date]:
