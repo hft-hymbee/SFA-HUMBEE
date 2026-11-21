@@ -23,7 +23,7 @@ const groups: Array<{ label: string; items: AccountAction[] }> = [
   {
     label: "My work",
     items: [
-      { icon: "Schedule", label: "My day", href: "/sp/my-day" },
+      { icon: "Schedule", label: "My coverage", href: "/sp/my-day" },
       { icon: "GpsFixed", label: "Attendance", href: "/sp/more/attendance/history" },
       { icon: "Schedule", label: "Official work", href: "/sp/more/official-work" },
     ],

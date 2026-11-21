@@ -5,7 +5,7 @@ import { useState } from "react";
 import { istBusinessDate } from "@/src/features/attendance/service";
 import { SpScreen } from "@/src/features/shell/components";
 import { RouteDayTimeline, RouteDayTimelineLoading } from "./day-timeline";
-import { useRouteDay } from "./service";
+import { useRouteBusinessProfiler, useRouteDay } from "./service";
 
 function formatBusinessDate(iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -20,10 +20,11 @@ export function MyDayScreen() {
   const today = istBusinessDate();
   const [businessDate, setBusinessDate] = useState(today);
   const route = useRouteDay(businessDate);
+  const bpPct = useRouteBusinessProfiler(businessDate);
   const retryRoute = () => { void route.refetch(); };
 
   return (
-    <SpScreen title="My day" back>
+    <SpScreen title="My coverage" back>
       <div className="sp-content">
         <DateField
           label="Business date"
@@ -40,6 +41,8 @@ export function MyDayScreen() {
           <ErrorState title="Day timeline unavailable" message="Your timeline could not be loaded." onRetry={retryRoute} />
         ) : (
           <RouteDayTimeline
+            outletInsightsPath="/sp/route/insights"
+            businessProfilerPct={bpPct}
             routeDay={route.data}
             locationQueryScope="my-day"
             mapLabelWithMarkers="Your check-ins"
