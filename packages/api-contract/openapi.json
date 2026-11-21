@@ -2101,7 +2101,7 @@
         "type": "object"
       },
       "CaptureLeadBody": {
-        "description": "A salesperson captures a prospective business as a lead for follow-up. Leads are\nfor manufacturers not on Humbee, so they are named as free text \u2014 at least one \u2014 rather than\npicked from the Humbee roster.",
+        "description": "A salesperson captures a prospective business as a lead for follow-up. A lead is exactly one\nmanufacturer not on Humbee, named as free text by `company_name` rather than picked from the\nHumbee roster.",
         "properties": {
           "annual_turnover_cr": {
             "anyOf": [
@@ -2116,18 +2116,8 @@
             ],
             "title": "Annual Turnover Cr"
           },
-          "associated_manufacturers": {
-            "items": {
-              "maxLength": 120,
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "title": "Associated Manufacturers",
-            "type": "array"
-          },
           "company_name": {
-            "maxLength": 255,
+            "maxLength": 120,
             "minLength": 2,
             "title": "Company Name",
             "type": "string"
@@ -2203,8 +2193,7 @@
           "name",
           "mobile",
           "email",
-          "company_name",
-          "associated_manufacturers"
+          "company_name"
         ],
         "title": "CaptureLeadBody",
         "type": "object"
@@ -3257,7 +3246,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3307,7 +3295,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3323,7 +3310,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3468,7 +3454,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3534,7 +3519,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -3555,7 +3539,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,3}|(?=[\\d.]{1,5}0*$)\\d{0,3}\\.\\d{0,1}0*$)",
                 "type": "string"
               },
               {
@@ -5096,6 +5079,222 @@
         "title": "LatestFix",
         "type": "object"
       },
+      "LeadCapturedBy": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "LeadCapturedBy",
+        "type": "object"
+      },
+      "LeadCapturedByDetail": {
+        "properties": {
+          "employee_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reports_to_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reports To Name"
+          },
+          "role_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Code"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "employee_code",
+          "role_code",
+          "reports_to_name"
+        ],
+        "title": "LeadCapturedByDetail",
+        "type": "object"
+      },
+      "LeadCountsByEmployee": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LeadEmployeeCount"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "LeadCountsByEmployee",
+        "type": "object"
+      },
+      "LeadDetailOut": {
+        "properties": {
+          "annual_turnover_cr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Turnover Cr"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "captured_by": {
+            "$ref": "#/components/schemas/LeadCapturedByDetail"
+          },
+          "company_name": {
+            "title": "Company Name",
+            "type": "string"
+          },
+          "designation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designation"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "head_office_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Head Office Location"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "interest_level": {
+            "$ref": "#/components/schemas/LeadInterestLevel"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "mobile": {
+            "title": "Mobile",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LeadStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "designation",
+          "mobile",
+          "email",
+          "company_name",
+          "annual_turnover_cr",
+          "head_office_location",
+          "message",
+          "interest_level",
+          "status",
+          "captured_at",
+          "business_date",
+          "captured_by"
+        ],
+        "title": "LeadDetailOut",
+        "type": "object"
+      },
+      "LeadEmployeeCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_id",
+          "name",
+          "count"
+        ],
+        "title": "LeadEmployeeCount",
+        "type": "object"
+      },
       "LeadInterestLevel": {
         "enum": [
           "hot",
@@ -5104,6 +5303,55 @@
         ],
         "title": "LeadInterestLevel",
         "type": "string"
+      },
+      "LeadListItem": {
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "captured_by": {
+            "$ref": "#/components/schemas/LeadCapturedBy"
+          },
+          "company_name": {
+            "title": "Company Name",
+            "type": "string"
+          },
+          "designation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designation"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LeadStatus"
+          }
+        },
+        "required": [
+          "id",
+          "company_name",
+          "name",
+          "designation",
+          "status",
+          "captured_at",
+          "captured_by"
+        ],
+        "title": "LeadListItem",
+        "type": "object"
       },
       "LeadOut": {
         "properties": {
@@ -5117,13 +5365,6 @@
               }
             ],
             "title": "Annual Turnover Cr"
-          },
-          "associated_manufacturers": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Associated Manufacturers",
-            "type": "array"
           },
           "captured_at": {
             "format": "date-time",
@@ -5197,7 +5438,6 @@
           "mobile_last4",
           "email",
           "company_name",
-          "associated_manufacturers",
           "annual_turnover_cr",
           "head_office_location",
           "message",
@@ -5206,6 +5446,39 @@
           "captured_at"
         ],
         "title": "LeadOut",
+        "type": "object"
+      },
+      "LeadPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LeadListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "next_cursor"
+        ],
+        "title": "LeadPage",
         "type": "object"
       },
       "LeadStatus": {
@@ -14201,6 +14474,136 @@
       }
     },
     "/api/v1/leads": {
+      "get": {
+        "description": "Leads in the caller's scope, newest first, with keyset paging.",
+        "operationId": "list_leads_api_v1_leads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 26,
+                  "minLength": 26,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Leads",
+        "tags": [
+          "Targets"
+        ]
+      },
       "post": {
         "description": "Save \u2014 a salesperson captures a prospective business as a lead for follow-up.",
         "operationId": "capture_lead_api_v1_leads_post",
@@ -14249,6 +14652,71 @@
           }
         },
         "summary": "Capture Lead",
+        "tags": [
+          "Targets"
+        ]
+      }
+    },
+    "/api/v1/leads/counts-by-employee": {
+      "get": {
+        "description": "Lead count per capturer in the caller's scope, for the captured-by picker.",
+        "operationId": "lead_counts_by_employee_api_v1_leads_counts_by_employee_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadCountsByEmployee"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Lead Counts By Employee",
+        "tags": [
+          "Targets"
+        ]
+      }
+    },
+    "/api/v1/leads/{lead_id}": {
+      "get": {
+        "description": "One lead in the caller's scope, with the full mobile number.",
+        "operationId": "get_lead_api_v1_leads__lead_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Lead",
         "tags": [
           "Targets"
         ]

@@ -1,20 +1,31 @@
 "use client";
 
-import { Button, IconButton, StandardChip, TextField } from "humbee-design-system";
-import { useRouter } from "next/navigation";
-import { useState, type ChangeEvent, type ReactNode } from "react";
+import { Button, EmptyState, ErrorState, FAB, TextField } from "humbee-design-system";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { ulid } from "ulid";
 import { createIdempotencyKey } from "@/src/shared/api";
 import { useConnectivity } from "@/src/shared/capabilities";
+import { useDebouncedSearchQuery } from "@/src/shared/state";
 import { SpCard, SpInlineAlert, SpScreen, SpSectionLabel, SpStickyFooter } from "@/src/features/shell/components";
+import { SpPageSkeleton } from "@/src/features/shell/loading";
+import { LeadDetailBody } from "./detail-parts";
+import {
+  DEFAULT_LEAD_FILTERS,
+  hasActiveLeadFilters,
+  leadFiltersFromSearchParams,
+  leadFiltersToSearchParams,
+  type LeadFilters,
+} from "./filters";
 import {
   buildCaptureLeadBody,
   createEmptyLeadDraft,
   validateLeadDraft,
-  withManufacturerName,
   type LeadFormDraft,
 } from "./form-state";
-import { useCaptureLead } from "./hooks";
+import { isLeadId, isNotFound } from "./lead-id";
+import { useActorId, useCaptureLead, useLead, useLeads } from "./hooks";
+import { LeadFilterBar, LeadListBody } from "./list-parts";
 import styles from "./leads.module.css";
 
 function LeadSection({ label, children }: { label: string; children: ReactNode }) {
@@ -42,14 +53,6 @@ export function CaptureLeadScreen() {
   const updateDraft = (patch: Partial<LeadFormDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const inputValue = (event: ChangeEvent) => (event.target as HTMLInputElement).value;
 
-  const addManufacturerName = () => updateDraft({
-    manufacturerNames: withManufacturerName(draft.manufacturerNames, draft.manufacturerNameInput),
-    manufacturerNameInput: "",
-  });
-  const removeManufacturerName = (name: string) => updateDraft({
-    manufacturerNames: draft.manufacturerNames.filter((existing) => existing !== name),
-  });
-
   const submitLead = () => {
     if (Object.values(errors).some(Boolean) || capture.isPending || !writesEnabled) {
       setShowErrors(true);
@@ -57,56 +60,43 @@ export function CaptureLeadScreen() {
     }
     capture.mutate(
       { body: buildCaptureLeadBody(draft, leadId), idempotencyKey },
-      { onSuccess: () => router.replace("/sp/more") },
+      { onSuccess: () => router.replace("/sp/leads") },
     );
   };
 
   return (
     <SpScreen title="Capture lead" back offline={!writesEnabled}>
       <div className="sp-content">
-        <LeadSection label="Manufacturers">
-          <form
-            className={styles.manufacturerForm}
-            onSubmit={(event) => {
-              event.preventDefault();
-              addManufacturerName();
-            }}
-          >
-            <TextField
-              label="Manufacturer names"
-              placeholder="Type a name and tap +"
-              required
-              fullWidth
-              value={draft.manufacturerNameInput}
-              error={shouldShow("manufacturerNames")}
-              helperText={shouldShow("manufacturerNames") ? errors.manufacturerNames : "Brands not yet on Humbee."}
-              inputProps={{ autoCapitalize: "words", enterKeyHint: "done" }}
-              endAdornment={
-                <IconButton
-                  iconName="Add"
-                  color="primary"
-                  disabled={!draft.manufacturerNameInput.trim()}
-                  onClick={addManufacturerName}
-                  style={{ marginBlock: "calc(-1 * (var(--space-sm) + var(--space-xs) / 4))" }}
-                />
-              }
-              onChange={(event) => updateDraft({ manufacturerNameInput: inputValue(event) })}
-            />
-            {draft.manufacturerNames.length > 0 ? (
-              <div className={styles.chips}>
-                {draft.manufacturerNames.map((name) => (
-                  <StandardChip
-                    key={name}
-                    label={name}
-                    selected
-                    showDelete
-                    capitalise={false}
-                    onChange={() => removeManufacturerName(name)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </form>
+        <LeadSection label="Manufacturer">
+          <TextField
+            label="Manufacturer name"
+            placeholder="Registered company name"
+            required
+            fullWidth
+            value={draft.companyName}
+            error={shouldShow("companyName")}
+            helperText={shouldShow("companyName") ? errors.companyName : "A manufacturer not yet on Humbee."}
+            inputProps={{ autoCapitalize: "words", autoComplete: "organization", maxLength: 120 }}
+            onChange={(event) => updateDraft({ companyName: inputValue(event) })}
+          />
+          <TextField
+            label="Annual turnover (₹ cr)"
+            placeholder="Approx. turnover, e.g. 25"
+            fullWidth
+            value={draft.annualTurnoverCr}
+            error={shouldShow("annualTurnoverCr")}
+            helperText={shouldShow("annualTurnoverCr") ? errors.annualTurnoverCr : undefined}
+            inputProps={{ inputMode: "decimal" }}
+            onChange={(event) => updateDraft({ annualTurnoverCr: inputValue(event) })}
+          />
+          <TextField
+            label="Head office location"
+            placeholder="City or area"
+            fullWidth
+            value={draft.headOfficeLocation}
+            inputProps={{ autoCapitalize: "words" }}
+            onChange={(event) => updateDraft({ headOfficeLocation: inputValue(event) })}
+          />
         </LeadSection>
 
         <LeadSection label="Contact">
@@ -155,38 +145,6 @@ export function CaptureLeadScreen() {
           />
         </LeadSection>
 
-        <LeadSection label="Company">
-          <TextField
-            label="Company name"
-            placeholder="Registered company name"
-            required
-            fullWidth
-            value={draft.companyName}
-            error={shouldShow("companyName")}
-            helperText={shouldShow("companyName") ? errors.companyName : undefined}
-            inputProps={{ autoCapitalize: "words", autoComplete: "organization" }}
-            onChange={(event) => updateDraft({ companyName: inputValue(event) })}
-          />
-          <TextField
-            label="Annual turnover (₹ cr)"
-            placeholder="Approx. turnover, e.g. 25"
-            fullWidth
-            value={draft.annualTurnoverCr}
-            error={shouldShow("annualTurnoverCr")}
-            helperText={shouldShow("annualTurnoverCr") ? errors.annualTurnoverCr : undefined}
-            inputProps={{ inputMode: "decimal" }}
-            onChange={(event) => updateDraft({ annualTurnoverCr: inputValue(event) })}
-          />
-          <TextField
-            label="Head office location"
-            placeholder="City or area"
-            fullWidth
-            value={draft.headOfficeLocation}
-            inputProps={{ autoCapitalize: "words" }}
-            onChange={(event) => updateDraft({ headOfficeLocation: inputValue(event) })}
-          />
-        </LeadSection>
-
         <LeadSection label="Notes">
           <TextField
             label="Message"
@@ -211,6 +169,117 @@ export function CaptureLeadScreen() {
           style={{ width: "100%" }}
         />
       </SpStickyFooter>
+    </SpScreen>
+  );
+}
+
+const MY_LEADS_PATH = "/sp/leads";
+
+/** SO filters never carry an employee: an SO only ever sees their own leads. */
+function soFilters(filters: LeadFilters): LeadFilters {
+  return { ...filters, employeeId: "" };
+}
+
+export function MyLeadsScreen() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isOnline } = useConnectivity();
+  // Local state is the source of truth; the URL mirrors it so filters survive opening a lead.
+  const [filters, setFilters] = useState<LeadFilters>(
+    () => soFilters(leadFiltersFromSearchParams(new URLSearchParams(searchParams.toString()))),
+  );
+  const debouncedQ = useDebouncedSearchQuery(filters.q);
+  const applied = useMemo(() => ({ ...filters, q: debouncedQ }), [filters, debouncedQ]);
+  const leads = useLeads(applied);
+  const filtersActive = hasActiveLeadFilters(applied);
+
+  useEffect(() => {
+    const query = leadFiltersToSearchParams(applied).toString();
+    if (query === window.location.search.replace(/^\?/, "")) return;
+    router.replace(query ? `${MY_LEADS_PATH}?${query}` : MY_LEADS_PATH, { scroll: false });
+  }, [applied, router]);
+
+  const clearFilters = () => setFilters(DEFAULT_LEAD_FILTERS);
+  const captureLead = () => router.push("/sp/leads/new");
+  const total = leads.data?.pages[0]?.total ?? 0;
+  const showFab = leads.isSuccess && (total > 0 || filtersActive);
+
+  return (
+    <SpScreen title="My leads" back offline={!isOnline}>
+      <div className="sp-content">
+        <LeadFilterBar filters={filters} onChange={(next) => setFilters(soFilters(next))} />
+        <LeadListBody
+          query={leads}
+          showCapturer={false}
+          onOpen={(id) => router.push(`/sp/leads/detail?id=${encodeURIComponent(id)}`)}
+          emptyState={(
+            <EmptyState
+              icon="PersonRounded"
+              title="No leads yet"
+              message="Leads you capture for new manufacturers will show up here."
+              actionLabel="Capture a lead"
+              onAction={captureLead}
+            />
+          )}
+          onClearFilters={clearFilters}
+          filtersActive={filtersActive}
+        />
+        {showFab ? <div className={styles.fabSpacer} aria-hidden="true" /> : null}
+      </div>
+      {showFab ? (
+        <FAB iconName="Add" label="Capture lead" onClick={captureLead} style={{ bottom: "var(--space-md)" }} />
+      ) : null}
+    </SpScreen>
+  );
+}
+
+export function LeadDetailScreen({ leadId }: { leadId: string }) {
+  const router = useRouter();
+  const { isOnline } = useConnectivity();
+  const viewerId = useActorId();
+  const lead = useLead(leadId);
+  const title = "Lead details";
+
+  if (!isLeadId(leadId) || (lead.isError && isNotFound(lead.error))) {
+    return (
+      <SpScreen title={title} back offline={!isOnline}>
+        <EmptyState
+          icon="Warning"
+          title="Lead not found"
+          message="This lead doesn't exist or isn't in your scope."
+          actionLabel="Back to leads"
+          onAction={() => router.replace(MY_LEADS_PATH)}
+        />
+      </SpScreen>
+    );
+  }
+
+  if (lead.isPending) {
+    return (
+      <SpScreen title={title} back offline={!isOnline}>
+        <SpPageSkeleton rows={4} />
+      </SpScreen>
+    );
+  }
+
+  if (lead.isError) {
+    return (
+      <SpScreen title={title} back offline={!isOnline}>
+        <ErrorState
+          title="Couldn't load this lead"
+          message="Check your connection and try again."
+          retryLabel="Try again"
+          onRetry={() => void lead.refetch()}
+        />
+      </SpScreen>
+    );
+  }
+
+  return (
+    <SpScreen title={title} back offline={!isOnline}>
+      <div className="sp-content">
+        <LeadDetailBody lead={lead.data} viewerIsCapturer={lead.data.captured_by.id === viewerId} />
+      </div>
     </SpScreen>
   );
 }

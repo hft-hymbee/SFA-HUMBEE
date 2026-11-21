@@ -6,8 +6,6 @@ export interface LeadFormDraft {
   mobile: string;
   email: string;
   companyName: string;
-  manufacturerNames: string[];
-  manufacturerNameInput: string;
   annualTurnoverCr: string;
   headOfficeLocation: string;
   message: string;
@@ -19,7 +17,6 @@ export interface LeadFormErrors {
   email?: string;
   designation?: string;
   companyName?: string;
-  manufacturerNames?: string;
   annualTurnoverCr?: string;
 }
 
@@ -34,8 +31,6 @@ export function createEmptyLeadDraft(): LeadFormDraft {
     designation: "",
     email: "",
     headOfficeLocation: "",
-    manufacturerNameInput: "",
-    manufacturerNames: [],
     message: "",
     mobile: "",
     name: "",
@@ -45,12 +40,6 @@ export function createEmptyLeadDraft(): LeadFormDraft {
 export function normaliseMobile(value: string): string {
   const digits = value.replace(/\D/g, "").slice(-10);
   return digits.length === 10 ? `+91${digits}` : value.trim();
-}
-
-export function withManufacturerName(names: string[], value: string): string[] {
-  const name = value.trim();
-  if (!name || names.some((existing) => existing.toLowerCase() === name.toLowerCase())) return names;
-  return [...names, name];
 }
 
 export function parsePositiveTurnover(value: string): number | null {
@@ -75,13 +64,11 @@ export function validateLeadDraft(draft: LeadFormDraft): LeadFormErrors {
   if (!EMAIL_PATTERN.test(draft.email.trim())) {
     errors.email = "Enter a valid email address.";
   }
-  if (draft.companyName.trim().length < 2) {
-    errors.companyName = "Enter the company's name.";
-  }
-  if (draft.manufacturerNameInput.trim().length > MAX_NAME_LENGTH) {
-    errors.manufacturerNames = `Keep the name under ${MAX_NAME_LENGTH} characters.`;
-  } else if (!withManufacturerName(draft.manufacturerNames, draft.manufacturerNameInput).length) {
-    errors.manufacturerNames = "Add at least one manufacturer.";
+  const companyName = draft.companyName.trim();
+  if (companyName.length < 2) {
+    errors.companyName = "Enter the manufacturer's name.";
+  } else if (companyName.length > MAX_NAME_LENGTH) {
+    errors.companyName = `Keep the name under ${MAX_NAME_LENGTH} characters.`;
   }
   if (draft.annualTurnoverCr.trim() && parsePositiveTurnover(draft.annualTurnoverCr) === null) {
     errors.annualTurnoverCr = "Enter a turnover greater than zero.";
@@ -90,11 +77,11 @@ export function validateLeadDraft(draft: LeadFormDraft): LeadFormErrors {
 }
 
 export function buildCaptureLeadBody(draft: LeadFormDraft, id: string): CaptureLeadBody {
+  const companyName = draft.companyName.trim();
   return {
     id,
     annual_turnover_cr: parsePositiveTurnover(draft.annualTurnoverCr),
-    associated_manufacturers: withManufacturerName(draft.manufacturerNames, draft.manufacturerNameInput),
-    company_name: draft.companyName.trim(),
+    company_name: companyName,
     designation: draft.designation.trim() || null,
     email: draft.email.trim(),
     head_office_location: draft.headOfficeLocation.trim() || null,

@@ -37,6 +37,8 @@ export type ManagementView =
   | "notifications"
   | "more"
   | "missed-visits"
+  | "leads"
+  | "lead"
   | "profile";
 
 export type StatusTone = "pending" | "approved" | "verified" | "cancelled" | "default" | "partially-completed" | "not-verified";
@@ -58,6 +60,7 @@ export const managementViews: ManagementView[] = [
   "combined-visits", "combined-visit-sales-person", "combined-visit-beat", "combined-visit-outlet", "combined-visit-day", "visit-feedback", "coverage", "attendance", "order", "leave",
   "my-leave", "leave-apply", "leave-detail",
   "targets", "target-edit", "team-performance", "beats", "admin-reports", "bulk-upload", "bulk-upload-beats", "outlet-insights", "notifications", "more", "missed-visits",
+  "leads", "lead",
   "profile",
 ];
 

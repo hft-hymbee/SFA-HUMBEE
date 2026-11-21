@@ -147,6 +147,51 @@ async def remove_target(
     )
 
 
+@router.get("/leads", response_model=schemas.LeadPage)
+def list_leads(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+    from_date: Annotated[date | None, Query(alias="from")] = None,
+    to_date: Annotated[date | None, Query(alias="to")] = None,
+    employee_id: Annotated[str | None, Query(min_length=26, max_length=26)] = None,
+    q: Annotated[str | None, Query(max_length=120)] = None,
+    cursor: Annotated[str | None, Query(max_length=64)] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> dict[str, Any]:
+    """Leads in the caller's scope, newest first, with keyset paging."""
+
+    return TargetService(session).list_leads(
+        claims=claims,
+        from_date=from_date,
+        to_date=to_date,
+        employee_id=employee_id,
+        q=q,
+        cursor=cursor,
+        limit=limit,
+    )
+
+
+@router.get("/leads/counts-by-employee", response_model=schemas.LeadCountsByEmployee)
+def lead_counts_by_employee(
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> dict[str, Any]:
+    """Lead count per capturer in the caller's scope, for the captured-by picker."""
+
+    return TargetService(session).lead_counts_by_employee(claims=claims)
+
+
+@router.get("/leads/{lead_id:ulid}", response_model=schemas.LeadDetailOut)
+def get_lead(
+    lead_id: str,
+    claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> dict[str, Any]:
+    """One lead in the caller's scope, with the full mobile number."""
+
+    return TargetService(session).get_lead(claims=claims, lead_id=lead_id)
+
+
 @router.post("/leads", response_model=schemas.LeadOut, status_code=201)
 async def capture_lead(
     body: schemas.CaptureLeadBody,

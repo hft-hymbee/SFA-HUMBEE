@@ -158,7 +158,6 @@ def test_reused_lead_id_conflicts(api_client: TestClient, db_session: Session) -
         "mobile": "+91 98450 12345",
         "email": "ravi@example.com",
         "company_name": "Kumar Traders",
-        "associated_manufacturers": ["Acme Oils"],
     }
 
     captured = as_sp.post("/api/v1/leads", body)

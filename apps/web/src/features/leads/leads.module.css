@@ -1,16 +1,247 @@
-.manufacturerForm {
+/* Leads feature styles. Design-token CSS vars only: no literal colours. */
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.chips {
+  display: flex;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dateRow {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.countLine {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  font-size: var(--text-body-sm-size);
+  gap: var(--space-sm);
+  justify-content: space-between;
+  line-height: var(--text-body-sm-line);
+  min-height: 32px;
+}
+
+.countLine strong {
+  color: var(--color-text-primary);
+}
+
+.list {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 
-.chips {
+.listFooter {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  padding-top: var(--space-sm);
+}
+
+.endNote {
+  color: var(--color-text-placeholder);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  margin: 0;
+  padding: var(--space-sm) 0;
+  text-align: center;
+}
+
+/* Initials tile: the DS has no text avatar, so it is composed from tokens. */
+.initials {
+  align-items: center;
+  background: var(--color-primary-surface);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--text-label-sm-size);
+  font-weight: var(--text-label-sm-weight);
+  height: 40px;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  width: 40px;
+}
+
+.initialsLarge {
+  font-size: var(--text-label-size);
+  height: 48px;
+  width: 48px;
+}
+
+.capturer {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: 2px;
+}
+
+.capturer strong {
+  color: var(--color-text-primary);
+  font-weight: var(--text-label-sm-weight);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.heroTop {
+  align-items: center;
+  display: flex;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.heroText {
+  min-width: 0;
+}
+
+.heroTitle {
+  color: var(--color-text-primary);
+  font-size: var(--text-h3-size);
+  font-weight: var(--text-h3-weight);
+  line-height: var(--text-h3-line);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.heroMeta {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  margin: 2px 0 0;
+}
+
+.heroStatus {
+  display: flex;
+  margin-top: var(--space-sm);
+}
+
+.heroActions {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-md);
+}
+
+.sectionLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--text-overline-size);
+  font-weight: var(--text-overline-weight);
+  letter-spacing: var(--text-overline-tracking);
+  line-height: var(--text-overline-line);
+  margin: 0 0 var(--space-sm);
+  text-transform: uppercase;
+}
+
+.kvList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.kv {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+  padding: var(--space-sm) 0;
+}
+
+.kv + .kv {
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.kv:first-child {
+  padding-top: 0;
+}
+
+.kv:last-child {
+  padding-bottom: 0;
+}
+
+.kv dt {
+  color: var(--color-text-secondary);
+  font-size: var(--text-body-sm-size);
+  line-height: var(--text-body-sm-line);
+}
+
+.kv dd {
+  color: var(--color-text-primary);
+  font-size: var(--text-body-sm-size);
+  font-weight: var(--text-label-sm-weight);
+  line-height: var(--text-body-sm-line);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.kvSub {
+  color: var(--color-text-secondary);
+  display: block;
+  font-size: var(--text-caption-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--text-caption-line);
+}
+
+.empty {
+  color: var(--color-text-placeholder);
+  font-style: italic;
+  font-weight: var(--font-weight-regular);
+}
+
+.message {
+  color: var(--color-text-primary);
+  font-size: var(--text-body-sm-size);
+  line-height: var(--text-body-sm-line);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.fabSpacer {
+  height: calc(56px + var(--space-lg));
+}
+
+/* Captured-by picker: a read-only DS TextField opens the DS BottomSheet. */
+.pickerInput {
+  cursor: pointer;
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sheetOptions {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-xs);
 }
 
-.chips > * {
-  max-width: 100%;
-  min-height: 44px;
+.sheetOptions .sectionLabel {
+  margin: var(--space-sm) 0 0;
+}
+
+.visuallyHidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
